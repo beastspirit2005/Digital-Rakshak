@@ -168,9 +168,8 @@ async def submit_case(
         db.add(new_evidence)
         await db.commit()
     
-    # 2. Add AI Processing to Background Tasks
-    background_tasks.add_task(
-        process_case_background,
+    # 2. Process AI synchronously (Vercel Serverless freezes BackgroundTasks)
+    await process_case_background(
         case_number=new_case.case_number,
         scam_text=scam_text,
         ai_mode=ai_mode,
