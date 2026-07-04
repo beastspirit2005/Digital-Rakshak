@@ -171,7 +171,8 @@ async def login_password(data: LoginPasswordRequest, request: Request, db: Async
         if current > 5:
             raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Too many failed attempts. Try again in 15 minutes.")
     except Exception as e:
-        return {"debug_error": str(e), "debug_type": str(type(e))}
+        import traceback
+        return {"debug_error": str(e), "debug_type": str(type(e)), "trace": traceback.format_exc()}
 
     try:
         result = await db.execute(select(User).where(User.email == data.email))

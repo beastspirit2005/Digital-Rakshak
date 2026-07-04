@@ -14,5 +14,7 @@ class User(Base):
     role = Column(String, default="citizen", nullable=False) # Roles: citizen, bank_employee, police, cyber_cell, admin
     is_active = Column(Boolean, default=True)
     is_approved = Column(Boolean, default=False) # True by default for citizens, False for others requiring admin approval
+    otp = Column(String, nullable=True)
+    otp_expires_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
