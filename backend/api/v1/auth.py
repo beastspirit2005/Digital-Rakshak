@@ -158,13 +158,16 @@ async def verify_otp(data: VerifyOTPRequest, request: Request, db: AsyncSession 
 
 @router.post("/login-password")
 async def login_password(data: LoginPasswordRequest, request: Request, db: AsyncSession = Depends(get_db)):
-    ip = request.client.host if request.client else "unknown"
-    key = f"rate_limit:login:{data.email}:{ip}"
-    current = await redis_client.incr(key)
-    if current == 1:
-        await redis_client.expire(key, 900) # 15 minutes window
-    if current > 5:
-        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Too many failed attempts. Try again in 15 minutes.")
+    try:
+        ip = request.client.host if request.client else "unknown"
+        key = f"rate_limit:login:{data.email}:{ip}"
+        current = await redis_client.incr(key)
+        if current == 1:
+            await redis_client.expire(key, 900) # 15 minutes window
+        if current > 5:
+            raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Too many failed attempts. Try again in 15 minutes.")
+    except Exception as e:
+        return {"debug_error": str(e), "debug_type": str(type(e))}
 
     result = await db.execute(select(User).where(User.email == data.email))
     user = result.scalars().first()
