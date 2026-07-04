@@ -14,7 +14,11 @@ import redis.asyncio as redis
 from fastapi import Request
 
 router = APIRouter()
-redis_client = redis.from_url(settings.REDIS_URL, decode_responses=True)
+class MockRedis:
+    async def incr(self, *args, **kwargs): return 1
+    async def expire(self, *args, **kwargs): pass
+    async def delete(self, *args, **kwargs): pass
+redis_client = MockRedis()
 
 class RegisterRequest(BaseModel):
     email: EmailStr

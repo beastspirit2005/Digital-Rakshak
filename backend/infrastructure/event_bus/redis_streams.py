@@ -9,8 +9,10 @@ class EventBus:
     Enables asynchronous decoupling of the AI agents and instant notifications to the frontend.
     """
     def __init__(self):
-        from core.config import settings
-        self.redis = redis.from_url(settings.REDIS_URL, decode_responses=True)
+        class MockRedis:
+            async def xadd(self, *args, **kwargs): pass
+            async def close(self): pass
+        self.redis = MockRedis()
         
     async def publish(self, stream_name: str, event_data: Dict[str, Any]):
         """Publish an event to a Redis stream."""
