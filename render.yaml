@@ -1,0 +1,43 @@
+services:
+  - type: web
+    name: digital-rakshak-backend
+    env: python
+    rootDir: backend
+    buildCommand: "pip install -r requirements.txt"
+    # We can run alembic upgrade head in startCommand just to be safe, but we already applied it manually.
+    startCommand: "uvicorn main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: DATABASE_URL
+        sync: false
+      - key: SECRET_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: OLLAMA_HOST
+        value: "http://127.0.0.1:11434"
+      - key: FORCE_LOCAL_INFERENCE
+        value: "false"
+      - key: REDIS_URL
+        sync: false
+      - key: SMTP_HOST
+        value: "smtp-relay.brevo.com"
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_FROM_EMAIL
+        sync: false
+      - key: SMTP_FROM_NAME
+        value: "Digital Rakshak"
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: NEO4J_URI
+        sync: false
+      - key: NEO4J_USER
+        sync: false
+      - key: NEO4J_PASSWORD
+        sync: false
