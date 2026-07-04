@@ -1,0 +1,16 @@
+# Start from the official PostGIS image based on PostgreSQL 16
+FROM postgis/postgis:16-3.4
+
+# Install build dependencies and pgvector
+RUN apt-get update && \
+    apt-get install -y postgresql-server-dev-16 make gcc git clang-13 llvm-13 && \
+    cd /tmp && \
+    git clone --branch v0.6.2 https://github.com/pgvector/pgvector.git && \
+    cd pgvector && \
+    make && \
+    make install && \
+    cd / && \
+    rm -rf /tmp/pgvector && \
+    apt-get remove -y make gcc git postgresql-server-dev-16 clang-13 llvm-13 && \
+    apt-get autoremove -y && \
+    rm -rf /var/lib/apt/lists/*
