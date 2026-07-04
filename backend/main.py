@@ -87,4 +87,9 @@ from fastapi import Request
 
 @app.get("/{full_path:path}")
 async def catch_all(request: Request, full_path: str):
-    return {"message": f"Welcome to {settings.PROJECT_NAME} API", "path": request.url.path, "full_path": full_path}
+    return {
+        "message": f"Welcome to {settings.PROJECT_NAME} API", 
+        "path": request.url.path, 
+        "full_path": full_path,
+        "redis_url": settings.REDIS_URL
+    }
