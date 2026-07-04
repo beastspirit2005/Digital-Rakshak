@@ -169,36 +169,41 @@ async def login_password(data: LoginPasswordRequest, request: Request, db: Async
     except Exception as e:
         return {"debug_error": str(e), "debug_type": str(type(e))}
 
-    result = await db.execute(select(User).where(User.email == data.email))
-    user = result.scalars().first()
-    
-    if not user:
-        raise HTTPException(status_code=401, detail="Invalid email or password")
+    try:
+        result = await db.execute(select(User).where(User.email == data.email))
+        user = result.scalars().first()
         
-    if not user.hashed_password:
-        raise HTTPException(status_code=400, detail="This account does not have a password set. Please log in with OTP.")
-        
-    if not verify_password(data.password, user.hashed_password):
-        raise HTTPException(status_code=401, detail="Invalid email or password")
-        
-    if not user.is_approved:
-        raise HTTPException(status_code=403, detail="Account pending admin approval.")
-    if not user.is_active:
-        raise HTTPException(status_code=403, detail="Account is disabled.")
+        if not user:
+            raise HTTPException(status_code=401, detail="Invalid email or password")
+            
+        if not user.hashed_password:
+            raise HTTPException(status_code=400, detail="This account does not have a password set. Please log in with OTP.")
+            
+        if not verify_password(data.password, user.hashed_password):
+            raise HTTPException(status_code=401, detail="Invalid email or password")
+            
+        if not user.is_approved:
+            raise HTTPException(status_code=403, detail="Account pending admin approval.")
+        if not user.is_active:
+            raise HTTPException(status_code=403, detail="Account is disabled.")
 
-    # Reset rate limit on successful login
-    await redis_client.delete(f"rate_limit:login:{data.email}:{ip}")
+        # Reset rate limit on successful login
+        await redis_client.delete(f"rate_limit:login:{data.email}:{ip}")
 
-    access_token = create_access_token(
-        data={"sub": str(user.id), "email": user.email, "role": user.role}
-    )
-    
-    return {
-        "access_token": access_token,
-        "token_type": "bearer",
-        "user": {
-            "id": str(user.id),
-            "email": user.email,
-            "role": user.role
+        access_token = create_access_token(
+            data={"sub": str(user.id), "email": user.email, "role": user.role}
+        )
+        
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "user": {
+                "id": str(user.id),
+                "email": user.email,
+                "role": user.role
+            }
         }
-    }
+    except HTTPException:
+        raise
+    except Exception as e:
+        return {"debug_error": str(e), "debug_type": str(type(e))}
