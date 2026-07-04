@@ -9,11 +9,12 @@ from infrastructure.db.redis import store_otp, get_otp, delete_otp
 from infrastructure.smtp.email_service import send_otp_email, send_approval_pending_email, send_welcome_email
 from domain.models.user import User
 from core.security import create_access_token, get_password_hash, verify_password
+from core.config import settings
 import redis.asyncio as redis
 from fastapi import Request
 
 router = APIRouter()
-redis_client = redis.from_url("redis://localhost:6379/0")
+redis_client = redis.from_url(settings.REDIS_URL, decode_responses=True)
 
 class RegisterRequest(BaseModel):
     email: EmailStr
