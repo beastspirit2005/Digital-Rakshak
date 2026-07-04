@@ -67,7 +67,7 @@ export function NetworkVisualizer({ nodes, edges, onNodeClick }: { nodes: any[],
     animate: false
   };
 
-  const style: cytoscape.Stylesheet[] = [
+  const style: any[] = [
     {
       selector: 'node',
       style: {

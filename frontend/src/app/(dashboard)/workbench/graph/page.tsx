@@ -4,7 +4,7 @@
 import { api } from "@/lib/api";
 import { useEffect, useState, useMemo } from "react";
 import { NetworkVisualizer } from "@/components/graph/network-visualizer";
-import { Network, Search, Loader2, Hexagon, Square, ArrowRight, AlertTriangle, Phone, Landmark, Globe } from "lucide-react";
+import { Network, Search, Loader2, Hexagon, Square, ArrowRight, AlertTriangle, Phone, Landmark, Globe, ShieldAlert } from "lucide-react";
 import axios from "axios";
 import { useAuthStore } from "@/lib/auth-store";
 
