@@ -83,6 +83,8 @@ app.include_router(scan_router, prefix=f"{settings.API_V1_STR}")
 app.include_router(settings_router, prefix=f"{settings.API_V1_STR}/admin", tags=["admin"])
 app.include_router(osint_router, prefix=f"{settings.API_V1_STR}/admin/osint", tags=["osint"])
 
-@app.get("/")
-async def root():
-    return {"message": f"Welcome to {settings.PROJECT_NAME} API"}
+from fastapi import Request
+
+@app.get("/{full_path:path}")
+async def catch_all(request: Request, full_path: str):
+    return {"message": f"Welcome to {settings.PROJECT_NAME} API", "path": request.url.path, "full_path": full_path}
