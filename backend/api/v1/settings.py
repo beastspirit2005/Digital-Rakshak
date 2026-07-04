@@ -7,12 +7,10 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# Runtime settings store (persists in memory for this server session)
-# In production, this would be stored in Redis or a DB table
-_runtime_settings = {
-    "force_local_inference": settings.FORCE_LOCAL_INFERENCE,
-    "default_ai_mode": "auto",  # auto | gemini | ollama | both
-}
+from infrastructure.db.session import get_db
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, update
+from domain.models.settings import PlatformSettings
 
 class SettingsUpdate(BaseModel):
     force_local_inference: bool | None = None
@@ -28,11 +26,14 @@ class SettingsResponse(BaseModel):
     gemini_configured: bool
 
 @router.get("/settings")
-async def get_platform_settings():
+async def get_platform_settings(db: AsyncSession = Depends(get_db)):
     """Returns current platform settings for admin UI."""
+    res = await db.execute(select(PlatformSettings).where(PlatformSettings.id == 1))
+    db_settings = res.scalar_one_or_none()
+    
     return SettingsResponse(
-        force_local_inference=_runtime_settings["force_local_inference"],
-        default_ai_mode=_runtime_settings["default_ai_mode"],
+        force_local_inference=db_settings.force_local_inference if db_settings else False,
+        default_ai_mode=db_settings.default_ai_mode if db_settings else "auto",
         smtp_host=settings.SMTP_HOST,
         smtp_port=settings.SMTP_PORT,
         smtp_user=settings.SMTP_USER,
@@ -41,22 +42,32 @@ async def get_platform_settings():
     )
 
 @router.put("/settings")
-async def update_platform_settings(payload: SettingsUpdate):
+async def update_platform_settings(payload: SettingsUpdate, db: AsyncSession = Depends(get_db)):
     """Updates runtime platform settings (admin only)."""
+    res = await db.execute(select(PlatformSettings).where(PlatformSettings.id == 1))
+    db_settings = res.scalar_one_or_none()
+    
+    if not db_settings:
+        db_settings = PlatformSettings(id=1, force_local_inference=False, default_ai_mode="auto")
+        db.add(db_settings)
+    
     if payload.force_local_inference is not None:
-        _runtime_settings["force_local_inference"] = payload.force_local_inference
-        # Also update the live config so AIRouter picks it up immediately
+        db_settings.force_local_inference = payload.force_local_inference
         settings.FORCE_LOCAL_INFERENCE = payload.force_local_inference
         logger.info(f"FORCE_LOCAL_INFERENCE set to {payload.force_local_inference}")
     
     if payload.default_ai_mode is not None:
         if payload.default_ai_mode not in ("auto", "gemini", "ollama", "both"):
             return {"error": "Invalid ai_mode. Must be auto, gemini, ollama, or both."}
-        _runtime_settings["default_ai_mode"] = payload.default_ai_mode
+        db_settings.default_ai_mode = payload.default_ai_mode
         logger.info(f"Default AI mode set to {payload.default_ai_mode}")
 
-    return {"status": "ok", "settings": _runtime_settings}
-
-def get_default_ai_mode() -> str:
-    """Helper for other modules to read the current default AI mode."""
-    return _runtime_settings["default_ai_mode"]
+    await db.commit()
+    
+    return {
+        "status": "ok", 
+        "settings": {
+            "force_local_inference": db_settings.force_local_inference,
+            "default_ai_mode": db_settings.default_ai_mode
+        }
+    }

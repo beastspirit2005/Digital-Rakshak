@@ -536,8 +536,27 @@ async def process_case_background(
                     case.longitude = CITY_COORDINATES[city_lower]["lng"]
             
         except Exception as e:
-            case.status = CaseStatus.SUBMITTED.value
-            ai_decision = {"error": f"AI Agent failed: {str(e)}"}
+            print(f"AI Agent failed: {e}. Executing Regex Fallback...")
+            import re
+            phones = list(set(re.findall(r'\+?\d{10,13}', scam_text)))
+            urls = list(set(re.findall(r'https?://[^\s<>"]+|www\.[^\s<>"]+', scam_text)))
+            upis = list(set(re.findall(r'[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}', scam_text)))
+            
+            ai_decision = {
+                "decision": f"Manual Review Required (AI Offline). Fallback Regex applied.",
+                "score": 0.5,
+                "phone_numbers": phones,
+                "urls": urls,
+                "upi_ids": upis,
+                "bank_accounts": [],
+                "estimated_latitude": None,
+                "estimated_longitude": None,
+                "models": ["regex-fallback"],
+                "error_trace": str(e)[:200]
+            }
+            case.threat_confidence_score = 0.5
+            case.ai_decision = ai_decision
+            case.status = CaseStatus.UNDER_REVIEW.value
             
         await db.commit()
         

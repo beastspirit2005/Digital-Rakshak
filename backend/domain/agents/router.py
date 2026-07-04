@@ -31,10 +31,23 @@ class AIRouter:
         else:
             engine = ai_mode
 
-        # If engine is auto, read the live default preference from the admin settings
+        # If engine is auto, read the live default preference from the Postgres database
         if engine == "auto":
-            from api.v1.settings import get_default_ai_mode
-            engine = get_default_ai_mode()
+            from infrastructure.db.session import async_session_maker
+            from domain.models.settings import PlatformSettings
+            import sqlalchemy as sa
+            
+            async with async_session_maker() as session:
+                try:
+                    res = await session.execute(sa.select(PlatformSettings).where(PlatformSettings.id == 1))
+                    db_settings = res.scalar_one_or_none()
+                    if db_settings:
+                        engine = db_settings.default_ai_mode
+                        if db_settings.force_local_inference:
+                            require_local = True
+                except Exception as e:
+                    print(f"Failed to load platform settings: {e}")
+                    engine = "gemini" # Safe fallback
 
         # If the task requires local execution (e.g., highly sensitive PII), force Ollama
         if require_local or settings.FORCE_LOCAL_INFERENCE or engine == "ollama":
