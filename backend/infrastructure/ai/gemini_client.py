@@ -12,7 +12,7 @@ class GeminiClient:
     """
     
     def __init__(self):
-        self.client = genai.Client(api_key=settings.GEMINI_API_KEY, http_options={'api_version': 'v1alpha'})
+        self.client = genai.Client(api_key=settings.GEMINI_API_KEY)
         self.default_model = "gemini-2.0-flash"
 
     async def analyze(self, prompt: str, context: Dict[str, Any], model_name: str = None) -> Dict[str, Any]:
@@ -20,7 +20,7 @@ class GeminiClient:
         Sends a prompt and context to Gemini for analysis.
         Enforces a strict JSON Schema output.
         """
-        model = model_name or "gemini-1.5-flash"
+        model = model_name or self.default_model
         
         # We merge the context into the prompt text to provide Gemini the necessary data
         full_prompt = f"""
@@ -30,7 +30,7 @@ class GeminiClient:
         {{
             "decision": "Your final verdict",
             "score": float between 0.0 and 1.0,
-            "evidence": [{"relevance": "string"}],
+            "evidence": [{{"relevance": "string"}}],
             "estimated_latitude": 19.0760,
             "estimated_longitude": 72.8777,
             "phone_numbers": ["9999988888"],

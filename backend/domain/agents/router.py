@@ -71,12 +71,21 @@ class AIRouter:
             return combined
             
         # Default ("auto" or "gemini") try Gemini first for superior reasoning capability
+        gemini_error = None
         try:
             result = await self.gemini.analyze(prompt, context, model_name=model_override)
             if isinstance(result, dict) and "Gemini API Error" in result.get("decision", ""):
                 print("Gemini failed, falling back to Ollama...")
-                return await self.ollama.analyze(prompt, context)
-            return result
+                gemini_error = result.get("decision", "")
+            else:
+                return result
         except Exception as e:
             print(f"Unhandled Gemini exception: {e}, falling back to Ollama...")
-            return await self.ollama.analyze(prompt, context)
+            gemini_error = str(e)
+            
+        # Fallback to Ollama if Gemini failed
+        ollama_res = await self.ollama.analyze(prompt, context)
+        if isinstance(ollama_res, dict) and "Ollama Inference Error" in ollama_res.get("decision", ""):
+            # If both failed, append the Gemini error so the user knows why it fell back
+            ollama_res["decision"] = f"{ollama_res['decision']}\n\n(Original Gemini Error: {gemini_error})"
+        return ollama_res
