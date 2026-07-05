@@ -23,8 +23,6 @@ class Settings(BaseSettings):
     OLLAMA_HOST: str
     FORCE_LOCAL_INFERENCE: bool = False
     
-    # Redis
-    REDIS_URL: str = "redis://localhost:6379/0"
     
     # SMTP
     SMTP_HOST: str

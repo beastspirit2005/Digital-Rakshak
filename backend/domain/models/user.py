@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, Boolean, DateTime
+from sqlalchemy import Column, String, Boolean, DateTime, Integer
 from sqlalchemy.dialects.postgresql import UUID
 from infrastructure.db.session import Base
 
@@ -15,6 +15,9 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     is_approved = Column(Boolean, default=False) # True by default for citizens, False for others requiring admin approval
     otp = Column(String, nullable=True)
-    otp_expires_at = Column(DateTime, nullable=True)
+    otp_expires_at = Column(DateTime(timezone=True), nullable=True)
+    otp_failed_attempts = Column(Integer, default=0, server_default="0")
+    otp_lockout_count = Column(Integer, default=0, server_default="0")
+    otp_locked_until = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
