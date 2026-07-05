@@ -169,3 +169,53 @@ async def send_admin_case_notification_email(admin_email: str, case_number: str,
     </html>
     """
     return await send_email(admin_email, subject, body, is_html=True)
+
+async def send_account_created_email(to_email: str, full_name: str, role: str, temp_password: str) -> bool:
+    subject = "Welcome to Digital Rakshak - Your Account is Ready"
+    body = f"""
+    <html>
+      <body style="font-family: Arial, sans-serif; color: #333;">
+        <h2 style="color: #4f46e5;">Welcome, {full_name or 'User'}!</h2>
+        <p>An administrator has created a <strong>{role}</strong> account for you on the Digital Rakshak platform.</p>
+        <p>You can now log in using the following credentials:</p>
+        <ul>
+            <li><strong>Email:</strong> {to_email}</li>
+            <li><strong>Temporary Password:</strong> {temp_password}</li>
+        </ul>
+        <p><em>For your security, we strongly recommend changing your password immediately after logging in.</em></p>
+        <hr />
+        <p style="font-size: 12px; color: #888;">This is an automated message from the Digital Rakshak Orchestration System.</p>
+      </body>
+    </html>
+    """
+    return await send_email(to_email, subject, body, is_html=True)
+
+async def send_account_deleted_email(to_email: str, full_name: str) -> bool:
+    subject = "Digital Rakshak - Account Access Revoked"
+    body = f"""
+    <html>
+      <body style="font-family: Arial, sans-serif; color: #333;">
+        <h2>Notice of Account Deletion</h2>
+        <p>Dear {full_name or 'User'},</p>
+        <p>This email is to notify you that your access to the Digital Rakshak platform has been revoked and your account has been permanently deleted by a system administrator.</p>
+        <p>If you believe this was in error, please contact your commanding officer or platform administrator.</p>
+        <hr />
+        <p style="font-size: 12px; color: #888;">This is an automated message. Please do not reply.</p>
+      </body>
+    </html>
+    """
+    return await send_email(to_email, subject, body, is_html=True)
+
+async def send_password_reset_otp_email(to_email: str, otp: str):
+    subject = "Digital Rakshak - Password Reset OTP"
+    body = f"""
+    <html>
+        <body>
+            <h2>Password Reset Request</h2>
+            <p>We received a request to reset the password for your Digital Rakshak account.</p>
+            <p>Your One-Time Password (OTP) for resetting your password is: <strong>{otp}</strong></p>
+            <p>This OTP is valid for 5 minutes. If you did not request a password reset, please ignore this email and your password will remain unchanged.</p>
+        </body>
+    </html>
+    """
+    return await send_email(to_email, subject, body, is_html=True)
