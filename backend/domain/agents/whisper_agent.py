@@ -48,14 +48,14 @@ class WhisperAgent:
                 audio_bytes = f.read()
                 
             ext = os.path.splitext(audio_path)[1].lower().replace('.', '')
-            mime_type = f"audio/{ext}" if ext in ["mp3", "wav", "m4a", "ogg", "flac"] else "audio/mp3"
+            mime_type = f"audio/{ext}" if ext in ["mp3", "wav", "m4a", "ogg", "flac", "webm"] else "audio/mp3"
             
             audio_part = types.Part.from_bytes(data=audio_bytes, mime_type=mime_type)
             
             prompt = "You are a transcription AI. Please transcribe exactly what is spoken in this audio file. Output nothing but the transcription."
             
             response = await client.aio.models.generate_content(
-                model="gemini-1.5-flash",
+                model="gemini-2.5-flash",
                 contents=[prompt, audio_part],
                 config=types.GenerateContentConfig(temperature=0.1)
             )

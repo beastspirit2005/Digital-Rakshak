@@ -3,7 +3,7 @@
 
 import { api } from "@/lib/api";
 import React, { useState, useEffect } from "react";
-import { Settings, Cpu, Mail, Server, ShieldCheck, Zap, Loader2, CheckCircle2, Wifi, WifiOff } from "lucide-react";
+import { Settings, Cpu, Mail, Server, ShieldCheck, Zap, Loader2, CheckCircle2, Wifi, WifiOff, Activity, Fingerprint, Network, MapPin } from "lucide-react";
 import axios from "axios";
 import { useAuthStore } from "@/lib/auth-store";
 
@@ -157,10 +157,10 @@ export default function AdminSettingsPage() {
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                 {([
-                  { id: "auto" as const, label: "Auto", desc: "Gemini first, Ollama fallback", emoji: "🔄" },
-                  { id: "gemini" as const, label: "Gemini", desc: "Cloud-based, high performance", emoji: "☁️" },
-                  { id: "ollama" as const, label: "Ollama", desc: "Local, privacy focused", emoji: "🔒" },
-                  { id: "both" as const, label: "Hybrid", desc: "Run both in parallel", emoji: "⚡" },
+                  { id: "auto" as const, label: "Platform Default", desc: "Specialized Native Models + Ollama Qwen", emoji: "🧠" },
+                  { id: "gemini" as const, label: "Cloud (Exp.)", desc: "Experimental Gemini fallback", emoji: "☁️" },
+                  { id: "ollama" as const, label: "Strict Offline", desc: "Local Models + Ollama Only", emoji: "🔒" },
+                  { id: "both" as const, label: "Hybrid", desc: "Run both pipelines for A/B testing", emoji: "⚡" },
                 ]).map(mode => (
                   <button
                     key={mode.id}
@@ -179,6 +179,101 @@ export default function AdminSettingsPage() {
                   </button>
                 ))}
               </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Active Specialist Agents Registry */}
+        <div className="glass-panel rounded-2xl overflow-hidden mt-6">
+          <div className="p-6 border-b border-border bg-muted/30">
+            <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+              <Activity className="w-5 h-5 text-indigo-500" />
+              Active Specialist Agents Registry
+              <span className="text-xs bg-indigo-500/10 text-indigo-500 border border-indigo-500/20 px-2 py-0.5 rounded-full font-medium ml-2">v10.0 MAIF</span>
+            </h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              The platform dynamically routes cases through these specialized local engines for deterministic analysis before Fusion.
+            </p>
+          </div>
+          
+          <div className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              
+              {/* ThreatAnalysisAgent */}
+              <div className="p-4 rounded-xl border border-border hover:border-indigo-500/50 bg-background transition-all group">
+                <div className="flex justify-between items-start mb-3">
+                  <div>
+                    <h3 className="font-semibold text-foreground group-hover:text-indigo-400 transition-colors">ThreatAnalysisAgent</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">Powered by <span className="font-medium text-indigo-300">Rakshak-Text v1.0</span></p>
+                  </div>
+                  <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400">
+                    <Activity className="w-4 h-4" />
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2 mt-3">
+                  <span className="text-[10px] px-2 py-1 rounded-md bg-muted text-muted-foreground">Scam classification</span>
+                  <span className="text-[10px] px-2 py-1 rounded-md bg-muted text-muted-foreground">Threat score</span>
+                  <span className="text-[10px] px-2 py-1 rounded-md bg-muted text-muted-foreground">Confidence</span>
+                  <span className="text-[10px] px-2 py-1 rounded-md bg-muted text-muted-foreground">Ontology mapping</span>
+                </div>
+              </div>
+
+              {/* BehaviourAgent */}
+              <div className="p-4 rounded-xl border border-border hover:border-emerald-500/50 bg-background transition-all group">
+                <div className="flex justify-between items-start mb-3">
+                  <div>
+                    <h3 className="font-semibold text-foreground group-hover:text-emerald-400 transition-colors">BehaviourAgent</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">Powered by <span className="font-medium text-emerald-300">Rakshak-Behaviour v1.0</span></p>
+                  </div>
+                  <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400">
+                    <Fingerprint className="w-4 h-4" />
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2 mt-3">
+                  <span className="text-[10px] px-2 py-1 rounded-md bg-muted text-muted-foreground">Attack DNA</span>
+                  <span className="text-[10px] px-2 py-1 rounded-md bg-muted text-muted-foreground">Behaviour fingerprint</span>
+                  <span className="text-[10px] px-2 py-1 rounded-md bg-muted text-muted-foreground">Social eng. detection</span>
+                  <span className="text-[10px] px-2 py-1 rounded-md bg-muted text-muted-foreground">Psychological analysis</span>
+                </div>
+              </div>
+
+              {/* CampaignAgent */}
+              <div className="p-4 rounded-xl border border-border hover:border-amber-500/50 bg-background transition-all group">
+                <div className="flex justify-between items-start mb-3">
+                  <div>
+                    <h3 className="font-semibold text-foreground group-hover:text-amber-400 transition-colors">CampaignAgent</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">Powered by <span className="font-medium text-amber-300">Rakshak-Link & Rakshak-Embedding</span></p>
+                  </div>
+                  <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400">
+                    <Network className="w-4 h-4" />
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2 mt-3">
+                  <span className="text-[10px] px-2 py-1 rounded-md bg-muted text-muted-foreground">Similarity</span>
+                  <span className="text-[10px] px-2 py-1 rounded-md bg-muted text-muted-foreground">Duplicate detection</span>
+                  <span className="text-[10px] px-2 py-1 rounded-md bg-muted text-muted-foreground">Campaign clustering</span>
+                </div>
+              </div>
+
+              {/* GeoAgent */}
+              <div className="p-4 rounded-xl border border-border hover:border-sky-500/50 bg-background transition-all group">
+                <div className="flex justify-between items-start mb-3">
+                  <div>
+                    <h3 className="font-semibold text-foreground group-hover:text-sky-400 transition-colors">GeoAgent</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">Powered by <span className="font-medium text-sky-300">Geo Resolver & PostGIS</span></p>
+                  </div>
+                  <div className="p-2 rounded-lg bg-sky-500/10 text-sky-400">
+                    <MapPin className="w-4 h-4" />
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2 mt-3">
+                  <span className="text-[10px] px-2 py-1 rounded-md bg-muted text-muted-foreground">NER Extraction</span>
+                  <span className="text-[10px] px-2 py-1 rounded-md bg-muted text-muted-foreground">Geo Resolver</span>
+                  <span className="text-[10px] px-2 py-1 rounded-md bg-muted text-muted-foreground">Threat Density</span>
+                  <span className="text-[10px] px-2 py-1 rounded-md bg-muted text-muted-foreground">Spread Tracking</span>
+                </div>
+              </div>
+
             </div>
           </div>
         </div>

@@ -65,16 +65,19 @@ async def case_copilot_chat(
     """
 
     try:
-        from domain.agents.router import AIRouter
-        ai_router = AIRouter()
+        from infrastructure.ai.ollama_client import OllamaClient
+        client = OllamaClient()
+        
         # Create a single prompt combining system prompt, context, and user query
         full_prompt = f"{system_prompt}\n\n{context}\n\nINVESTIGATOR QUERY: {req.query}"
         
-        # Use AIRouter to respect the global 'auto' setting or force_local
-        ai_result = await ai_router.execute(prompt=full_prompt, context={}, ai_mode="auto")
+        # Use OllamaClient directly for Chat Co-Pilot (defaults to mistral)
+        ai_result = await client.analyze(prompt=full_prompt, context={}, model_name="mistral")
         
-        # AIRouter returns a dict. We just want the text response, so we grab the 'decision' or a default string.
-        reply_text = ai_result.get("decision", "No response generated.") if isinstance(ai_result, dict) else str(ai_result)
+        if isinstance(ai_result, dict):
+            reply_text = ai_result.get("decision", str(ai_result))
+        else:
+            reply_text = str(ai_result).strip()
         
         return ChatResponse(reply=reply_text)
     except Exception as e:

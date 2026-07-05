@@ -12,7 +12,7 @@ class ClusterAgent:
     """
     
     def __init__(self):
-        self.model = "qwen2.5:7b"
+        self.model = "mistral"
         self.system_prompt = """You are a Cyber Threat Intelligence (CTI) Analyst.
 You are given a list of connected cyber fraud cases that share a common entity (e.g. the same scammer phone number).
 Your job is to generate a brief, professional 2-3 sentence summary of the scammer's exact modus operandi for this cluster.

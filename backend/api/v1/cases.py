@@ -105,6 +105,8 @@ async def submit_case(
         scam_text=scam_text,
         city=city,
         state=state,
+        latitude=latitude,
+        longitude=longitude,
         threat_confidence_score=0.0,
         ai_decision={},
         status=CaseStatus.SUBMITTED.value
@@ -115,21 +117,21 @@ async def submit_case(
     
     # 1.5 Save uploaded file if any
     if file:
-        # Security: Enforce 5MB file size limit
+        # Security: Enforce 50MB file size limit (increased to support large APK analysis)
         file.file.seek(0, 2)
         file_size = file.file.tell()
         await file.seek(0)
         
-        if file_size > 5 * 1024 * 1024:
-            raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Evidence file too large. Maximum allowed size is 5MB to prevent DoS.")
+        if file_size > 50 * 1024 * 1024:
+            raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Evidence file too large. Maximum allowed size is 50MB.")
             
         upload_dir = os.path.join(os.getcwd(), "uploads")
         os.makedirs(upload_dir, exist_ok=True)
         file_ext = os.path.splitext(file.filename)[1].lower()
         
-        allowed_extensions = {".jpg", ".jpeg", ".png", ".pdf"}
+        allowed_extensions = {".jpg", ".jpeg", ".png", ".pdf", ".apk"}
         if file_ext not in allowed_extensions:
-            raise HTTPException(status_code=400, detail="Invalid file type. Only JPG, PNG, and PDF are allowed.")
+            raise HTTPException(status_code=400, detail="Invalid file type. Only JPG, PNG, PDF, and APK are allowed.")
             
         safe_filename = f"{new_case.case_number}_{uuid.uuid4().hex[:6]}{file_ext}"
         file_path = os.path.join(upload_dir, safe_filename)
@@ -151,6 +153,8 @@ async def submit_case(
             ev_type = EvidenceType.SCREENSHOT.value
         elif file_ext.lower() in [".pdf"]:
             ev_type = EvidenceType.PDF.value
+        elif file_ext.lower() in [".apk"]:
+            ev_type = EvidenceType.APK.value
         elif file_ext.lower() in [".mp3", ".wav", ".m4a"]:
             ev_type = EvidenceType.AUDIO.value
             
@@ -167,9 +171,24 @@ async def submit_case(
         
         db.add(new_evidence)
         await db.commit()
+        
+        # Phase 1: Malicious APK Scanner Integration
+        if ev_type == EvidenceType.APK.value:
+            from infrastructure.osint.apk_scanner import APKScanner
+            apk_scanner = APKScanner()
+            apk_report = apk_scanner.scan_apk(file_path)
+            
+            # Inject APK malware metadata into the scam text so the AI can analyze the fused threat
+            scam_text += f"\n\n[SYSTEM MALWARE SCAN]: Uploaded APK '{apk_report['app_name']}' ({apk_report['package_name']}). "
+            if apk_report['is_malicious']:
+                scam_text += "WARNING: This APK requests highly dangerous permissions typical of banking trojans: "
+                for flag in apk_report['flagged_permissions']:
+                    scam_text += f"{flag['permission']} ({flag['threat']}), "
+            else:
+                scam_text += "No known critical malware permissions detected."
     
     # 2. Process AI synchronously (Vercel Serverless freezes BackgroundTasks)
-    await process_case_background(
+    ai_decision = await process_case_background(
         case_number=new_case.case_number,
         scam_text=scam_text,
         ai_mode=ai_mode,
@@ -179,20 +198,33 @@ async def submit_case(
         latitude=latitude,
         longitude=longitude
     )
+    if not ai_decision:
+        ai_decision = {}
     
-    # Send confirmation email
+    # Send confirmation emails
     try:
         from domain.models.user import User
-        from infrastructure.smtp.email_service import send_case_confirmation_email
+        from infrastructure.smtp.email_service import send_case_confirmation_email, send_admin_case_notification_email
         import asyncio
+        from core.config import settings
+        
         user_id = user_payload.get("sub")
         if user_id:
             res = await db.execute(select(User).where(User.id == user_id))
             user = res.scalar_one_or_none()
+            
+            threat_level = ai_decision.get('decision', 'Under Review')
+            
             if user and user.email:
+                # Notify citizen
                 asyncio.create_task(send_case_confirmation_email(user.email, new_case.case_number, ai_decision))
+                
+            # Notify Admin
+            if settings.ADMIN_EMAIL:
+                asyncio.create_task(send_admin_case_notification_email(settings.ADMIN_EMAIL, new_case.case_number, threat_level))
+                
     except Exception as e:
-        print(f"Failed to send confirmation email: {e}")
+        print(f"Failed to send confirmation emails: {e}")
     
     return {
         "message": "Case submitted successfully and analyzed by AI",
@@ -213,6 +245,8 @@ async def get_spatial_cases(db: AsyncSession = Depends(get_db), user_payload: di
     result = await db.execute(select(Case))
     cases = result.scalars().all()
     
+    import random
+    
     features = []
     for case in cases:
         # Default to a central coordinate (e.g., Central India) if unknown
@@ -220,6 +254,14 @@ async def get_spatial_cases(db: AsyncSession = Depends(get_db), user_payload: di
         lng = case.longitude if case.longitude is not None else 79.0882
         is_unknown = case.latitude is None
         
+        # Privacy Jitter / Stack Prevention
+        if not is_unknown:
+            lat += random.uniform(-0.005, 0.005) # ~500m noise
+            lng += random.uniform(-0.005, 0.005)
+        else:
+            lat += random.uniform(-1.5, 1.5) # Wide spread for unassigned cases
+            lng += random.uniform(-1.5, 1.5)
+            
         features.append({
             "type": "Feature",
             "geometry": {
@@ -436,138 +478,94 @@ async def process_case_background(
     latitude: Optional[float],
     longitude: Optional[float]
 ):
-    from infrastructure.db.session import async_session_maker
+    from infrastructure.db.session import AsyncSessionLocal
     from domain.models.case import Case
     from sqlalchemy import select
+    import asyncio
     
-    async with async_session_maker() as db:
+    async with AsyncSessionLocal() as db:
         result = await db.execute(select(Case).where(Case.case_number == case_number))
         case = result.scalar_one_or_none()
         if not case:
             return
 
-        from infrastructure.osint.scanner import OSINTScanner
-        from infrastructure.db.knowledge import KnowledgeBase
-        
-        scanner = OSINTScanner()
-        osint_results = scanner.scan_text(scam_text)
-        
-        kb = KnowledgeBase()
-        laws = await kb.search_relevant_laws(db, scam_text, top_k=1)
-        mistakes = await kb.search_past_mistakes(db, scam_text, top_k=1)
-        
-        from domain.agents.threat_agent import ThreatAnalysisAgent
-        agent = ThreatAnalysisAgent(agent_name="CoreThreatAgent", version="1.0")
-        
         try:
-            import asyncio
-            payload = {
-                "text": scam_text, 
-                "ai_mode": ai_mode,
-                "osint_flags": osint_results,
-                "regulatory_context": laws,
-                "past_mistake_corrections": mistakes
-            }
-            
-            text_task = asyncio.create_task(agent.execute(payload=payload, case_id=case.case_number))
-            vision_task = None
-            audio_task = None
-            
+            # Phase 1: Media Extraction
+            processed_text = scam_text
             if file_path:
                 from domain.models.evidence import EvidenceType
-                if ev_type == EvidenceType.SCREENSHOT.value:
-                    from domain.agents.vision_agent import VisionAgent
-                    vision_task = asyncio.create_task(VisionAgent().execute(file_path))
-                elif ev_type == EvidenceType.AUDIO.value:
+                if ev_type == EvidenceType.AUDIO.value:
                     from domain.agents.whisper_agent import WhisperAgent
-                    audio_task = asyncio.create_task(WhisperAgent().execute(file_path))
-                    
-            text_decision = await text_task
-            vision_decision = await vision_task if vision_task else None
-            audio_decision = await audio_task if audio_task else None
+                    audio_res = await WhisperAgent().execute({"text": file_path}, case.case_number)
+                    processed_text += " " + " ".join(audio_res.get("evidence", []))
+                elif ev_type == EvidenceType.SCREENSHOT.value:
+                    from domain.agents.vision_agent import VisionAgent
+                    vision_res = await VisionAgent().execute({"text": file_path}, case.case_number)
+                    processed_text += " " + " ".join(vision_res.get("evidence", []))
+
+            # Phase 2: Parallel Specialized Execution
+            payload = {"text": processed_text, "ai_mode": ai_mode}
             
-            from domain.agents.fusion_agent import FusionAgent
-            fusion = FusionAgent()
-            ai_decision = await fusion.execute(text_decision, vision_decision, audio_decision, ai_mode=ai_mode, raw_text=scam_text)
-                
-            case.threat_confidence_score = ai_decision.get("score", 0.0)
-            case.ai_decision = ai_decision
+            from domain.agents.threat_agent import ThreatAnalysisAgent
+            from domain.agents.behaviour_agent import BehaviourAgent
+            from domain.agents.campaign_agent import CampaignAgent
+            from domain.agents.trust_validation_agent import TrustValidationAgent
+            
+            t_task = asyncio.create_task(ThreatAnalysisAgent().execute(payload, case.case_number))
+            b_task = asyncio.create_task(BehaviourAgent().execute(payload, case.case_number))
+            c_task = asyncio.create_task(CampaignAgent().execute(payload, case.case_number))
+            tr_task = asyncio.create_task(TrustValidationAgent().execute(payload, case.case_number))
+            
+            t_res, b_res, c_res, tr_res = await asyncio.gather(t_task, b_task, c_task, tr_task)
+            
+            # Phase 3: RAIC Decision Core Fusion
+            from domain.agents.router import RAICDecisionCore
+            core = RAICDecisionCore()
+            fused_decision = await core.execute_fusion([t_res, b_res, c_res, tr_res], use_qwen_refinement=False)
+            
+            # Update Case Record locally in memory for now
+            case.threat_confidence_score = fused_decision.get("confidence", 0.0)
+            case.ai_decision = fused_decision
             case.status = CaseStatus.UNDER_REVIEW.value
             
-            if case.threat_confidence_score > 0.85:
-                from domain.agents.policy_agent import PolicyAgent
-                from domain.models.takedown import TakedownPolicy
-                policy_engine = PolicyAgent()
-                policy_result = await policy_engine.execute(ai_decision, ai_mode=ai_mode)
-                
-                for pol in policy_result.get("policies", []):
-                    new_policy = TakedownPolicy(
-                        case_number=case.case_number,
-                        target=pol.get("target"),
-                        target_type=pol.get("type"),
-                        action=pol.get("action"),
-                        reason=pol.get("reason")
-                    )
-                    db.add(new_policy)
-            
+            # Coordinates
             CITY_COORDINATES = {
                 "mumbai": {"lat": 19.0760, "lng": 72.8777},
                 "delhi": {"lat": 28.7041, "lng": 77.1025},
                 "bengaluru": {"lat": 12.9716, "lng": 77.5946},
-                "bangalore": {"lat": 12.9716, "lng": 77.5946},
-                "hyderabad": {"lat": 17.3850, "lng": 78.4867},
-                "chennai": {"lat": 13.0827, "lng": 80.2707},
-                "kolkata": {"lat": 22.5726, "lng": 88.3639},
-                "pune": {"lat": 18.5204, "lng": 73.8567},
-                "ahmedabad": {"lat": 23.0225, "lng": 72.5714},
-                "jaipur": {"lat": 26.9124, "lng": 75.7873}
+                "bangalore": {"lat": 12.9716, "lng": 77.5946}
             }
-            
             if latitude is not None and longitude is not None:
                 case.latitude = latitude
                 case.longitude = longitude
-            elif ai_decision.get("estimated_latitude") is not None:
-                case.latitude = float(ai_decision.get("estimated_latitude"))
-                case.longitude = float(ai_decision.get("estimated_longitude"))
-            elif city:
-                city_lower = city.lower().strip()
-                if city_lower in CITY_COORDINATES:
-                    case.latitude = CITY_COORDINATES[city_lower]["lat"]
-                    case.longitude = CITY_COORDINATES[city_lower]["lng"]
+            elif city and city.lower().strip() in CITY_COORDINATES:
+                case.latitude = CITY_COORDINATES[city.lower().strip()]["lat"]
+                case.longitude = CITY_COORDINATES[city.lower().strip()]["lng"]
+            
+            await db.commit()
+            
+            # Phase 4: Data Persistence via IntelligenceAgent
+            from domain.agents.intelligence_agent import IntelligenceAgent
+            intelligence_payload = {
+                "decision": fused_decision,
+                "case_number": case.case_number,
+                "entities": c_res.get("entities", {})
+            }
+            await IntelligenceAgent().execute(intelligence_payload, case.case_number)
+            return fused_decision
             
         except Exception as e:
-            print(f"AI Agent failed: {e}. Executing Regex Fallback...")
+            print(f"MAIF Orchestrator failed: {e}. Executing Regex Fallback...")
             import re
             phones = list(set(re.findall(r'\+?\d{10,13}', scam_text)))
-            urls = list(set(re.findall(r'https?://[^\s<>"]+|www\.[^\s<>"]+', scam_text)))
-            upis = list(set(re.findall(r'[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}', scam_text)))
-            
             ai_decision = {
-                "decision": f"Manual Review Required (AI Offline). Fallback Regex applied.",
+                "decision": "Manual Review Required (AI Offline).",
                 "score": 0.5,
                 "phone_numbers": phones,
-                "urls": urls,
-                "upi_ids": upis,
-                "bank_accounts": [],
-                "estimated_latitude": None,
-                "estimated_longitude": None,
-                "models": ["regex-fallback"],
                 "error_trace": str(e)[:200]
             }
             case.threat_confidence_score = 0.5
             case.ai_decision = ai_decision
             case.status = CaseStatus.UNDER_REVIEW.value
-            
-        await db.commit()
-        
-        try:
-            for phone in ai_decision.get("phone_numbers", []):
-                await agent.graph.add_case_entity_link(case.case_number, "PhoneNumber", str(phone))
-            for url in ai_decision.get("urls", []):
-                await agent.graph.add_case_entity_link(case.case_number, "URL", str(url))
-            for upi in ai_decision.get("upi_ids", []):
-                await agent.graph.add_case_entity_link(case.case_number, "UPI_ID", str(upi))
-            for bank in ai_decision.get("bank_accounts", []):
-                await agent.graph.add_case_entity_link(case.case_number, "BankAccount", str(bank))
-        except Exception as graph_err:
-            print(f"Failed to link entities in Neo4j: {graph_err}")
+            await db.commit()
+            return ai_decision

@@ -85,7 +85,11 @@ async def register_user(data: RegisterRequest, request: Request, db: AsyncSessio
     if not is_approved:
         # Send pending approval email
         await send_approval_pending_email(data.email, data.role)
-        # TODO: Send notification to Admin
+        from infrastructure.smtp.email_service import send_email
+        from core.config import settings
+        admin_subject = f"New {data.role.capitalize()} Registration Pending Approval"
+        admin_body = f"A new user ({data.full_name}, {data.email}) has registered for the role of {data.role} and requires your approval."
+        await send_email(settings.ADMIN_EMAIL, admin_subject, admin_body)
     else:
         # Automatically approved citizens get the welcome email immediately
         await send_welcome_email(data.email, data.full_name, data.role)

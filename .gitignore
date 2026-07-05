@@ -78,3 +78,7 @@ p u s h _ v e r c e l _ e n v . p s 1
  
 .vercel
 .vercel.env
+
+# --- ML Weights and Data ---
+backend/models/
+backend/data/

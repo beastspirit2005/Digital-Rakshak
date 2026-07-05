@@ -16,6 +16,7 @@ class EvidenceType(str, enum.Enum):
     SMS = "sms"
     EMAIL_CONTENT = "email_content"
     TRANSACTION_RECEIPT = "transaction_receipt"
+    APK = "apk"
 
 
 class Evidence(Base):
@@ -34,6 +35,7 @@ class Evidence(Base):
     # Content — raw text stored directly, files stored as path/URL
     content_text = Column(Text, nullable=True)
     file_path = Column(String, nullable=True)  # For binary uploads (screenshots, audio, PDFs)
+    file_hash_sha256 = Column(String(64), nullable=True, index=True) # Chain of Custody hash
     
     # Metadata extracted by AI (immutable snapshot at time of ingestion)
     extracted_metadata = Column(JSONB, nullable=True)

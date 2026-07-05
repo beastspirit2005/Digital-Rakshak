@@ -5,7 +5,7 @@ import { api } from "@/lib/api";
 import React, { useEffect, useState } from "react";
 import { useAuthStore } from "@/lib/auth-store";
 import axios from "axios";
-import { Loader2, Search, Filter, FileText, ChevronDown, ChevronUp, AlertTriangle } from "lucide-react";
+import { Loader2, Search, Filter, FileText, ChevronDown, ChevronUp, AlertTriangle, Shield } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function ReportsRegisterPage() {
@@ -216,6 +216,42 @@ export default function ReportsRegisterPage() {
                                       </div>
                                     </div>
                                   </div>
+
+                                  {c.ai_decision?.ztivf_metrics && (
+                                    <div className="bg-indigo-500/10 p-4 rounded-xl border border-indigo-500/20">
+                                      <h4 className="text-xs font-semibold uppercase tracking-wider text-indigo-400 mb-3 flex items-center gap-2">
+                                        <Shield className="w-4 h-4" /> Zero-Trust Metrics
+                                      </h4>
+                                      <div className="space-y-3 text-xs">
+                                        {Object.entries(c.ai_decision.ztivf_metrics).map(([key, value]) => (
+                                          <div key={key} className="space-y-1">
+                                            <div className="flex justify-between text-muted-foreground capitalize">
+                                              <span>{key.replace('_score', '')}</span>
+                                              <span className="font-medium text-foreground">{((value as number) * 100).toFixed(0)}%</span>
+                                            </div>
+                                            <div className="h-1.5 w-full bg-background rounded-full overflow-hidden">
+                                              <div 
+                                                className={`h-full rounded-full ${
+                                                  (value as number) > 0.8 ? 'bg-emerald-500' : 
+                                                  (value as number) > 0.5 ? 'bg-amber-500' : 'bg-red-500'
+                                                }`} 
+                                                style={{ width: `${(value as number) * 100}%` }}
+                                              />
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {c.ai_decision?.raw_explanation && (
+                                    <div className="bg-muted/30 p-4 rounded-xl border border-border">
+                                      <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">AI Reasoning</h4>
+                                      <p className="text-sm text-foreground/90 leading-relaxed">
+                                        {c.ai_decision.raw_explanation}
+                                      </p>
+                                    </div>
+                                  )}
 
                                   {/* AI Co-Pilot Chat Interface */}
                                   <div className="bg-background p-4 rounded-xl border border-border flex flex-col h-64">

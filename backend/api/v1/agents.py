@@ -116,8 +116,10 @@ async def analyze_transcript_draft(payload: TranscriptPayload):
     """
     Runs AI analysis on the verified transcript to extract entities and generate a case draft.
     """
-    from domain.agents.router import AIRouter
-    router_ai = AIRouter()
+    from core.config import settings
+    from google import genai
+    from google.genai import types
+    import json
     
     analysis_prompt = f"""Analyze this transcribed scam report from a victim/investigator and extract structured data.
 
@@ -138,7 +140,16 @@ Respond ONLY with a JSON object:
 }}"""
     
     try:
-        ai_result = await router_ai.execute(prompt=analysis_prompt, context={}, ai_mode="auto")
+        client = genai.Client(api_key=settings.GEMINI_API_KEY)
+        response = await client.aio.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=analysis_prompt,
+            config=types.GenerateContentConfig(
+                temperature=0.2, 
+                response_mime_type="application/json"
+            )
+        )
+        ai_result = json.loads(response.text)
         return {"draft": ai_result}
     except Exception as e:
         return {"error": f"AI analysis failed: {str(e)}"}

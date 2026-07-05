@@ -44,25 +44,31 @@ class BaseAgent(ABC):
         
     def generate_decision_object(
         self, 
-        decision: str, 
+        engine: str,
+        engine_version: str,
+        model_version: str,
         confidence: float, 
-        supporting_evidence: List[Dict[str, str]], 
-        models_used: List[str], 
-        prompt_version: str, 
-        policy_version: str,
+        entities: List[Any],
+        evidence: List[Any],
+        reasoning: List[str],
+        recommendation: List[str],
+        prompt_version: str,
         inference_time_ms: int
     ) -> Dict[str, Any]:
         """Step 6: Output the standardized Explainability Object."""
         return {
-            "agent_name": self.agent_name,
-            "version": self.version,
-            "decision": decision,
-            "confidence": confidence,
-            "supporting_evidence": supporting_evidence,
-            "models_used": models_used,
+            "agent": self.agent_name,
+            "engine": engine,
+            "engine_version": engine_version,
+            "model_version": model_version,
             "prompt_version": prompt_version,
-            "policy_version": policy_version,
-            "inference_time_ms": inference_time_ms
+            "confidence": confidence,
+            "execution_time_ms": inference_time_ms,
+            "evidence_count": len(evidence),
+            "entities": entities,
+            "evidence": evidence,
+            "reasoning": reasoning,
+            "recommendation": recommendation
         }
 
     @abstractmethod
@@ -97,12 +103,15 @@ class BaseAgent(ABC):
         inference_time_ms = int((end_time - start_time) * 1000)
         
         decision_obj = self.generate_decision_object(
-            decision=inference_result.get("decision", "Unknown"),
+            engine=inference_result.get("engine", "Unknown"),
+            engine_version=inference_result.get("engine_version", "1.0"),
+            model_version=inference_result.get("model_version", "1.0"),
             confidence=confidence,
-            supporting_evidence=inference_result.get("evidence", []),
-            models_used=inference_result.get("models", ["unknown"]),
-            prompt_version=inference_result.get("prompt_version", "v1.0"),
-            policy_version="1.0.0",
+            entities=inference_result.get("entities", []),
+            evidence=inference_result.get("evidence", []),
+            reasoning=inference_result.get("reasoning", []),
+            recommendation=inference_result.get("recommendation", []),
+            prompt_version=inference_result.get("prompt_version", "n/a"),
             inference_time_ms=inference_time_ms
         )
         
@@ -111,6 +120,10 @@ class BaseAgent(ABC):
             decision_obj["estimated_latitude"] = inference_result["estimated_latitude"]
         if inference_result.get("estimated_longitude") is not None:
             decision_obj["estimated_longitude"] = inference_result["estimated_longitude"]
+        
+        # Preserve threat_class from ThreatAnalysisAgent for RAIC Decision Core fusion
+        if inference_result.get("threat_class") is not None:
+            decision_obj["threat_class"] = inference_result["threat_class"]
         
         # Preserve the raw score for spatial heatmap weighting
         decision_obj["score"] = raw_score

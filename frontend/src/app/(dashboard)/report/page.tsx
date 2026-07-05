@@ -365,6 +365,43 @@ export default function ReportPage() {
                       <p className="font-medium">{((successData.ai_analysis?.confidence || 0) * 100).toFixed(1)}%</p>
                     </div>
                   </div>
+                  
+                  {successData.ai_analysis?.ztivf_metrics && (
+                    <div className="mt-4 p-4 rounded-xl bg-indigo-500/10 border border-indigo-500/20">
+                      <h4 className="text-sm font-semibold text-indigo-400 mb-3 flex items-center gap-2">
+                        <Shield className="w-4 h-4" />
+                        Zero-Trust Validation (ZTIVF)
+                      </h4>
+                      <div className="grid grid-cols-2 gap-y-3 gap-x-6 text-xs">
+                        {Object.entries(successData.ai_analysis.ztivf_metrics).map(([key, value]) => (
+                          <div key={key} className="space-y-1">
+                            <div className="flex justify-between text-muted-foreground capitalize">
+                              <span>{key.replace('_score', '')}</span>
+                              <span className="font-medium text-foreground">{((value as number) * 100).toFixed(0)}%</span>
+                            </div>
+                            <div className="h-1.5 w-full bg-background rounded-full overflow-hidden">
+                              <div 
+                                className={`h-full rounded-full ${
+                                  (value as number) > 0.8 ? 'bg-emerald-500' : 
+                                  (value as number) > 0.5 ? 'bg-amber-500' : 'bg-red-500'
+                                }`} 
+                                style={{ width: `${(value as number) * 100}%` }}
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {successData.ai_analysis?.raw_explanation && (
+                    <div className="mt-4 p-3 rounded-xl bg-muted/30 border border-border">
+                      <p className="text-muted-foreground text-xs uppercase tracking-wider font-semibold mb-2">AI Reasoning</p>
+                      <p className="text-sm text-foreground/90 leading-relaxed">
+                        {successData.ai_analysis.raw_explanation}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
 

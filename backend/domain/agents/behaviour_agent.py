@@ -1,55 +1,51 @@
 from typing import Any, Dict
 from domain.agents.base import BaseAgent
-from domain.agents.router import AIRouter
+from infrastructure.ai.ml_client import RakshakCoreClient
+import logging
+
+logger = logging.getLogger(__name__)
 
 class BehaviourAgent(BaseAgent):
     """
-    Analyzes scam text to extract 'Attack DNA':
-    - Psychological manipulation techniques (Urgency, Authority)
-    - Attack methodology
-    - Social engineering patterns
+    Extracts Attack DNA and Social Engineering behaviors from text.
+    Powered by Rakshak-Behaviour (Multi-label head of RakshakCoreClient).
     """
-    def __init__(self):
-        super().__init__(agent_name="BehaviourAgent", version="1.0")
+
+    def __init__(self, agent_name="BehaviourAgent", version="1.0"):
+        super().__init__(agent_name, version)
 
     def initialize(self) -> None:
-        self.router = AIRouter()
-        self.prompt_template = """
-        Analyze this cybercrime report and extract the 'Attack DNA' (behavioral fingerprint).
-        Focus on psychological manipulation, attack methodology, and social engineering.
-        
-        Report:
-        {text}
-        
-        Respond ONLY with a JSON object in this exact format:
-        {{
-            "score": 0.8,
-            "decision": "Social Engineering Detected",
-            "evidence": [{{"finding": "used urgent language"}}],
-            "attack_dna": {{
-                "urgency_level": "high",
-                "authority_impersonation": "police",
-                "manipulation_techniques": ["fear", "time pressure"],
-                "scam_type_code": "DIGITAL_ARREST"
-            }}
-        }}
-        """
+        self.client = RakshakCoreClient(model_version="1.0")
+        self.client.load_model()
 
     def validate_input(self, payload: Dict[str, Any]) -> bool:
-        return "text" in payload and bool(payload["text"])
+        if not isinstance(payload, dict):
+            return False
+        return "text" in payload
 
     async def retrieve_context(self, case_id: str) -> Dict[str, Any]:
         return {}
 
     async def inference(self, prompt: str, context: Dict[str, Any]) -> Dict[str, Any]:
-        ai_mode = context.get("ai_mode", "auto")
-        full_prompt = self.prompt_template.format(text=prompt)
+        result = self.client.predict(prompt)
         
-        return await self.router.execute(prompt=full_prompt, context=context, ai_mode=ai_mode)
+        detected_behaviors = result['behaviors']
+        confidence = 0.90 if len(detected_behaviors) > 0 else 0.50
+        
+        return {
+            "engine": "Rakshak-Behaviour",
+            "engine_version": "1.0",
+            "model_version": self.client.version,
+            "entities": [],
+            "evidence": detected_behaviors,
+            "reasoning": [f"Detected {len(detected_behaviors)} social engineering indicators."],
+            "recommendation": ["Pass Attack DNA to CampaignAgent for embedding matching."],
+            "score": confidence,
+            "prompt_version": "n/a"
+        }
 
     def calculate_confidence(self, raw_score: float) -> float:
-        return min(max(raw_score, 0.0), 1.0)
+        return max(0.0, min(1.0, float(raw_score)))
 
     async def publish_event(self, event_name: str, decision_object: Dict[str, Any]) -> None:
-        # Event bus not yet implemented, pass for now
         pass

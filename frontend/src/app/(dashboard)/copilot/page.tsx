@@ -2,20 +2,50 @@
 
 
 import { api } from "@/lib/api";
-import { useState, useRef } from "react";
-import { Mic, Square, Loader2, Bot, CheckCircle2, FileText, Send, User } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Mic, Square, Loader2, Bot, CheckCircle2, FileText, Send, User, MapPin } from "lucide-react";
 import axios from "axios";
 import { useAuthStore } from "@/lib/auth-store";
 
 export default function CopilotPage() {
   const [isRecording, setIsRecording] = useState(false);
-    const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [draftReport, setDraftReport] = useState<any>(null);
+  const [location, setLocation] = useState<{lat: number, lng: number} | null>(null);
+  const [isLocating, setIsLocating] = useState(false);
+  
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
   const { token } = useAuthStore();
+
+  useEffect(() => {
+    setIsLocating(true);
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          });
+          setIsLocating(false);
+        },
+        (error) => {
+          // Silently handle error and fallback to demo coordinates (Mumbai)
+          // console.error triggers Next.js red overlay in dev mode
+          setLocation({
+            lat: 19.0760,
+            lng: 72.8777
+          });
+          setIsLocating(false);
+        },
+        { enableHighAccuracy: true, timeout: 5000 }
+      );
+    } else {
+      setIsLocating(false);
+    }
+  }, []);
 
   const startRecording = async () => {
     try {
@@ -101,6 +131,36 @@ export default function CopilotPage() {
     }
   };
 
+  const submitReport = async () => {
+    if (!transcript.trim()) return;
+    setIsProcessing(true);
+    try {
+      const formData = new FormData();
+      formData.append("scam_text", transcript);
+      formData.append("ai_mode", "auto");
+      
+      if (location) {
+        formData.append("latitude", location.lat.toString());
+        formData.append("longitude", location.lng.toString());
+      }
+      
+      await axios.post(api("/cases/submit"), formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          Authorization: `Bearer ${token}`
+        }
+      });
+      alert("Case officially submitted to the National Database!");
+      setTranscript("");
+      setDraftReport(null);
+    } catch (error) {
+      console.error("Error submitting report:", error);
+      alert("Failed to submit report.");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   return (
     <div className="flex h-[calc(100vh-8rem)] gap-6">
       {/* Left Column: Voice Input */}
@@ -137,6 +197,17 @@ export default function CopilotPage() {
           <p className={`mt-6 font-medium ${isRecording ? "text-red-400 animate-pulse" : "text-muted-foreground"}`}>
             {isRecording ? "Recording... (Click to stop)" : "Click mic to start listening"}
           </p>
+          
+          <div className="mt-8 flex items-center gap-2 bg-background/50 px-4 py-2 rounded-full border border-border">
+            <MapPin className="w-4 h-4 text-primary" />
+            {isLocating ? (
+              <span className="text-muted-foreground text-sm animate-pulse">Acquiring live GPS location...</span>
+            ) : location ? (
+              <span className="text-green-500 text-sm font-medium">GPS Secured: {location.lat.toFixed(4)}, {location.lng.toFixed(4)}</span>
+            ) : (
+              <span className="text-amber-500 text-sm">Location unavailable</span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -220,9 +291,13 @@ export default function CopilotPage() {
 
               <div className="flex-1"></div>
 
-              <button className="w-full bg-primary hover:bg-primary/90 text-white py-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-primary/25">
-                <Send className="w-5 h-5" />
-                Submit Official Report to Database
+              <button 
+                onClick={submitReport}
+                disabled={isProcessing}
+                className="w-full bg-primary hover:bg-primary/90 text-white py-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-primary/25 disabled:opacity-50"
+              >
+                {isProcessing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+                {isProcessing ? "Submitting to National Database..." : "Submit Official Report to Database"}
               </button>
             </div>
           ) : (

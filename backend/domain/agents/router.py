@@ -1,104 +1,127 @@
-from typing import Dict, Any
-from infrastructure.ai.gemini_client import GeminiClient
+from typing import Dict, Any, List
 from infrastructure.ai.ollama_client import OllamaClient
-from core.config import settings
+import time
 
-class AIRouter:
+class RAICDecisionCore:
     """
-    Intelligent Router for handling Hybrid AI Execution.
-    Routes to Gemini by default for high-reasoning, falls back to Ollama if local/privacy is enforced
-    or if the cloud API is down.
+    Multi-Agent Intelligence Fusion (MAIF) Orchestrator.
+    Takes the standardized output from the specialized expert models, fuses the evidence,
+    calculates a final calibrated threat score, and generates an explanation.
+    Uses Ollama (Qwen) strictly for reasoning/refining the final prose.
     """
-    
     def __init__(self):
-        self.gemini = GeminiClient()
         self.ollama = OllamaClient()
-        
-    async def execute(self, prompt: str, context: Dict[str, Any], require_local: bool = False, ai_mode: str = "auto") -> Dict[str, Any]:
-        """
-        Executes the prompt against the appropriate LLM engine based on configuration
-        and the privacy requirements of the task.
-        """
-        import asyncio
-        
-        # Parse ai_mode to check if a specific model was requested
-        engine = "auto"
-        model_override = None
-        if ":" in ai_mode:
-            parts = ai_mode.split(":", 1)
-            engine = parts[0]
-            model_override = parts[1]
-        else:
-            engine = ai_mode
 
-        # If engine is auto, read the live default preference from the Postgres database
-        if engine == "auto":
-            from infrastructure.db.session import async_session_maker
-            from domain.models.settings import PlatformSettings
-            import sqlalchemy as sa
+    def _fuse_confidence(self, agent_results: List[Dict[str, Any]]) -> float:
+        """
+        Mathematical fusion of agent confidence scores.
+        If Rakshak-Text says 0.90, and Rakshak-Behaviour says 0.80,
+        the fused confidence increases because multiple independent systems agree.
+        """
+        if not agent_results:
+            return 0.0
             
-            async with async_session_maker() as session:
-                try:
-                    res = await session.execute(sa.select(PlatformSettings).where(PlatformSettings.id == 1))
-                    db_settings = res.scalar_one_or_none()
-                    if db_settings:
-                        engine = db_settings.default_ai_mode
-                        if db_settings.force_local_inference:
-                            require_local = True
-                except Exception as e:
-                    print(f"Failed to load platform settings: {e}")
-                    engine = "gemini" # Safe fallback
+        # Simplified probability fusion (1 - product of (1 - p_i))
+        # Ignoring TrustValidationAgent in threat probability calculation
+        combined_safe_prob = 1.0
+        for result in agent_results:
+            if result.get("agent") == "TrustValidationAgent":
+                continue
+            prob = result.get('confidence', 0.0)
+            combined_safe_prob *= (1.0 - prob)
+            
+        fused_confidence = 1.0 - combined_safe_prob
+        return min(max(fused_confidence, 0.0), 0.99)
 
-        # If the task requires local execution (e.g., highly sensitive PII), force Ollama
-        if require_local or settings.FORCE_LOCAL_INFERENCE or engine == "ollama":
-            return await self.ollama.analyze(prompt, context, model_name=model_override)
+    def _build_rule_based_explanation(self, fused_data: Dict[str, Any]) -> str:
+        """Rakshak-Explain: Deterministic rule-based template generation."""
+        reasons = []
+        if fused_data.get('threat_class'):
+            reasons.append(f"Classified as {fused_data['threat_class']} by Rakshak-Text.")
             
-        if engine == "both":
-            # Run both in parallel
-            gemini_task = asyncio.create_task(self.gemini.analyze(prompt, context))
-            ollama_task = asyncio.create_task(self.ollama.analyze(prompt, context))
+        behaviors = fused_data.get('behaviors', [])
+        if behaviors:
+            reasons.append(f"Attack DNA detected: {', '.join(behaviors)}.")
             
-            gemini_res, ollama_res = await asyncio.gather(gemini_task, ollama_task, return_exceptions=True)
-            
-            # Combine results
-            combined = {
-                "decision": f"Gemini: {gemini_res.get('decision', 'Error') if isinstance(gemini_res, dict) else 'Error'} | Ollama: {ollama_res.get('decision', 'Error') if isinstance(ollama_res, dict) else 'Error'}",
-                "score": max(
-                    gemini_res.get("score", 0.0) if isinstance(gemini_res, dict) else 0.0,
-                    ollama_res.get("score", 0.0) if isinstance(ollama_res, dict) else 0.0
-                ),
-                "evidence": (gemini_res.get("evidence", []) if isinstance(gemini_res, dict) else []) + 
-                            (ollama_res.get("evidence", []) if isinstance(ollama_res, dict) else []),
-                "models": ["gemini", "ollama"],
-                "estimated_latitude": None,
-                "estimated_longitude": None
-            }
-            # Grab coordinates from whichever provided them
-            if isinstance(gemini_res, dict) and gemini_res.get("estimated_latitude"):
-                combined["estimated_latitude"] = gemini_res["estimated_latitude"]
-                combined["estimated_longitude"] = gemini_res["estimated_longitude"]
-            elif isinstance(ollama_res, dict) and ollama_res.get("estimated_latitude"):
-                combined["estimated_latitude"] = ollama_res["estimated_latitude"]
-                combined["estimated_longitude"] = ollama_res["estimated_longitude"]
+        entities = fused_data.get('entities', {})
+        if entities:
+            extracted = []
+            for k, v in entities.items():
+                if v: extracted.append(f"{len(v)} {k}")
+            if extracted:
+                reasons.append(f"Extracted indicators: {', '.join(extracted)}.")
                 
-            return combined
+        # Inject ZTIVF metadata
+        trust_metrics = fused_data.get("trust_metrics", {})
+        if trust_metrics:
+            reasons.append(
+                f"ZTIVF Evaluation: Identity Trust={trust_metrics.get('identity_score', 0.0):.2f}, "
+                f"Evidence Integrity={trust_metrics.get('evidence_score', 0.0):.2f}, "
+                f"Consistency={trust_metrics.get('behaviour_score', 0.0):.2f}."
+            )
+                
+        return " | ".join(reasons)
+
+    async def execute_fusion(self, agent_payloads: List[Dict[str, Any]], use_qwen_refinement: bool = True) -> Dict[str, Any]:
+        """
+        The core fusion pipeline.
+        """
+        start_time = time.time()
+        
+        # 1. Aggregate all data
+        fused_data = {
+            "threat_class": None,
+            "behaviors": [],
+            "entities": {},
+            "evidence": [],
+            "models_used": [],
+            "trust_metrics": {}
+        }
+        
+        trust_score = 1.0
+        for payload in agent_payloads:
+            if payload.get("agent") == "ThreatAnalysisAgent":
+                fused_data["threat_class"] = payload.get("threat_class")
+            elif payload.get("agent") == "BehaviourAgent":
+                fused_data["behaviors"].extend(payload.get("evidence", []))
+            elif payload.get("agent") == "CampaignAgent":
+                fused_data["entities"] = payload.get("entities", {})
+            elif payload.get("agent") == "TrustValidationAgent":
+                fused_data["trust_metrics"] = payload.get("entities", {})
+                trust_score = payload.get("confidence", 1.0)
+                
+            fused_data["evidence"].extend(payload.get("reasoning", []))
+            fused_data["models_used"].append(payload.get("engine"))
             
-        # Default ("auto" or "gemini") try Gemini first for superior reasoning capability
-        gemini_error = None
-        try:
-            result = await self.gemini.analyze(prompt, context, model_name=model_override)
-            if isinstance(result, dict) and "Gemini API Error" in result.get("decision", ""):
-                print("Gemini failed, falling back to Ollama...")
-                gemini_error = result.get("decision", "")
-            else:
-                return result
-        except Exception as e:
-            print(f"Unhandled Gemini exception: {e}, falling back to Ollama...")
-            gemini_error = str(e)
-            
-        # Fallback to Ollama if Gemini failed
-        ollama_res = await self.ollama.analyze(prompt, context)
-        if isinstance(ollama_res, dict) and "Ollama Inference Error" in ollama_res.get("decision", ""):
-            # If both failed, append the Gemini error so the user knows why it fell back
-            ollama_res["decision"] = f"{ollama_res['decision']}\n\n(Original Gemini Error: {gemini_error})"
-        return ollama_res
+        # 2. Calculate Final Calibrated Confidence
+        threat_confidence = self._fuse_confidence(agent_payloads)
+        
+        # 3. Apply ZTIVF Calibration (Post-calibration Scaling)
+        # Low trust score reduces final threat confidence to prevent data poisoning.
+        final_confidence = threat_confidence * trust_score
+        
+        # 4. Rule-based explanation
+        raw_explanation = self._build_rule_based_explanation(fused_data)
+        
+        # 5. (Optional) Qwen Refinement
+        final_explanation = raw_explanation
+        if use_qwen_refinement and final_confidence > 0.5:
+            refine_prompt = (
+                f"Rewrite this threat explanation into a short, highly professional 2-sentence "
+                f"intelligence brief for an investigator. Incorporate ZTIVF metrics if relevant: '{raw_explanation}'"
+            )
+            qwen_res = await self.ollama.analyze(refine_prompt, context={}, model_name="qwen2.5:7b")
+            if isinstance(qwen_res, dict) and qwen_res.get("decision"):
+                final_explanation = qwen_res["decision"]
+
+        execution_time_ms = int((time.time() - start_time) * 1000)
+
+        return {
+            "decision": final_explanation,
+            "confidence": round(final_confidence, 4),
+            "threat_class": fused_data["threat_class"],
+            "models_used": fused_data["models_used"],
+            "execution_time_ms": execution_time_ms,
+            "raw_explanation": raw_explanation,
+            "ztivf_metrics": fused_data["trust_metrics"]
+        }

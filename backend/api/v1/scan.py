@@ -4,7 +4,13 @@ from infrastructure.osint.scanner import OSINTScanner
 from infrastructure.graph.neo4j_client import IntelligenceGraph
 from pydantic import BaseModel
 
+from infrastructure.ai.ml_client import RakshakCoreClient
+
 router = APIRouter(prefix="/scan", tags=["scan"])
+
+# Globally load PyTorch model for instant scanning (Lazy initialization)
+ml_client = RakshakCoreClient(model_version="1.0")
+ml_client_loaded = False
 
 class ScanResponse(BaseModel):
     is_safe: bool
@@ -13,6 +19,7 @@ class ScanResponse(BaseModel):
 
 @router.get("", response_model=ScanResponse)
 async def live_prevention_scan(
+    text: Optional[str] = None,
     url: Optional[str] = None, 
     phone: Optional[str] = None,
     upi: Optional[str] = None
@@ -21,17 +28,42 @@ async def live_prevention_scan(
     Live Prevention Shield API.
     Used by browser extensions, mobile apps, or citizens to instantly check if an entity is safe.
     """
-    if not any([url, phone, upi]):
-        raise HTTPException(status_code=400, detail="Must provide at least one parameter to scan (url, phone, or upi).")
+    global ml_client_loaded
+    if not any([text, url, phone, upi]):
+        raise HTTPException(status_code=400, detail="Must provide at least one parameter to scan (text, url, phone, or upi).")
         
     is_safe = True
     risk_level = "LOW"
     reasons = []
     
+    # 0. Native AI Zero-Day Analysis
+    if text or url:
+        if not ml_client_loaded:
+            ml_client.load_model()
+            ml_client_loaded = True
+            
+        payload_to_scan = text if text else url
+        ai_res = ml_client.predict(payload_to_scan)
+        
+        if ai_res["confidence"] > 0.6 and ai_res["threat_class"] != "Safe":
+            is_safe = False
+            risk_level = "CRITICAL"
+            reasons.append(f"AI Zero-Day Detection: {ai_res['threat_class']} ({ai_res['confidence']*100:.1f}% confidence).")
+            if ai_res["behaviors"]:
+                reasons.append(f"Attack DNA detected: {', '.join(ai_res['behaviors'])}.")
+
     # 1. Check OSINT Static Rules (URLs/Keywords)
     scanner = OSINTScanner()
     if url:
         res = scanner.scan_text(url)
+        if res["risk_level"] in ["HIGH", "CRITICAL"]:
+            is_safe = False
+            risk_level = res["risk_level"]
+            for flag in res["flagged_urls"]:
+                reasons.append(flag["threat"])
+                
+    elif text:
+        res = scanner.scan_text(text)
         if res["risk_level"] in ["HIGH", "CRITICAL"]:
             is_safe = False
             risk_level = res["risk_level"]
@@ -69,3 +101,23 @@ async def live_prevention_scan(
         risk_level=risk_level,
         reasons=reasons if not is_safe else ["No known threats found."]
     )
+
+from fastapi import UploadFile, File
+
+@router.post("/qr", response_model=ScanResponse)
+async def live_prevention_scan_qr(file: UploadFile = File(...)):
+    """
+    Decodes an uploaded QR code and pipes its hidden payload (URL/UPI) directly into the Prevention Suite.
+    """
+    from infrastructure.osint.qr_decoder import QRDecoder
+    decoder = QRDecoder()
+    
+    contents = await file.read()
+    payload = decoder.decode_image(contents)
+    
+    if not payload:
+        raise HTTPException(status_code=400, detail="No valid QR code found in the image.")
+        
+    # Pipe the hidden payload into the existing AI and OSINT pipeline
+    # We will pass it as `text` so the native AI model parses the full intent
+    return await live_prevention_scan(text=payload)
