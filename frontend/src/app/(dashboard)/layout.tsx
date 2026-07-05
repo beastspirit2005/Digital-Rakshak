@@ -58,6 +58,7 @@ const adminSections = [
     color: 'blue',
     items: [
       { name: 'Investigator Workbench', href: '/workbench', icon: Siren },
+      { name: 'Reports (FIR/TPR)', href: '/workbench/reports', icon: FileText },
       { name: 'Spatial Map', href: '/workbench/map', icon: Map },
       { name: 'Graph Explorer', href: '/workbench/graph', icon: Network },
       { name: 'AI Co-Pilot', href: '/copilot', icon: Bell },
@@ -77,6 +78,7 @@ const adminSections = [
       { name: 'Citizen Dashboard', href: '/citizen', icon: UserCircle },
       { name: 'Report Scam', href: '/report', icon: ShieldAlert },
       { name: 'Prevention Suite', href: '/prevention', icon: ShieldCheck },
+      { name: 'Spatial Map', href: '/workbench/map', icon: Map },
     ]
   },
 ];
@@ -99,32 +101,34 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const isWorkbenchMap = pathname === "/workbench/map";
   const isWorkbenchSection = pathname.startsWith("/workbench") && !isWorkbenchMap;
 
-  // Determine allowed roles for this section
+  // Determine allowed roles for this section based on path
   let allowedRoles: string[] | undefined = undefined;
   if (isAdminSection) {
     allowedRoles = ["admin"];
   } else if (isWorkbenchMap) {
-    allowedRoles = ["admin", "police", "cyber_cell", "bank_employee", "citizen"];
+    allowedRoles = ["admin", "police", "cyber_cell", "bank_employee", "banker", "citizen"];
   } else if (isWorkbenchSection) {
-    allowedRoles = ["admin", "police", "cyber_cell", "bank_employee"];
+    allowedRoles = ["admin", "police", "cyber_cell", "bank_employee", "banker"];
+  } else if (pathname.startsWith("/banker")) {
+    allowedRoles = ["admin", "bank_employee", "banker"];
   } else if (isCitizenSection) {
-    allowedRoles = ["citizen", "admin"];
+    allowedRoles = ["admin", "citizen"];
+  } else if (pathname.startsWith("/report") || pathname.startsWith("/prevention")) {
+    allowedRoles = ["admin", "citizen", "police", "cyber_cell", "bank_employee", "banker"];
+  } else if (pathname.startsWith("/copilot")) {
+    allowedRoles = ["admin", "police", "cyber_cell"];
   }
 
+  // Populate Sidebar Navigation strictly based on the User's Role
   let navigation: any[] = [];
   if (user?.role === 'admin') {
-    navigation = adminNavigation;
-  } else if (isAdminSection) {
-    navigation = adminNavigation;
-  } else if (isCitizenSection) {
-    navigation = [
-      { name: 'My Dashboard', href: '/citizen', icon: Home },
-      { name: 'Nodal Officer', href: '/banker', icon: AlertTriangle },
-      { name: 'Report Scam', href: '/report', icon: ShieldAlert },
-      { name: 'Spatial Map', href: '/workbench/map', icon: Map },
-    ];
-    } else {
-    navigation = workbenchNavigation;
+    navigation = adminNavigation; // Will render all sections
+  } else if (user?.role === 'police' || user?.role === 'cyber_cell') {
+    navigation = adminSections.find(s => s.label === 'Investigator / Police')?.items || [];
+  } else if (user?.role === 'banker' || user?.role === 'bank_employee') {
+    navigation = adminSections.find(s => s.label === 'Banker / Nodal Officer')?.items || [];
+  } else if (user?.role === 'citizen') {
+    navigation = adminSections.find(s => s.label === 'Citizen')?.items || [];
   }
 
   return (

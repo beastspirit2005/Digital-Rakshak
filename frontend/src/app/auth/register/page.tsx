@@ -11,8 +11,8 @@ import axios from "axios";
 const ROLES = [
   { value: "citizen", label: "Citizen", description: "Report scams and check suspicious links" },
   { value: "police", label: "Police Officer", description: "Investigate cases and manage evidence", requiresApproval: true },
-  { value: "cyber_cell", label: "Cyber Cell Analyst", description: "Advanced threat intelligence and campaign tracking", requiresApproval: true },
-  { value: "bank_employee", label: "Bank Employee", description: "Financial fraud analysis and account freeze requests", requiresApproval: true },
+  { value: "banker", label: "Banker", description: "Financial fraud analysis and account freeze requests", requiresApproval: true },
+  { value: "admin", label: "Administrator", description: "Platform management and user approvals", requiresApproval: true },
 ];
 
 export default function RegisterPage() {
