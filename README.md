@@ -39,7 +39,7 @@ Built for massive scale and DoS resilience, Digital Rakshak uses a **Redis-free 
 *   **Role-Based Access Control (RBAC):** Strict boundaries separating Citizens, Police Officers, Cyber Cell Analysts, and Bank Employees.
 
 ### 8. Dual-Inference Engine (Cloud + Local Edge)
-Built for air-gapped security environments. Digital Rakshak can run on cloud-based LLMs (Google Gemini Pro) for maximum reasoning capabilities, or seamlessly switch to a completely offline, local PyTorch engine (xlm-roberta-base) for extreme privacy.
+Built for air-gapped security environments. Digital Rakshak can run on cloud-based LLMs (Google Gemini Pro) for maximum reasoning capabilities, or seamlessly switch to a completely offline, local PyTorch engine (`xlm-roberta-base`) for extreme privacy.
 
 ---
 
@@ -47,7 +47,7 @@ Built for air-gapped security environments. Digital Rakshak can run on cloud-bas
 
 Digital Rakshak is built as a unified monorepo for seamless deployment.
 
-`mermaid
+```mermaid
 graph TD
     subgraph Frontend [Client Tier - Next.js]
         Copilot[Citizen AI Copilot]
@@ -84,7 +84,7 @@ graph TD
     CA <--> Neo
     
     API <--> PG
-`
+```
 
 ---
 
@@ -93,7 +93,7 @@ graph TD
 *   **Frontend:** Next.js 14 (App Router), React, Tailwind CSS, MapLibre GL, Framer Motion, Axios.
 *   **Backend:** FastAPI, Python 3.12, SQLAlchemy 2.0 (Async), Asyncpg.
 *   **Databases:** PostgreSQL (Relational & pgvector embeddings) and Neo4j (Graph data).
-*   **AI Integration:** Google Gemini Pro API, OpenAI Whisper API, Local PyTorch (xlm-roberta).
+*   **AI Integration:** Google Gemini Pro API, OpenAI Whisper API, Local PyTorch (`xlm-roberta`).
 *   **Deployment:** Vercel (Frontend & Serverless Backend).
 
 ---
@@ -107,43 +107,51 @@ graph TD
 
 ### 1. Start the Databases
 Start your local instances of PostgreSQL and Neo4j.
-`ash
+```bash
 docker-compose up -d
-`
+```
 
-### 2. Backend Setup
-`ash
+### 2. Backend Setup (via Docker Hub - Recommended)
+To avoid downloading massive PyTorch models locally, you can pull the pre-built backend image directly from Docker Hub. This image encapsulates the entire FastAPI application and the local LLM weights.
+
+```bash
+docker pull beastspirit2005/digital-rakshak-backend:latest
+docker run -d -p 8000:8000 --env-file ./backend/.env --name dr-backend beastspirit2005/digital-rakshak-backend:latest
+```
+
+### 3. Backend Setup (Manual Source Build)
+```bash
 cd backend
 python -m venv venv
 # Windows: venv\Scripts\activate
 # Mac/Linux: source venv/bin/activate
 
 pip install -r requirements.txt
-`
-Create a .env file based on .env.example.
+```
+Create a `.env` file based on `.env.example`.
 Run database migrations and start the server:
-`ash
+```bash
 alembic upgrade head
 python scripts/seed_diverse_cases.py
 uvicorn main:app --reload --port 8000
-`
+```
 
-### 3. Frontend Setup
+### 4. Frontend Setup
 Open a new terminal.
-`ash
+```bash
 cd frontend
 npm install
-`
-Create a .env.local file with: NEXT_PUBLIC_API_URL=http://127.0.0.1:8000/v1
+```
+Create a `.env.local` file with: `NEXT_PUBLIC_API_URL=http://127.0.0.1:8000/v1`
 Start the Next.js development server:
-`ash
+```bash
 npm run dev
-`
-The application will be available at **http://localhost:3000**.
+```
+The application will be available at **`http://localhost:3000`**.
 
 ---
 
 ## ??? Security & Contribution
-This repository utilizes strict .gitignore rules to prevent credentials (.env, database volumes, model weights) from being committed. If deploying, ensure you configure your cloud provider's environment variables appropriately.
+This repository utilizes strict `.gitignore` rules to prevent credentials (`.env`, database volumes, model weights) from being committed. If deploying, ensure you configure your cloud provider's environment variables appropriately.
 
 **Developed for a Safer Digital India.**
