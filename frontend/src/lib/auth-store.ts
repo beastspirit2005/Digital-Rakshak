@@ -50,3 +50,8 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
 }));
+
+// Hydrate synchronously on the client before any component mounts
+if (typeof window !== "undefined") {
+  useAuthStore.getState().hydrate();
+}

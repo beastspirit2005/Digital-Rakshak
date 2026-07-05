@@ -8,6 +8,7 @@ import { Shield, ArrowRight, Loader2, CheckCircle2, AlertCircle, KeyRound, Mail 
 import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
 import { useAuthStore } from "@/lib/auth-store";
+import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
   const [loginMethod, setLoginMethod] = useState<"password" | "otp">("password");
@@ -18,6 +19,7 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const { login } = useAuthStore();
+  const router = useRouter();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,11 +41,15 @@ export default function LoginPage() {
         login(response.data.access_token, response.data.user);
         
         const role = response.data.user.role;
-        if (role === 'admin') window.location.href = "/admin";
-        else if (role === 'citizen') window.location.href = "/citizen";
-        else window.location.href = "/workbench";
+        if (role === 'admin') router.push("/admin");
+        else if (role === 'citizen') router.push("/citizen");
+        else router.push("/workbench");
       } catch (err: any) {
-        setError(err.response?.data?.detail || "Invalid email or password.");
+        const status = err.response?.status;
+        const detail = err.response?.data?.detail;
+        if (status === 403) setError(detail || "Account not approved yet.");
+        else if (status === 401) setError("Invalid email or password.");
+        else setError(detail || "Login failed. Please try again.");
       } finally {
         setIsLoading(false);
       }
@@ -64,14 +70,18 @@ export default function LoginPage() {
       
       const role = response.data.user.role;
       if (role === 'admin') {
-        window.location.href = "/admin";
+        router.push("/admin");
       } else if (role === 'citizen') {
-        window.location.href = "/citizen";
+        router.push("/citizen");
       } else {
-        window.location.href = "/workbench";
+        router.push("/workbench");
       }
     } catch (err: any) {
-      setError(err.response?.data?.detail || "Invalid OTP. Please try again.");
+      const status = err.response?.status;
+      const detail = err.response?.data?.detail;
+      if (status === 403) setError(detail || "Account not approved yet.");
+      else if (status === 401) setError("Invalid or expired OTP.");
+      else setError(detail || "Login failed. Please try again.");
     } finally {
       setIsLoading(false);
     }

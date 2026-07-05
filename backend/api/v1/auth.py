@@ -166,53 +166,44 @@ async def verify_otp(data: VerifyOTPRequest, request: Request, db: AsyncSession 
 
 @router.post("/login-password")
 async def login_password(data: LoginPasswordRequest, request: Request, db: AsyncSession = Depends(get_db)):
-    try:
-        ip = request.client.host if request.client else "unknown"
-        key = f"rate_limit:login:{data.email}:{ip}"
-        current = await redis_client.incr(key)
-        if current == 1:
-            await redis_client.expire(key, 900) # 15 minutes window
-        if current > 5:
-            raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Too many failed attempts. Try again in 15 minutes.")
-    except Exception as e:
-        import traceback
-        return {"debug_error": str(e), "debug_type": str(type(e)), "trace": traceback.format_exc()}
+    ip = request.client.host if request.client else "unknown"
+    key = f"rate_limit:login:{data.email}:{ip}"
+    current = await redis_client.incr(key)
+    if current == 1:
+        await redis_client.expire(key, 900) # 15 minutes window
+    if current > 5:
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Too many failed attempts. Try again in 15 minutes.")
 
-    try:
-        result = await db.execute(select(User).where(User.email == data.email))
-        user = result.scalars().first()
+    result = await db.execute(select(User).where(User.email == data.email))
+    user = result.scalars().first()
+    
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid email or password")
         
-        if not user:
-            raise HTTPException(status_code=401, detail="Invalid email or password")
-            
-        if not user.hashed_password:
-            raise HTTPException(status_code=400, detail="This account does not have a password set. Please log in with OTP.")
-            
-        if not verify_password(data.password, user.hashed_password):
-            raise HTTPException(status_code=401, detail="Invalid email or password")
-            
-        if not user.is_approved:
-            raise HTTPException(status_code=403, detail="Account pending admin approval.")
-        if not user.is_active:
-            raise HTTPException(status_code=403, detail="Account is disabled.")
-
-        # Reset rate limit on successful login
-        await redis_client.delete(f"rate_limit:login:{data.email}:{ip}")
-
-        access_token = create_access_token(
-            data={"sub": str(user.id), "email": user.email, "role": user.role}
-        )
+    if not user.hashed_password:
+        raise HTTPException(status_code=400, detail="This account does not have a password set. Please log in with OTP.")
         
-        return {
-            "access_token": access_token,
-            "token_type": "bearer",
-            "user": {
-                "id": str(user.id),
-                "email": user.email,
-                "role": user.role
-            }
+    if not verify_password(data.password, user.hashed_password):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+        
+    if not user.is_approved:
+        raise HTTPException(status_code=403, detail="Account pending admin approval.")
+    if not user.is_active:
+        raise HTTPException(status_code=403, detail="Account is disabled.")
+
+    # Reset rate limit on successful login
+    await redis_client.delete(f"rate_limit:login:{data.email}:{ip}")
+
+    access_token = create_access_token(
+        data={"sub": str(user.id), "email": user.email, "role": user.role}
+    )
+    
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": {
+            "id": str(user.id),
+            "email": user.email,
+            "role": user.role
         }
-    except HTTPException:
-        raise
-    except Exception as e:
-        return {"debug_error": str(e), "debug_type": str(type(e))}
+    }

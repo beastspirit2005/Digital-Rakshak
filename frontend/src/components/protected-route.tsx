@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/auth-store";
 import { Loader2 } from "lucide-react";
@@ -12,33 +12,27 @@ interface ProtectedRouteProps {
 
 export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
   const router = useRouter();
-  const { isAuthenticated, user, hydrate } = useAuthStore();
+  const { isAuthenticated, user } = useAuthStore();
+  const [isChecking, setIsChecking] = useState(true);
 
   useEffect(() => {
-    hydrate();
-  }, [hydrate]);
+    if (!isAuthenticated) {
+      router.replace("/auth/login");
+      return;
+    }
 
-  useEffect(() => {
-    // Give hydrate a tick to run
-    const timeout = setTimeout(() => {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        router.replace("/auth/login");
-        return;
-      }
+    if (allowedRoles && user && !allowedRoles.includes(user.role)) {
+      if (user.role === 'admin') router.replace("/admin");
+      else if (user.role === 'citizen') router.replace("/citizen");
+      else router.replace("/workbench");
+      return;
+    }
 
-      if (allowedRoles && user && !allowedRoles.includes(user.role)) {
-        if (user.role === 'admin') router.replace("/admin");
-        else if (user.role === 'citizen') router.replace("/citizen");
-        else router.replace("/workbench");
-      }
-    }, 100);
-
-    return () => clearTimeout(timeout);
+    setIsChecking(false);
   }, [isAuthenticated, user, allowedRoles, router]);
 
-  // Show loading while hydrating
-  if (!isAuthenticated) {
+  // Show loading while checking
+  if (isChecking || !isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
