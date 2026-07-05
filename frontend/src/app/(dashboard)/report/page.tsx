@@ -83,10 +83,10 @@ export default function ReportPage() {
         setLongitude(lon);
         
         try {
-          const res = await axios.get(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`);
-          if (res.data && res.data.address) {
-            setCity(res.data.address.city || res.data.address.town || res.data.address.village || "");
-            setState(res.data.address.state || "");
+          const res = await axios.get(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`);
+          if (res.data) {
+            setCity(res.data.city || res.data.locality || "");
+            setState(res.data.principalSubdivision || res.data.countryName || "");
             setLocationSuccess(true);
           }
         } catch (err) {
