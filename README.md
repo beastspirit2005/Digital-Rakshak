@@ -1,6 +1,4 @@
-# 🛡️ Digital Rakshak: AI-Powered Cyber Threat Intelligence Platform
-
-![Digital Rakshak Overview](/public/hero-image.png) *(Note: Please place a hero image in your public folder)*
+# Digital Rakshak: AI-Powered Cyber Threat Intelligence Platform
 
 **Digital Rakshak** is a next-generation, AI-driven cyber-threat intelligence and prevention platform built to combat organized financial fraud and cybercrime in India. 
 
@@ -8,30 +6,30 @@ Moving beyond reactive complaint registration, Digital Rakshak leverages a massi
 
 ---
 
-## 🌟 Key Features
+## Key Features
 
-### 🧠 1. Multi-Agent AI Swarm (RAIC Core)
+### 1. Multi-Agent AI Swarm (RAIC Core)
 The heart of Digital Rakshak is the **R**esponsive **A**I **I**ntelligence **C**ore (RAIC), which dynamically routes every submitted case through a parallel pipeline of specialized AI agents:
 *   **Threat Analysis Agent:** Extracts Indicator of Compromise (IoC) vectors like malicious UPI IDs, crypto wallets, and phishing domains.
 *   **Trust & Validation Agent:** Computes a mathematical "Trust Score" using ZTIVF (Zero Trust Identity & Verification Framework) rules.
 *   **Behavioural DNA Agent:** Analyzes the psychological tactics used by the attacker (Urgency, Fear, Authority Impersonation).
 *   **Campaign Agent:** Cross-references the attack DNA with the national database to detect if this is part of a larger, coordinated campaign.
 
-### 🎙️ 2. AI Citizen Copilot
+### 2. AI Citizen Copilot
 A fully interactive reporting interface where victims can simply **speak** about what happened to them. The Copilot uses Whisper API for transcription, automatically extracts the crucial details, and drafts an official report formatted perfectly for LEAs. 
 
-### 🕸️ 3. Organized Syndicate Tracking (Neo4j)
+### 3. Organized Syndicate Tracking (Neo4j)
 Every phone number, UPI ID, and malicious URL is stored as a node in a **Neo4j Graph Database**. When multiple victims report cases involving the same phone number or bank account, the Intelligence Graph automatically links them, exposing the hidden infrastructure of organized syndicates.
 
-### 🗺️ 4. Spatial Threat Mapping
+### 4. Spatial Threat Mapping
 Real-time geographic visualization of cyber attacks. Watch threat clusters form on the map as the AI isolates coordinated attacks originating from specific regions (e.g., Jamtara, Mewat).
 
-### 🔒 5. Dual-Inference Engine (Cloud + Local Edge)
+### 5. Dual-Inference Engine (Cloud + Local Edge)
 Built for air-gapped security environments. Digital Rakshak can run on cloud-based LLMs (Google Gemini Pro) for maximum reasoning capabilities, or seamlessly switch to a completely offline, local PyTorch engine (`xlm-roberta-base`) for extreme privacy.
 
 ---
 
-## 🏗️ System Architecture
+## System Architecture
 
 Digital Rakshak is built as a unified monorepo for seamless deployment.
 
@@ -76,7 +74,7 @@ graph TD
 
 ---
 
-## 💻 Technology Stack
+## Technology Stack
 
 *   **Frontend:** Next.js 14 (App Router), React, Tailwind CSS, MapLibre GL, Framer Motion.
 *   **Backend:** FastAPI, Python 3.11+, SQLAlchemy 2.0 (Async), Asyncpg.
@@ -86,7 +84,7 @@ graph TD
 
 ---
 
-## 🚀 Local Development Setup
+## Local Development Setup
 
 ### Prerequisites
 *   Python 3.11+
@@ -131,7 +129,7 @@ The application will be available at **`http://localhost:3000`**.
 
 ---
 
-## 🔒 Security & Contribution
+## Security & Contribution
 This repository utilizes strict `.gitignore` rules to prevent credentials (`.env`, database volumes, model weights) from being committed. If deploying, ensure you configure your cloud provider's environment variables appropriately.
 
-**Developed with ❤️ for a Safer Digital India.**
+**Developed for a Safer Digital India.**
