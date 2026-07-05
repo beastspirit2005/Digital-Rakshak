@@ -16,14 +16,20 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
   const [isChecking, setIsChecking] = useState(true);
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    // Re-hydrate in case store state isn't up yet
+    useAuthStore.getState().hydrate();
+    
+    // Read directly from the synchronous Zustand state to bypass React's render cycle lag
+    const state = useAuthStore.getState();
+
+    if (!state.isAuthenticated) {
       router.replace("/auth/login");
       return;
     }
 
-    if (allowedRoles && user && !allowedRoles.includes(user.role)) {
-      if (user.role === 'admin') router.replace("/admin");
-      else if (user.role === 'citizen') router.replace("/citizen");
+    if (allowedRoles && state.user && !allowedRoles.includes(state.user.role)) {
+      if (state.user.role === 'admin') router.replace("/admin");
+      else if (state.user.role === 'citizen') router.replace("/citizen");
       else router.replace("/workbench");
       return;
     }
