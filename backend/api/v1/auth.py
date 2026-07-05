@@ -1,7 +1,7 @@
 import secrets
 from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, status, Request
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
@@ -18,13 +18,11 @@ class RegisterRequest(BaseModel):
     role: str = "citizen"
     password: str
     
-    from pydantic import field_validator
     @field_validator('email')
     @classmethod
     def lower_email(cls, v: str):
         return v.lower() if v else v
     
-    from pydantic import field_validator
     @field_validator('password')
     @classmethod
     def validate_password(cls, v):
