@@ -3,13 +3,6 @@
     "frontend": {
       "entrypoint": "frontend",
       "routePrefix": "/"
-    },
-    "backend": {
-      "entrypoint": "backend/main.py",
-      "routePrefix": "/api",
-      "framework": "fastapi",
-      "maxDuration": 60,
-      "memory": 1024
     }
   }
 }
