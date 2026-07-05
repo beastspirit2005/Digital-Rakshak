@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 from infrastructure.db.session import get_db
-from infrastructure.db.redis import get_redis
+
 from infrastructure.graph.neo4j_client import IntelligenceGraph
 
 router = APIRouter(prefix="/health", tags=["Health"])
@@ -34,19 +34,7 @@ async def health_check(db: AsyncSession = Depends(get_db)):
         health_status["status"] = "degraded"
         health_status["services"]["postgres"] = {"status": "down", "error": str(e)}
 
-    # 2. Check Redis
-    try:
-        start_time = time.time()
-        redis = await get_redis()
-        await redis.ping()
-        health_status["services"]["redis"] = {
-            "status": "up",
-            "latency_ms": round((time.time() - start_time) * 1000, 2)
-        }
-    except Exception as e:
-        logger.error(f"Redis health check failed: {e}")
-        health_status["status"] = "degraded"
-        health_status["services"]["redis"] = {"status": "down", "error": str(e)}
+
 
     # 3. Check Neo4j
     try:
