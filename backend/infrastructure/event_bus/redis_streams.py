@@ -1,5 +1,5 @@
 import json
-import redis.asyncio as redis
+
 from typing import Dict, Any
 from core.config import settings
 

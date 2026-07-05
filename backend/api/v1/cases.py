@@ -14,22 +14,10 @@ from api.v1.users import get_current_admin
 from core.security import decode_access_token
 from fastapi.security import OAuth2PasswordBearer
 from fastapi import Request
-import redis.asyncio as redis
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
 limiter = Limiter(key_func=get_remote_address)
-
-from infrastructure.db.redis import redis_client
-
-async def check_rate_limit(user_id: str):
-    key = f"rate_limit:submit:{user_id}"
-    current = await redis_client.incr(key)
-    if current == 1:
-        await redis_client.expire(key, 60) # 1 minute window
-    if current > 5:
-        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Too Many Requests. Rate limited to 5 AI analysis requests per minute to prevent hardware exhaustion.")
-
 router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/login")
 
@@ -91,8 +79,7 @@ async def submit_case(
     if not user_id:
         raise HTTPException(status_code=401, detail="Invalid user token")
         
-    # Check rate limit before proceeding
-    await check_rate_limit(user_id)
+
     
     # 1. Save the Case to PostgreSQL FIRST (Save First, Analyze Second)
     new_case = Case(
