@@ -1,9 +1,15 @@
 import os
-import torch
-from transformers import DistilBertTokenizer
-import numpy as np
 import re
 
+# Graceful degradation for Vercel Serverless (Lite Mode)
+ML_AVAILABLE = False
+try:
+    import torch
+    import numpy as np
+    from transformers import DistilBertTokenizer
+    ML_AVAILABLE = True
+except ImportError:
+    print("WARNING: PyTorch not found. Running in Lite Mode (Cloud AI only).")
 class RakshakCoreClient:
     """
     Client for loading and running inference on the custom Rakshak Multi-Task PyTorch Model.
@@ -11,7 +17,7 @@ class RakshakCoreClient:
     """
     def __init__(self, model_version="1.0"):
         self.version = model_version
-        self.device = torch.device("cpu")
+        self.device = torch.device("cpu") if ML_AVAILABLE else "cpu"
         self.model_dir = os.path.join(os.path.dirname(__file__), "..", "..", "models", "rakshak-core", f"v{model_version}")
         self.tokenizer = None
         self.model = None
@@ -161,7 +167,8 @@ class RakshakVoiceClient:
         try:
             from faster_whisper import WhisperModel
             # Load in FP16 for maximum GPU speed
-            self.model = WhisperModel("small", device="cuda" if torch.cuda.is_available() else "cpu", compute_type="float16")
+            has_cuda = ML_AVAILABLE and torch.cuda.is_available()
+            self.model = WhisperModel("small", device="cuda" if has_cuda else "cpu", compute_type="float16")
             return True
         except Exception as e:
             print(f"Whisper failed to load: {e}")
@@ -182,7 +189,8 @@ class RakshakVisionClient:
     def load_model(self):
         try:
             import easyocr
-            self.reader = easyocr.Reader(['en', 'hi'], gpu=torch.cuda.is_available())
+            has_cuda = ML_AVAILABLE and torch.cuda.is_available()
+            self.reader = easyocr.Reader(['en', 'hi'], gpu=has_cuda)
             return True
         except Exception as e:
             print(f"EasyOCR failed to load: {e}")
