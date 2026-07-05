@@ -32,12 +32,15 @@ export default function RegisterPage() {
     setError("");
 
     try {
-      const response = await axios.post(api("/auth/register"), {
+      const payload: any = {
         email,
         full_name: fullName,
         role,
-        password,
-      });
+      };
+      if (password) {
+        payload.password = password;
+      }
+      const response = await axios.post(api("/auth/register"), payload);
       setSuccess(true);
     } catch (err: any) {
       setError(err.response?.data?.detail || "Registration failed. Please try again.");
@@ -109,7 +112,7 @@ export default function RegisterPage() {
             required
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
-            placeholder="Harshit Sharma"
+            placeholder="John Doe"
             className="w-full px-4 py-3 rounded-xl bg-background border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all outline-none"
           />
         </div>
