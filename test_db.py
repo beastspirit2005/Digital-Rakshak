@@ -1,16 +1,19 @@
 import asyncio
-from infrastructure.db.session import AsyncSessionLocal
+import sys
+import os
+
+sys.path.append(os.path.join(os.path.dirname(__file__), 'backend'))
+from infrastructure.db.session import SessionLocal
 from domain.models.user import User
-from sqlalchemy import select
+from core.security import verify_password
+from sqlalchemy.future import select
 
-async def main():
-    async with AsyncSessionLocal() as session:
-        result = await session.execute(select(User).where(User.email == 'harshit2005sharma@gmail.com'))
-        user = result.scalar_one_or_none()
-        if user:
-            print(f'User found: {user.email}, Approved: {user.is_approved}')
-        else:
-            print('User NOT FOUND in database.')
+async def check():
+    async with SessionLocal() as db:
+        result = await db.execute(select(User))
+        users = result.scalars().all()
+        for u in users:
+            print(f"User: {u.email} | Approved: {u.is_approved} | Active: {u.is_active} | HashedPwd: {u.hashed_password}")
 
-if __name__ == '__main__':
-    asyncio.run(main())
+if __name__ == "__main__":
+    asyncio.run(check())

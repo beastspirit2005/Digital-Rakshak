@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from typing import List
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, field_validator
 from typing import Optional
 import secrets
 import string
@@ -19,11 +19,21 @@ class UserCreate(BaseModel):
     email: EmailStr
     role: str
 
+    @field_validator('email')
+    @classmethod
+    def lower_email(cls, v: str):
+        return v.lower() if v else v
+
 class UserUpdate(BaseModel):
     full_name: Optional[str] = None
     email: Optional[EmailStr] = None
     role: Optional[str] = None
     is_active: Optional[bool] = None
+
+    @field_validator('email')
+    @classmethod
+    def lower_email(cls, v: str):
+        return v.lower() if v else v
 
 router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/login")

@@ -19,6 +19,12 @@ class RegisterRequest(BaseModel):
     password: str
     
     from pydantic import field_validator
+    @field_validator('email')
+    @classmethod
+    def lower_email(cls, v: str):
+        return v.lower() if v else v
+    
+    from pydantic import field_validator
     @field_validator('password')
     @classmethod
     def validate_password(cls, v):
@@ -35,20 +41,45 @@ class LoginPasswordRequest(BaseModel):
     email: EmailStr
     password: str
 
+    @field_validator('email')
+    @classmethod
+    def lower_email(cls, v: str):
+        return v.lower() if v else v
+
 class LoginRequest(BaseModel):
     email: EmailStr
+
+    @field_validator('email')
+    @classmethod
+    def lower_email(cls, v: str):
+        return v.lower() if v else v
 
 class VerifyOTPRequest(BaseModel):
     email: EmailStr
     otp: str
 
+    @field_validator('email')
+    @classmethod
+    def lower_email(cls, v: str):
+        return v.lower() if v else v
+
 class ForgotPasswordRequest(BaseModel):
     email: EmailStr
+
+    @field_validator('email')
+    @classmethod
+    def lower_email(cls, v: str):
+        return v.lower() if v else v
 
 class ResetPasswordRequest(BaseModel):
     email: EmailStr
     otp: str
     new_password: str
+    
+    @field_validator('email')
+    @classmethod
+    def lower_email(cls, v: str):
+        return v.lower() if v else v
     
     from pydantic import field_validator
     @field_validator('new_password')
