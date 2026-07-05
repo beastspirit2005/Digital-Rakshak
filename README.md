@@ -114,9 +114,11 @@ docker-compose up -d
 ### 2. Backend Setup (via Docker Hub - Recommended)
 To avoid downloading massive PyTorch models locally, you can pull the pre-built backend image directly from Docker Hub. This image encapsulates the entire FastAPI application and the local LLM weights.
 
+*   🔗 **[View Backend Image on Docker Hub](https://hub.docker.com/r/106925/digital-rakshak-backend)**
+
 ```bash
-docker pull beastspirit2005/digital-rakshak-backend:latest
-docker run -d -p 8000:8000 --env-file ./backend/.env --name dr-backend beastspirit2005/digital-rakshak-backend:latest
+docker pull 106925/digital-rakshak-backend:latest
+docker run -d -p 8000:8000 --env-file ./backend/.env --name dr-backend 106925/digital-rakshak-backend:latest
 ```
 
 ### 3. Backend Setup (Manual Source Build)
@@ -136,7 +138,17 @@ python scripts/seed_diverse_cases.py
 uvicorn main:app --reload --port 8000
 ```
 
-### 4. Frontend Setup
+### 4. Frontend Setup (via Docker Hub - Recommended)
+For a production-ready client without installing Node.js, pull the pre-built frontend image:
+
+*   🔗 **[View Frontend Image on Docker Hub](https://hub.docker.com/r/106925/digital-rakshak-frontend)**
+
+```bash
+docker pull 106925/digital-rakshak-frontend:latest
+docker run -d -p 3000:3000 --env-file ./frontend/.env.local --name dr-frontend 106925/digital-rakshak-frontend:latest
+```
+
+### 5. Frontend Setup (Manual Source Build)
 Open a new terminal.
 ```bash
 cd frontend
