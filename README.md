@@ -6,7 +6,7 @@ Moving beyond reactive complaint registration, Digital Rakshak leverages a massi
 
 ---
 
-## ?? Comprehensive Feature List
+## Comprehensive Feature List
 
 ### 1. Multi-Agent AI Swarm (RAIC Core)
 The heart of Digital Rakshak is the **R**esponsive **A**I **I**ntelligence **C**ore (RAIC), which dynamically routes every submitted case through a parallel pipeline of specialized AI agents:
@@ -43,7 +43,7 @@ Built for air-gapped security environments. Digital Rakshak can run on cloud-bas
 
 ---
 
-## ??? System Architecture
+## System Architecture
 
 Digital Rakshak is built as a unified monorepo for seamless deployment.
 
@@ -88,7 +88,7 @@ graph TD
 
 ---
 
-## ?? Technology Stack
+## Technology Stack
 
 *   **Frontend:** Next.js 14 (App Router), React, Tailwind CSS, MapLibre GL, Framer Motion, Axios.
 *   **Backend:** FastAPI, Python 3.12, SQLAlchemy 2.0 (Async), Asyncpg.
@@ -98,7 +98,7 @@ graph TD
 
 ---
 
-## ?? Local Development Setup
+## Local Development Setup
 
 ### Prerequisites
 *   Python 3.11+
@@ -151,7 +151,7 @@ The application will be available at **`http://localhost:3000`**.
 
 ---
 
-## ??? Security & Contribution
+## Security & Contribution
 This repository utilizes strict `.gitignore` rules to prevent credentials (`.env`, database volumes, model weights) from being committed. If deploying, ensure you configure your cloud provider's environment variables appropriately.
 
 **Developed for a Safer Digital India.**
