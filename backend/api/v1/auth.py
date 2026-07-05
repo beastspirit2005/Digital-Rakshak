@@ -16,7 +16,7 @@ class RegisterRequest(BaseModel):
     email: EmailStr
     full_name: str
     role: str = "citizen"
-    password: str = None
+    password: str
     
     from pydantic import field_validator
     @field_validator('password')

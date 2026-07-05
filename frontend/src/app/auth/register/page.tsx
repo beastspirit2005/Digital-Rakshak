@@ -36,10 +36,8 @@ export default function RegisterPage() {
         email,
         full_name: fullName,
         role,
+        password,
       };
-      if (password) {
-        payload.password = password;
-      }
       const response = await axios.post(api("/auth/register"), payload);
       setSuccess(true);
     } catch (err: any) {
@@ -131,13 +129,14 @@ export default function RegisterPage() {
         </div>
 
         <div className="space-y-2">
-          <label htmlFor="registerPassword" className="text-sm font-medium">Password (Optional)</label>
+          <label htmlFor="registerPassword" className="text-sm font-medium">Password</label>
           <input
             id="registerPassword"
             type="password"
+            required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="Leave blank for OTP-only login"
+            placeholder="Min 8 chars, 1 digit, 1 special char"
             className="w-full px-4 py-3 rounded-xl bg-background border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all outline-none"
           />
         </div>
