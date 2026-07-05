@@ -43,6 +43,7 @@ export default function LoginPage() {
         const role = response.data.user.role;
         if (role === 'admin') router.push("/admin");
         else if (role === 'citizen') router.push("/citizen");
+        else if (role === 'banker') router.push("/banker");
         else router.push("/workbench");
       } catch (err: any) {
         const status = err.response?.status;
@@ -73,6 +74,8 @@ export default function LoginPage() {
         router.push("/admin");
       } else if (role === 'citizen') {
         router.push("/citizen");
+      } else if (role === 'banker') {
+        router.push("/banker");
       } else {
         router.push("/workbench");
       }
