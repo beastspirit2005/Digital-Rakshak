@@ -20,11 +20,7 @@ from slowapi.util import get_remote_address
 
 limiter = Limiter(key_func=get_remote_address)
 
-class MockRedis:
-    async def incr(self, *args, **kwargs): return 1
-    async def expire(self, *args, **kwargs): pass
-    async def delete(self, *args, **kwargs): pass
-redis_client = MockRedis()
+from infrastructure.db.redis import redis_client
 
 async def check_rate_limit(user_id: str):
     key = f"rate_limit:submit:{user_id}"

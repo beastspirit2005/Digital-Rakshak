@@ -71,14 +71,7 @@ class RakshakCoreClient:
             probs = torch.softmax(scaled_logits, dim=1).cpu().numpy()[0]
             
             pred_class_idx = np.argmax(probs)
-            base_confidence = float(probs[pred_class_idx])
-            
-            # Apply dynamic variance (jitter) based on text length to simulate rich confidence distributions for demo purposes
-            # since the baseline hackathon model often suffers from mode collapse
-            jitter = (hash(text) % 150) / 1000.0  # Max 0.150 (15%) variance
-            confidence = min(0.99, base_confidence + jitter)
-            if confidence < 0.5:
-                confidence += 0.4 # ensure it is high enough for scams
+            confidence = float(probs[pred_class_idx])
                 
             threat_class = self.classes[pred_class_idx]
             
