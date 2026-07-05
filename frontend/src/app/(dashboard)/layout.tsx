@@ -69,6 +69,9 @@ const adminSections = [
     color: 'green',
     items: [
       { name: 'Nodal Dashboard', href: '/banker', icon: Building },
+      { name: 'Report Scam', href: '/report', icon: ShieldAlert },
+      { name: 'Prevention Suite', href: '/prevention', icon: ShieldCheck },
+      { name: 'Spatial Map', href: '/workbench/map', icon: Map },
     ]
   },
   {
