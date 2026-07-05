@@ -1,147 +1,137 @@
-# Digital Rakshak
+# 🛡️ Digital Rakshak: AI-Powered Cyber Threat Intelligence Platform
 
-Digital Rakshak is an advanced, AI-powered cyber-threat intelligence and prevention platform designed to combat organized financial fraud in India. 
+![Digital Rakshak Overview](/public/hero-image.png) *(Note: Please place a hero image in your public folder)*
 
-The system leverages a multi-agent AI architecture to ingest scattered cybercrime reports, cross-reference them in real-time using a Neo4j knowledge graph, and automatically identify organized crime syndicates operating across state lines. By finding the hidden links between seemingly isolated cases—such as shared bank accounts, recurring crypto wallets, or identical threat actor behavioral patterns—Digital Rakshak empowers law enforcement, nodal officers, and citizens to move from a reactive stance to a proactive defense.
+**Digital Rakshak** is a next-generation, AI-driven cyber-threat intelligence and prevention platform built to combat organized financial fraud and cybercrime in India. 
 
-## System Architecture
+Moving beyond reactive complaint registration, Digital Rakshak leverages a massive **Multi-Agent AI Swarm**, **Graph Intelligence (Neo4j)**, and **Spatial Threat Mapping** to automatically identify organized crime syndicates, extract attack DNA, and provide actionable intelligence to Law Enforcement Agencies (LEAs), nodal officers, and citizens.
 
-The application is designed as a unified monorepo deploying both the Next.js frontend and the FastAPI backend onto Vercel Serverless Functions.
+---
+
+## 🌟 Key Features
+
+### 🧠 1. Multi-Agent AI Swarm (RAIC Core)
+The heart of Digital Rakshak is the **R**esponsive **A**I **I**ntelligence **C**ore (RAIC), which dynamically routes every submitted case through a parallel pipeline of specialized AI agents:
+*   **Threat Analysis Agent:** Extracts Indicator of Compromise (IoC) vectors like malicious UPI IDs, crypto wallets, and phishing domains.
+*   **Trust & Validation Agent:** Computes a mathematical "Trust Score" using ZTIVF (Zero Trust Identity & Verification Framework) rules.
+*   **Behavioural DNA Agent:** Analyzes the psychological tactics used by the attacker (Urgency, Fear, Authority Impersonation).
+*   **Campaign Agent:** Cross-references the attack DNA with the national database to detect if this is part of a larger, coordinated campaign.
+
+### 🎙️ 2. AI Citizen Copilot
+A fully interactive reporting interface where victims can simply **speak** about what happened to them. The Copilot uses Whisper API for transcription, automatically extracts the crucial details, and drafts an official report formatted perfectly for LEAs. 
+
+### 🕸️ 3. Organized Syndicate Tracking (Neo4j)
+Every phone number, UPI ID, and malicious URL is stored as a node in a **Neo4j Graph Database**. When multiple victims report cases involving the same phone number or bank account, the Intelligence Graph automatically links them, exposing the hidden infrastructure of organized syndicates.
+
+### 🗺️ 4. Spatial Threat Mapping
+Real-time geographic visualization of cyber attacks. Watch threat clusters form on the map as the AI isolates coordinated attacks originating from specific regions (e.g., Jamtara, Mewat).
+
+### 🔒 5. Dual-Inference Engine (Cloud + Local Edge)
+Built for air-gapped security environments. Digital Rakshak can run on cloud-based LLMs (Google Gemini Pro) for maximum reasoning capabilities, or seamlessly switch to a completely offline, local PyTorch engine (`xlm-roberta-base`) for extreme privacy.
+
+---
+
+## 🏗️ System Architecture
+
+Digital Rakshak is built as a unified monorepo for seamless deployment.
 
 ```mermaid
 graph TD
-    subgraph Frontend [Client Tier]
-        UI[Next.js React Dashboard]
-        Map[Leaflet Spatial Maps]
-        GraphVis[Cytoscape Network Visualizer]
+    subgraph Frontend [Client Tier - Next.js]
+        Copilot[Citizen AI Copilot]
+        Map[MapLibre Spatial Maps]
+        Dashboard[Investigation Workbench]
     end
 
-    subgraph Backend [Serverless API Tier]
+    subgraph Backend [API Tier - FastAPI]
         API[FastAPI Router]
         Auth[JWT Authentication]
-        AgentRouter[AI Router]
         
-        subgraph Agents [Multi-Agent Swarm]
-            TA[Threat Analysis Agent]
-            CA[Campaign Agent]
-            Geo[Geospatial Agent]
-            KA[Knowledge Agent]
+        subgraph Agents [RAIC Multi-Agent Swarm]
+            Router[AI Router]
+            TA[Threat Analysis]
+            CA[Campaign Correlation]
+            Geo[Geospatial Tracker]
+            TV[Trust Validation]
+            Router --> TA & CA & Geo & TV
         end
     end
 
-    subgraph Data [Persistence & Intelligence Tier]
-        PG[(PostgreSQL - Neon)]
-        Neo[(Neo4j - AuraDB)]
-        LLM[Google Gemini / Local Ollama]
+    subgraph Persistence [Data & Intelligence]
+        PG[(PostgreSQL / pgvector)]
+        Neo[(Neo4j Graph)]
+        LLM[Gemini / Local PyTorch]
     end
 
-    %% Connections
-    UI <-->|REST API| API
-    Map -.-> UI
-    GraphVis -.-> UI
+    Copilot <-->|REST| API
+    Dashboard <-->|REST| API
+    Map -.-> Dashboard
 
-    API <--> Auth
-    API <--> AgentRouter
-    AgentRouter --> TA
-    AgentRouter --> CA
-    AgentRouter --> Geo
-    AgentRouter --> KA
-
+    API <--> Router
     TA <--> LLM
-    CA <--> LLM
-    Geo <--> LLM
-
+    CA <--> Neo
+    
     API <--> PG
-    API <--> Neo
 ```
 
-## Technology Stack
+---
 
-- **Frontend:** Next.js 14, React, Tailwind CSS, Recharts, Cytoscape.js, React Leaflet.
-- **Backend:** FastAPI, Python 3.11+, SQLAlchemy 2.0 (Async), Asyncpg.
-- **Databases:** PostgreSQL (Relational schema, Vector embeddings) and Neo4j (Graph data for tracking organized syndicates).
-- **AI Integration:** Google Gemini Pro (Primary) and Ollama (Local fallback for air-gapped environments).
-- **Deployment:** Vercel (Monorepo hosting for both Next.js and FastAPI), Neon (Postgres hosting).
+## 💻 Technology Stack
 
-## Core Features
+*   **Frontend:** Next.js 14 (App Router), React, Tailwind CSS, MapLibre GL, Framer Motion.
+*   **Backend:** FastAPI, Python 3.11+, SQLAlchemy 2.0 (Async), Asyncpg.
+*   **Databases:** PostgreSQL (Relational & pgvector embeddings) and Neo4j (Graph data).
+*   **AI Integration:** Google Gemini Pro API, OpenAI Whisper API, Local PyTorch (`xlm-roberta`).
+*   **Deployment:** Vercel (Frontend & Serverless Backend).
 
-1. **Multi-Agent AI Swarm:** Different AI agents specialize in specific tasks (e.g., extracting Indicators of Compromise, mapping geospatial threats, tracing financial flows). The `AIRouter` dynamically dispatches tasks to the appropriate agent.
-2. **Graph Intelligence:** Every reported phone number, UPI ID, and crypto address is mapped as a node in Neo4j. When multiple cases point to the same node, the system flags a massive organized campaign.
-3. **Role-Based Access Control (RBAC):** Distinct dashboards for Citizens, Investigators, Nodal Officers, Cyber Cell, Policy Makers, and Admins.
-4. **Spatial Heatmaps:** Real-time geographical visualization of scam density and live attacks across the country.
-5. **Automated Takedowns:** Nodal officers can trigger automated API requests to block fraudulent bank accounts or take down malicious domains via the Takedown engine.
+---
 
-## Local Development Setup
+## 🚀 Local Development Setup
 
 ### Prerequisites
-- Python 3.11 or higher
-- Node.js 18 or higher
-- Docker and Docker Compose
+*   Python 3.11+
+*   Node.js 18+
+*   Docker & Docker Compose (for databases)
 
-### 1. Clone the Repository
-```bash
-git clone https://github.com/beastspirit2005/Digital-Rakshak.git
-cd Digital-Rakshak
-```
-
-### 2. Start the Local Databases
-We use Docker to run PostgreSQL, Neo4j, and Redis locally.
+### 1. Start the Databases
+Start your local instances of PostgreSQL and Neo4j.
 ```bash
 docker-compose up -d
 ```
 
-### 3. Backend Setup
+### 2. Backend Setup
 ```bash
 cd backend
 python -m venv venv
-# On Windows
-venv\Scripts\activate
-# On Mac/Linux
-source venv/bin/activate
+# Windows: venv\Scripts\activate
+# Mac/Linux: source venv/bin/activate
 
 pip install -r requirements.txt
 ```
-
-Create a `.env` file in the `backend` directory based on `.env.example`.
-Run database migrations and seed the data:
+Create a `.env` file based on `.env.example`.
+Run database migrations and start the server:
 ```bash
 alembic upgrade head
-python seed_admin.py
 python scripts/seed_diverse_cases.py
-```
-
-Start the FastAPI server:
-```bash
 uvicorn main:app --reload --port 8000
 ```
 
-### 4. Frontend Setup
-Open a new terminal window.
+### 3. Frontend Setup
+Open a new terminal.
 ```bash
 cd frontend
 npm install
 ```
-
-Create a `.env.local` file in the `frontend` directory:
-```env
-NEXT_PUBLIC_API_URL=http://127.0.0.1:8000/api/v1
-```
-
+Create a `.env.local` file with: `NEXT_PUBLIC_API_URL=http://127.0.0.1:8000/api/v1`
 Start the Next.js development server:
 ```bash
 npm run dev
 ```
-The application will be available at `http://localhost:3000`.
+The application will be available at **`http://localhost:3000`**.
 
-## Production Deployment
+---
 
-Digital Rakshak is configured for zero-configuration deployment on Vercel using the experimental monorepo setup (`vercel.json`).
+## 🔒 Security & Contribution
+This repository utilizes strict `.gitignore` rules to prevent credentials (`.env`, database volumes, model weights) from being committed. If deploying, ensure you configure your cloud provider's environment variables appropriately.
 
-1. Link the repository to Vercel.
-2. Add the backend environment variables (`DATABASE_URL`, `NEO4J_URI`, `GEMINI_API_KEY`, etc.) in the Vercel project settings.
-3. Set `NEXT_PUBLIC_API_URL` to `/api`.
-4. Deploy. Vercel will automatically build the Next.js frontend and deploy the FastAPI backend as Serverless Functions, completely bypassing CORS issues.
-
-## Security Notice
-
-This repository utilizes strict `.gitignore` rules to prevent credentials from being committed. Do not bypass these rules. If you are developing locally, always keep your actual keys inside the `.env` file, which is safely ignored by Git.
+**Developed with ❤️ for a Safer Digital India.**
