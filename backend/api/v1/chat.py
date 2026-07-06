@@ -88,3 +88,109 @@ async def case_copilot_chat(
     except Exception as e:
         logger.error(f"Chat Co-Pilot failed: {e}")
         raise HTTPException(status_code=500, detail="Failed to generate AI response.")
+
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+limiter = Limiter(key_func=get_remote_address)
+from fastapi import Request
+import re
+
+class GlobalChatRequest(BaseModel):
+    query: str
+    ai_mode: str = "groq"
+    case_id: str = None
+
+@router.post("/global", response_model=ChatResponse)
+@limiter.limit("10/minute")
+async def global_chatbot(
+    request: Request,
+    req: GlobalChatRequest,
+    db: AsyncSession = Depends(get_db),
+    user_payload: dict = Depends(get_current_user_token)
+):
+    """
+    Global AI Chatbot accessible by all roles with role-specific context injection and Prompt Injection protection.
+    """
+    # 1. Prompt Injection Protection
+    injection_patterns = [
+        r"(?i)ignore all previous instructions",
+        r"(?i)system prompt",
+        r"(?i)forget everything",
+        r"(?i)you are now",
+        r"(?i)bypass",
+        r"(?i)jailbreak",
+        r"(?i)act as a"
+    ]
+    for pattern in injection_patterns:
+        if re.search(pattern, req.query):
+            raise HTTPException(status_code=400, detail="Security Violation: Prompt Injection Attempt Detected.")
+
+    role = user_payload.get("role")
+    user_id = user_payload.get("sub")
+    
+    # 2. Role-Based Context Retrieval
+    context = "No additional context."
+    
+    if role == "citizen":
+        # Citizen context: Summarize their recent cases
+        result = await db.execute(select(Case).where(Case.submitted_by == user_id).order_by(Case.created_at.desc()).limit(5))
+        cases = result.scalars().all()
+        if cases:
+            context = "USER'S RECENT CASES:\n"
+            for c in cases:
+                context += f"- Case {c.case_number}: Status {c.status}, Threat Level: {c.priority}\n"
+        else:
+            context = "User has no submitted cases yet."
+            
+    elif role == "police" or role == "cyber_cell":
+        # Police context: Recent active cases
+        result = await db.execute(select(Case).where(Case.status == 'submitted').order_by(Case.created_at.desc()).limit(5))
+        cases = result.scalars().all()
+        if cases:
+            context = "RECENT UNASSIGNED CASES:\n"
+            for c in cases:
+                context += f"- Case {c.case_number} ({c.city}, {c.state}): Score {c.threat_confidence_score}\n"
+                
+    elif role == "admin":
+        if req.case_id:
+            result = await db.execute(select(Case).where(Case.case_number == req.case_id))
+            case = result.scalar_one_or_none()
+            if case:
+                context = f"REQUESTED CASE {case.case_number}:\nStatus: {case.status}\nThreat: {case.priority}\nScam Text: {case.scam_text}\n"
+            else:
+                context = f"Requested case {req.case_id} not found."
+        else:
+            context = "Admin Global Access. You have full oversight of the Digital Rakshak platform."
+            
+    # 3. Construct System Prompt
+    system_prompt = f"""
+    You are the Digital Rakshak Global AI Assistant.
+    The current user has the role of '{role}'.
+    Use the following CONTEXT to answer the user's query if relevant.
+    CONTEXT:
+    {context}
+    
+    Be helpful, concise, and professional.
+    """
+    
+    full_prompt = f"{system_prompt}\n\nUSER QUERY: {req.query}"
+    ai_mode = req.ai_mode.lower()
+
+    try:
+        if ai_mode == "cloud" or ai_mode == "gemini":
+            from infrastructure.ai.gemini_client import GeminiClient
+            client = GeminiClient()
+            reply_text = await client.generate_text(prompt=full_prompt)
+        elif ai_mode == "groq":
+            from infrastructure.ai.groq_client import GroqClient
+            client = GroqClient()
+            reply_text = await client.generate_text(prompt=full_prompt)
+        else:
+            from infrastructure.ai.ollama_client import OllamaClient
+            client = OllamaClient()
+            reply_text = await client.generate_text(prompt=full_prompt, model_name="mistral")
+            
+        return ChatResponse(reply=reply_text)
+    except Exception as e:
+        logger.error(f"Global Chat failed: {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate AI response.")
