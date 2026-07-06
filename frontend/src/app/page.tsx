@@ -1,145 +1,183 @@
 import Link from "next/link";
-import { Shield, Lock, Activity, Server, Globe2 } from "lucide-react";
+import { Shield } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { ConfidenceDial } from "@/components/ui/stat";
+
+const STEPS = [
+  {
+    title: "Tell us what happened",
+    body: "Paste the message, upload a screenshot, or just speak. Reporting takes about two minutes and works in your language.",
+  },
+  {
+    title: "Eleven AI engines take it apart",
+    body: "The report is classified, fingerprinted, and cross-referenced against national intelligence — phone numbers, accounts, and domains included.",
+  },
+  {
+    title: "The right people act",
+    body: "Linked cases surface organized networks. Investigators get the full analysis; banks get freeze requests; you get updates.",
+  },
+];
+
+const STATS = [
+  { value: "1.2M+", label: "threats detected" },
+  { value: "98.7%", label: "detection accuracy" },
+  { value: "50K+", label: "cases investigated" },
+  { value: "28", label: "states covered" },
+];
 
 export default function LandingPage() {
   return (
-    <div className="relative min-h-screen overflow-hidden">
-      {/* Background Gradients */}
-      <div className="absolute top-0 -left-1/4 w-[150%] h-[150%] bg-gradient-to-br from-indigo-500/20 via-transparent to-purple-600/10 -z-10 animate-pulse" style={{ animationDuration: '8s' }} />
-      <div className="absolute top-1/4 -right-1/4 w-96 h-96 bg-primary/20 rounded-full blur-[128px] -z-10" />
-      <div className="absolute bottom-0 left-1/4 w-96 h-96 bg-purple-600/20 rounded-full blur-[128px] -z-10" />
-
-      {/* Navbar */}
-      <nav className="border-b border-border/50 bg-background/50 backdrop-blur-xl sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Shield className="w-8 h-8 text-primary" />
-            <span className="text-xl font-bold tracking-tight">Digital Rakshak</span>
+    <div className="min-h-screen bg-bg">
+      {/* nav */}
+      <nav className="sticky top-0 z-50 bg-bg/90 backdrop-blur-sm">
+        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <Shield className="w-6 h-6 text-ink" strokeWidth={2.2} />
+            <span className="font-display font-semibold text-base tracking-tight text-ink">
+              Digital Rakshak
+            </span>
           </div>
           <div className="hidden md:flex items-center gap-8">
-            <Link href="/" className="text-sm font-medium text-primary hover:text-primary/80 transition-colors">Home</Link>
-            <Link href="#how-it-works" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">How it Works</Link>
-            <Link href="/report" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Report Scam</Link>
-            <Link href="/prevention" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Prevention</Link>
-            <Link href="/resources" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Resources</Link>
-            <Link href="/about" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">About</Link>
+            <a href="#how-it-works" className="text-sm text-ink-2 hover:text-ink transition-colors">
+              How it works
+            </a>
+            <Link href="/report" className="text-sm text-ink-2 hover:text-ink transition-colors">
+              Report a scam
+            </Link>
+            <Link href="/prevention" className="text-sm text-ink-2 hover:text-ink transition-colors">
+              Check a link
+            </Link>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <ThemeToggle />
-            <Link 
-              href="/auth/login" 
-              className="text-sm font-medium bg-primary text-primary-foreground px-6 py-2 rounded-lg hover:bg-primary/90 transition-all shadow-[0_0_15px_rgba(79,70,229,0.5)]"
+            <Link
+              href="/auth/login"
+              className="inline-flex items-center h-9 px-4 rounded-control text-sm font-medium bg-surface-2 text-ink hover:bg-surface-3 transition-colors duration-150"
             >
-              Login
+              Sign in
             </Link>
           </div>
         </div>
       </nav>
 
-      {/* Hero Section */}
-      <main className="max-w-7xl mx-auto px-6 pt-24 pb-32">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-12 animate-in fade-in slide-in-from-bottom-8 duration-1000">
-          
-          <div className="flex-1 space-y-8 text-left">
-            <h1 className="text-5xl md:text-6xl font-bold tracking-tight leading-tight">
-              AI-Powered Protection<br/>
-              for a Safer <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-purple-400">Digital India</span>
+      <main className="max-w-6xl mx-auto px-6">
+        {/* hero */}
+        <section className="grid lg:grid-cols-2 gap-12 lg:gap-8 items-center pt-16 pb-20 sm:pt-24 sm:pb-28">
+          <div className="rise-in">
+            <p className="font-serif italic text-ink-2 mb-5">Cyber threat intelligence for India</p>
+            <h1 className="font-display font-semibold text-2xl sm:text-display leading-none tracking-tight text-ink">
+              One report can take down an entire scam network.
             </h1>
-            
-            <p className="text-lg text-muted-foreground max-w-xl leading-relaxed">
-              Detect scams. Prevent fraud. Empower investigators.<br/><br/>
-              Digital Rakshak uses advanced AI to detect digital frauds, empower citizens and investigators, and build a secure digital ecosystem.
+            <p className="text-base text-ink-2 mt-6 max-w-md leading-relaxed">
+              Digital Rakshak reads every scam report with a swarm of AI engines, links it to
+              related cases across the country, and puts the evidence in front of the people who
+              can act.
             </p>
-
-            <div className="flex flex-col sm:flex-row items-center gap-4 pt-4">
-              <Link 
-                href="/auth/login"
-                className="w-full sm:w-auto text-center bg-primary text-primary-foreground px-8 py-3.5 rounded-lg font-medium hover:bg-primary/90 transition-all shadow-[0_0_20px_rgba(79,70,229,0.4)]"
-              >
-                SHOULD I TRUST THIS?
-              </Link>
-              <Link 
+            <div className="flex flex-col sm:flex-row gap-3 mt-9">
+              <Link
                 href="/report"
-                className="w-full sm:w-auto text-center bg-transparent border border-border text-foreground px-8 py-3.5 rounded-lg font-medium hover:bg-accent transition-all"
+                className="inline-flex items-center justify-center h-12 px-6 rounded-control bg-accent text-accent-ink font-semibold text-sm hover:bg-accent-hover transition-colors duration-150 active:scale-[0.98]"
               >
-                REPORT A SCAM
+                Report a scam
+              </Link>
+              <Link
+                href="/prevention"
+                className="inline-flex items-center justify-center h-12 px-6 rounded-control bg-surface text-ink font-medium text-sm shadow-card hover:bg-surface-2 transition-colors duration-150"
+              >
+                Check a suspicious link
               </Link>
             </div>
           </div>
 
-          <div className="flex-1 relative flex items-center justify-center">
-            {/* Shield Graphic with orbiting nodes */}
-            <div className="relative w-80 h-80 flex items-center justify-center">
-              {/* Central Shield */}
-              <div className="z-10 relative">
-                <div className="absolute inset-0 bg-primary/20 blur-2xl rounded-full animate-pulse" />
-                <Shield className="w-40 h-40 text-primary drop-shadow-[0_0_15px_rgba(79,70,229,0.8)]" />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-4xl font-bold text-primary-foreground">R</span>
+          {/* product vignette — real components, real states */}
+          <div className="relative hidden sm:block" aria-hidden>
+            <div className="bg-surface-2 rounded-card p-6 sm:p-10">
+              <Card className="p-6 flex items-center gap-6 max-w-sm mx-auto">
+                <ConfidenceDial value={0.89} size={104} label="AI confidence" />
+                <div>
+                  <p className="text-xs text-ink-3 mb-1">Case DR-2481</p>
+                  <p className="font-display font-semibold text-base text-ink leading-snug">
+                    Courier scam,
+                    <br />
+                    12 linked victims
+                  </p>
+                  <Badge tone="peach" className="mt-2.5">High priority</Badge>
                 </div>
+              </Card>
+              <Card className="px-5 py-4 max-w-xs mx-auto -mt-3 translate-x-6 sm:translate-x-14">
+                <p className="text-xs text-ink-3">Recommended action</p>
+                <p className="text-sm font-medium text-ink mt-1">
+                  Freeze account ····5563 · Block fake-courier.in
+                </p>
+              </Card>
+            </div>
+          </div>
+        </section>
+
+        {/* stats */}
+        <section className="border-y border-line py-10">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+            {STATS.map((stat) => (
+              <div key={stat.label}>
+                <p className="font-display font-semibold text-xl sm:text-2xl tracking-tight text-ink tabular">
+                  {stat.value}
+                </p>
+                <p className="text-sm text-ink-2 mt-1">{stat.label}</p>
               </div>
-              
-              {/* Orbit Rings */}
-              <div className="absolute inset-0 border border-primary/20 rounded-full" />
-              <div className="absolute -inset-10 border border-primary/10 rounded-full" />
-            </div>
+            ))}
           </div>
-        </div>
+        </section>
 
-        {/* Stats Bar */}
-        <div className="glass-panel mt-24 p-6 rounded-2xl grid grid-cols-2 md:grid-cols-4 gap-8 text-center divide-x divide-border">
-          <div>
-            <h3 className="text-3xl font-bold text-foreground">1.2M+</h3>
-            <p className="text-sm text-muted-foreground mt-1">Threats Detected</p>
+        {/* how it works */}
+        <section id="how-it-works" className="py-20 sm:py-28">
+          <p className="font-serif italic text-ink-2 mb-4">How it works</p>
+          <h2 className="font-display font-semibold text-xl sm:text-2xl tracking-tight text-ink max-w-xl">
+            From a two-minute report to organized-crime intelligence.
+          </h2>
+          <div className="grid md:grid-cols-3 gap-4 mt-12">
+            {STEPS.map((step) => (
+              <Card key={step.title} className="p-7">
+                <h3 className="font-display font-semibold text-base text-ink">{step.title}</h3>
+                <p className="text-sm text-ink-2 mt-2.5 leading-relaxed">{step.body}</p>
+              </Card>
+            ))}
           </div>
-          <div>
-            <h3 className="text-3xl font-bold text-foreground">98.7%</h3>
-            <p className="text-sm text-muted-foreground mt-1">Detection Accuracy</p>
-          </div>
-          <div>
-            <h3 className="text-3xl font-bold text-foreground">50K+</h3>
-            <p className="text-sm text-muted-foreground mt-1">Cases Investigated</p>
-          </div>
-          <div className="border-r-0">
-            <h3 className="text-3xl font-bold text-foreground">28</h3>
-            <p className="text-sm text-muted-foreground mt-1">States Covered</p>
-          </div>
-        </div>
+        </section>
 
-        {/* Feature Grid */}
-        <div id="features" className="grid md:grid-cols-3 gap-8 mt-32 relative z-10">
-          <div className="glass-panel p-8 rounded-2xl flex flex-col gap-4 hover:-translate-y-2 transition-transform duration-300">
-            <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center border border-blue-500/20">
-              <Globe2 className="w-6 h-6 text-blue-500" />
+        {/* closing CTA */}
+        <section className="pb-24">
+          <div className="bg-surface-2 rounded-card px-8 py-12 sm:px-14 sm:py-16 flex flex-col sm:flex-row sm:items-center justify-between gap-8">
+            <div>
+              <h2 className="font-display font-semibold text-xl sm:text-2xl tracking-tight text-ink max-w-md">
+                Seen something suspicious today?
+              </h2>
+              <p className="text-sm text-ink-2 mt-2 max-w-md">
+                Your report protects the next person the scammer calls.
+              </p>
             </div>
-            <h3 className="text-xl font-semibold">Global Threat Feed</h3>
-            <p className="text-muted-foreground leading-relaxed">
-              Real-time ingestion of malicious IPs, domains, and hashes from global telemetry databases.
-            </p>
+            <Link
+              href="/report"
+              className="inline-flex items-center justify-center h-12 px-6 rounded-control bg-accent text-accent-ink font-semibold text-sm hover:bg-accent-hover transition-colors duration-150 shrink-0 active:scale-[0.98]"
+            >
+              Report a scam
+            </Link>
           </div>
-
-          <div className="glass-panel p-8 rounded-2xl flex flex-col gap-4 hover:-translate-y-2 transition-transform duration-300">
-            <div className="w-12 h-12 rounded-xl bg-purple-500/10 flex items-center justify-center border border-purple-500/20">
-              <Server className="w-6 h-6 text-purple-500" />
-            </div>
-            <h3 className="text-xl font-semibold">Spatial Analysis</h3>
-            <p className="text-muted-foreground leading-relaxed">
-              Powered by PostGIS and pgvector for advanced geographical and similarity-based threat hunting.
-            </p>
-          </div>
-
-          <div className="glass-panel p-8 rounded-2xl flex flex-col gap-4 hover:-translate-y-2 transition-transform duration-300">
-            <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
-              <Lock className="w-6 h-6 text-emerald-500" />
-            </div>
-            <h3 className="text-xl font-semibold">Zero-Trust Access</h3>
-            <p className="text-muted-foreground leading-relaxed">
-              Passwordless, OTP-driven access control with strict RBAC for analysts, admins, and partners.
-            </p>
-          </div>
-        </div>
+        </section>
       </main>
+
+      <footer className="border-t border-line">
+        <div className="max-w-6xl mx-auto px-6 py-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <Shield className="w-4 h-4 text-ink-2" />
+            <span className="text-sm text-ink-2">Digital Rakshak</span>
+          </div>
+          <p className="text-xs text-ink-3">
+            AI-assisted analysis supports, but does not replace, official investigation.
+          </p>
+        </div>
+      </footer>
     </div>
   );
 }
