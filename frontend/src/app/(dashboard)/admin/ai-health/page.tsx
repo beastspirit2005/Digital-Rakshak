@@ -2,9 +2,16 @@
 
 import { api } from "@/lib/api";
 import { useState, useEffect } from "react";
-import { CheckCircle2, XCircle, Loader2, Server, Database, Cloud, Zap, Cpu, Activity, AlertTriangle } from "lucide-react";
+import { Server, Database, Cloud, Cpu, Zap, RefreshCw, AlertTriangle, CheckCircle2 } from "lucide-react";
 import axios from "axios";
 import { useAuthStore } from "@/lib/auth-store";
+import { Card } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { FormError } from "@/components/ui/field";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Rise } from "@/components/ui/motion";
 
 interface HealthService {
   status: "up" | "down";
@@ -25,6 +32,60 @@ interface HealthData {
   };
 }
 
+function ServiceStatus({ status }: { status: "up" | "down" }) {
+  return status === "up" ? (
+    <Badge tone="success">Operational</Badge>
+  ) : (
+    <Badge tone="danger">Down</Badge>
+  );
+}
+
+function MetricRow({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="flex items-center justify-between py-2 border-b border-line last:border-0">
+      <span className="text-sm text-ink-2">{label}</span>
+      <span className="text-sm font-medium text-ink tabular">{value}</span>
+    </div>
+  );
+}
+
+function ServiceCard({
+  icon: Icon,
+  title,
+  sub,
+  service,
+  children,
+  index,
+}: {
+  icon: typeof Cpu;
+  title: string;
+  sub: string;
+  service?: HealthService;
+  children: React.ReactNode;
+  index: number;
+}) {
+  return (
+    <Rise index={index}>
+      <Card className="p-6 h-full">
+        <div className="flex justify-between items-start mb-5">
+          <div className="p-2.5 bg-surface-2 rounded-control">
+            <Icon className="w-5 h-5 text-ink-2" />
+          </div>
+          <ServiceStatus status={service?.status || "down"} />
+        </div>
+        <h3 className="font-display font-semibold text-base text-ink">{title}</h3>
+        <p className="text-sm text-ink-2 mb-4">{sub}</p>
+        <div>{children}</div>
+        {service?.error && (
+          <p className="text-xs text-danger mt-4 bg-danger-tint rounded-control px-3 py-2">
+            {service.error}
+          </p>
+        )}
+      </Card>
+    </Rise>
+  );
+}
+
 export default function AIHealthDashboard() {
   const [healthData, setHealthData] = useState<HealthData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -40,7 +101,7 @@ export default function AIHealthDashboard() {
       setHealthData(response.data);
       setError("");
     } catch (err: any) {
-      setError(err.response?.data?.detail || "Failed to fetch AI health metrics.");
+      setError(err.response?.data?.detail || "Health metrics couldn't be loaded.");
     } finally {
       setLoading(false);
     }
@@ -48,17 +109,23 @@ export default function AIHealthDashboard() {
 
   useEffect(() => {
     if (token) fetchHealth();
-    // Poll every 30 seconds
     const interval = setInterval(() => {
       if (token) fetchHealth();
     }, 30000);
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
   if (loading && !healthData) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="space-y-6 pt-2">
+        <PageHeader title="AI health" sub="Live telemetry for the inference stack." />
+        <Skeleton className="h-24 rounded-card" />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Skeleton className="h-64 rounded-card" />
+          <Skeleton className="h-64 rounded-card" />
+          <Skeleton className="h-64 rounded-card" />
+        </div>
       </div>
     );
   }
@@ -66,152 +133,110 @@ export default function AIHealthDashboard() {
   const aiService = healthData?.services?.ai;
   const dbService = healthData?.services?.postgres;
   const graphService = healthData?.services?.neo4j;
-
   const isCloud = healthData?.ai_mode === "groq";
+  const healthy = healthData?.status === "healthy";
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary to-blue-500">
-            AI Infrastructure Health
-          </h1>
-          <p className="text-muted-foreground mt-1">Real-time telemetry and orchestrator status monitoring.</p>
-        </div>
-        <button
-          onClick={fetchHealth}
-          disabled={loading}
-          className="flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary border border-primary/20 rounded-xl hover:bg-primary/20 transition-all font-medium"
+    <div className="space-y-6 pt-2">
+      <Rise>
+        <PageHeader
+          title="AI health"
+          sub="Live telemetry for the inference stack, refreshed every 30 seconds."
+          actions={
+            <Button loading={loading} onClick={fetchHealth}>
+              <RefreshCw className="w-4 h-4" />
+              Refresh
+            </Button>
+          }
+        />
+      </Rise>
+
+      <FormError>{error}</FormError>
+
+      <Rise index={1}>
+        <Card className="px-6 py-5 flex flex-col sm:flex-row gap-4 sm:items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="p-2.5 rounded-control bg-surface-2">
+              {healthy ? (
+                <CheckCircle2 className="w-5 h-5 text-success" />
+              ) : (
+                <AlertTriangle className="w-5 h-5 text-warning" />
+              )}
+            </div>
+            <div>
+              <h2 className="font-display font-semibold text-base text-ink capitalize">
+                System {healthData?.status}
+              </h2>
+              <p className="text-sm text-ink-2">
+                {healthy
+                  ? "All core services and inference endpoints are responding."
+                  : "Some services are degraded — check the cards below."}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 sm:text-right">
+            {isCloud ? (
+              <Cloud className="w-4 h-4 text-ink-2" />
+            ) : (
+              <Server className="w-4 h-4 text-ink-2" />
+            )}
+            <span className="text-sm font-medium text-ink">
+              {isCloud ? "Cloud mode (Groq)" : "Offline mode (local models)"}
+            </span>
+          </div>
+        </Card>
+      </Rise>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <ServiceCard
+          icon={Cpu}
+          title="Inference engine"
+          sub="RAIC orchestrator and models"
+          service={aiService}
+          index={2}
         >
-          {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Activity className="w-4 h-4" />}
-          Refresh Metrics
-        </button>
+          <MetricRow label="Provider" value={aiService?.provider || "Unknown"} />
+          <MetricRow label="Model" value={aiService?.model || "Unknown"} />
+          <MetricRow
+            label="Latency"
+            value={aiService?.latency_ms ? `${aiService.latency_ms} ms` : "—"}
+          />
+        </ServiceCard>
+
+        <ServiceCard
+          icon={Zap}
+          title="Intelligence graph"
+          sub="Neo4j correlation engine"
+          service={graphService}
+          index={3}
+        >
+          <MetricRow
+            label="Connection"
+            value={graphService?.status === "up" ? "Connected" : "Disconnected"}
+          />
+          <MetricRow
+            label="Latency"
+            value={graphService?.latency_ms ? `${graphService.latency_ms} ms` : "—"}
+          />
+        </ServiceCard>
+
+        <ServiceCard
+          icon={Database}
+          title="Primary database"
+          sub="PostgreSQL persistence"
+          service={dbService}
+          index={4}
+        >
+          <MetricRow
+            label="Connection"
+            value={dbService?.status === "up" ? "Connected" : "Disconnected"}
+          />
+          <MetricRow
+            label="Latency"
+            value={dbService?.latency_ms ? `${dbService.latency_ms} ms` : "—"}
+          />
+        </ServiceCard>
       </div>
-
-      {error && (
-        <div className="bg-red-500/10 text-red-600 dark:text-red-400 p-4 rounded-xl flex items-center gap-3 text-sm border border-red-500/20">
-          <AlertTriangle className="w-5 h-5 shrink-0" />
-          <p>{error}</p>
-        </div>
-      )}
-
-      {/* Global Status Banner */}
-      <div className={`p-6 rounded-2xl border flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between ${
-        healthData?.status === "healthy" ? "bg-emerald-500/10 border-emerald-500/20" : 
-        healthData?.status === "degraded" ? "bg-orange-500/10 border-orange-500/20" : 
-        "bg-red-500/10 border-red-500/20"
-      }`}>
-        <div className="flex items-center gap-4">
-          <div className={`p-3 rounded-xl ${
-            healthData?.status === "healthy" ? "bg-emerald-500/20 text-emerald-500" : 
-            healthData?.status === "degraded" ? "bg-orange-500/20 text-orange-500" : 
-            "bg-red-500/20 text-red-500"
-          }`}>
-            {healthData?.status === "healthy" ? <CheckCircle2 className="w-6 h-6" /> : <AlertTriangle className="w-6 h-6" />}
-          </div>
-          <div>
-            <h2 className="text-lg font-bold capitalize">System {healthData?.status}</h2>
-            <p className="text-sm opacity-80">
-              {healthData?.status === "healthy" ? "All core services and inference endpoints are operational." : "Some services are experiencing degradation."}
-            </p>
-          </div>
-        </div>
-        <div className="sm:text-right">
-          <div className="text-xs uppercase tracking-wider opacity-60 font-semibold mb-1">Architecture Mode</div>
-          <div className="flex items-center gap-2 sm:justify-end">
-            {isCloud ? <Cloud className="w-5 h-5 text-blue-500" /> : <Server className="w-5 h-5 text-emerald-500" />}
-            <span className="font-bold text-lg">{isCloud ? "Cloud Mode (Groq)" : "Offline Mode (Qwen)"}</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Inference Engine Card */}
-        <div className="glass-panel p-6 rounded-2xl border border-border relative overflow-hidden group">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-bl-full -z-10 transition-transform group-hover:scale-110" />
-          <div className="flex justify-between items-start mb-6">
-            <div className="p-3 bg-primary/10 text-primary rounded-xl">
-              <Cpu className="w-6 h-6" />
-            </div>
-            <StatusBadge status={aiService?.status || "down"} />
-          </div>
-          <h3 className="text-xl font-bold mb-1">Inference Engine</h3>
-          <p className="text-sm text-muted-foreground mb-4">RAIC Orchestrator & Models</p>
-          
-          <div className="space-y-3">
-            <MetricRow label="Provider" value={aiService?.provider || "Unknown"} />
-            <MetricRow label="Active Model" value={aiService?.model || "Unknown"} />
-            <MetricRow label="Latency" value={aiService?.latency_ms ? `${aiService.latency_ms}ms` : "—"} highlight={aiService?.latency_ms ? aiService.latency_ms < 500 : false} />
-          </div>
-          {aiService?.error && <p className="text-xs text-red-500 mt-4 bg-red-500/10 p-2 rounded-lg">{aiService.error}</p>}
-        </div>
-
-        {/* Knowledge Graph Card */}
-        <div className="glass-panel p-6 rounded-2xl border border-border relative overflow-hidden group">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/5 rounded-bl-full -z-10 transition-transform group-hover:scale-110" />
-          <div className="flex justify-between items-start mb-6">
-            <div className="p-3 bg-purple-500/10 text-purple-500 rounded-xl">
-              <Zap className="w-6 h-6" />
-            </div>
-            <StatusBadge status={graphService?.status || "down"} />
-          </div>
-          <h3 className="text-xl font-bold mb-1">Intelligence Graph</h3>
-          <p className="text-sm text-muted-foreground mb-4">Neo4j Correlation Engine</p>
-          
-          <div className="space-y-3">
-            <MetricRow label="Status" value={graphService?.status === "up" ? "Connected" : "Disconnected"} />
-            <MetricRow label="Latency" value={graphService?.latency_ms ? `${graphService.latency_ms}ms` : "—"} />
-          </div>
-          {graphService?.error && <p className="text-xs text-red-500 mt-4 bg-red-500/10 p-2 rounded-lg">{graphService.error}</p>}
-        </div>
-
-        {/* Database Card */}
-        <div className="glass-panel p-6 rounded-2xl border border-border relative overflow-hidden group">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-bl-full -z-10 transition-transform group-hover:scale-110" />
-          <div className="flex justify-between items-start mb-6">
-            <div className="p-3 bg-emerald-500/10 text-emerald-500 rounded-xl">
-              <Database className="w-6 h-6" />
-            </div>
-            <StatusBadge status={dbService?.status || "down"} />
-          </div>
-          <h3 className="text-xl font-bold mb-1">Primary Database</h3>
-          <p className="text-sm text-muted-foreground mb-4">PostgreSQL Persistence Layer</p>
-          
-          <div className="space-y-3">
-            <MetricRow label="Status" value={dbService?.status === "up" ? "Connected" : "Disconnected"} />
-            <MetricRow label="Latency" value={dbService?.latency_ms ? `${dbService.latency_ms}ms` : "—"} />
-          </div>
-          {dbService?.error && <p className="text-xs text-red-500 mt-4 bg-red-500/10 p-2 rounded-lg">{dbService.error}</p>}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function StatusBadge({ status }: { status: "up" | "down" }) {
-  if (status === "up") {
-    return (
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
-        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-        Operational
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-red-500/10 text-red-500 border border-red-500/20">
-      <XCircle className="w-3 h-3" />
-      Down
-    </span>
-  );
-}
-
-function MetricRow({ label, value, highlight = false }: { label: string; value: string | number; highlight?: boolean }) {
-  return (
-    <div className="flex items-center justify-between py-2 border-b border-border/50 last:border-0">
-      <span className="text-sm text-muted-foreground">{label}</span>
-      <span className={`text-sm font-medium ${highlight ? "text-emerald-500" : "text-foreground"}`}>
-        {value}
-      </span>
     </div>
   );
 }
