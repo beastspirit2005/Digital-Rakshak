@@ -65,14 +65,20 @@ async def case_copilot_chat(
     """
 
     try:
-        from infrastructure.ai.ollama_client import OllamaClient
-        client = OllamaClient()
+        # Respect global AI mode setting
+        ai_mode = settings.DEFAULT_AI_MODE.lower()
         
         # Create a single prompt combining system prompt, context, and user query
         full_prompt = f"{system_prompt}\n\n{context}\n\nINVESTIGATOR QUERY: {req.query}"
         
-        # Use OllamaClient directly for Chat Co-Pilot (defaults to mistral)
-        ai_result = await client.analyze(prompt=full_prompt, context={}, model_name="mistral")
+        if ai_mode == "cloud":
+            from infrastructure.ai.gemini_client import GeminiClient
+            client = GeminiClient()
+            ai_result = await client.analyze(prompt=full_prompt, context={})
+        else:
+            from infrastructure.ai.ollama_client import OllamaClient
+            client = OllamaClient()
+            ai_result = await client.analyze(prompt=full_prompt, context={}, model_name="mistral")
         
         if isinstance(ai_result, dict):
             reply_text = ai_result.get("decision", str(ai_result))
