@@ -1,4 +1,4 @@
-# 🛡️ Digital Rakshak: AI-Powered Cyber Threat Intelligence Platform
+# Digital Rakshak: AI-Powered Cyber Threat Intelligence Platform
 
 Welcome to **Digital Rakshak**! 
 
@@ -10,7 +10,7 @@ We are empowering Law Enforcement Agencies (LEAs), nodal officers, and citizens 
 
 ---
 
-## 🌟 What Makes Digital Rakshak Unique?
+## What Makes Digital Rakshak Unique?
 
 ### 1. The Multi-Agent Intelligence Swarm (MAIF)
 Most platforms use a single AI to answer questions. Digital Rakshak uses a swarm of **11 specialized AI subagents**. When a case is filed, agents immediately go to work in parallel:
@@ -36,16 +36,16 @@ Victims of financial fraud are often panicked. Instead of forcing them to naviga
 
 ---
 
-## 🏗️ System Architecture
+## System Architecture
 
 Our platform is divided into a sleek Next.js frontend, a robust FastAPI orchestration layer, and a multi-database persistence layer.
 
 ```mermaid
 graph TD
     %% Users
-    Citizen((👤 Citizen / Victim))
-    Banker((🏦 Nodal Officer))
-    Admin((👮 Police / Admin))
+    Citizen((Citizen / Victim))
+    Banker((Nodal Officer))
+    Admin((Police / Admin))
 
     %% Frontend UI
     subgraph Frontend [Next.js Web Client]
@@ -97,7 +97,7 @@ graph TD
 
 ---
 
-## 💻 The Technology Stack
+## The Technology Stack
 
 We didn't just build an app; we built an enterprise intelligence engine using the best modern tools available:
 
@@ -109,7 +109,7 @@ We didn't just build an app; we built an enterprise intelligence engine using th
 
 ---
 
-## 🚀 Getting Started (Run it locally!)
+## Getting Started (Run it locally!)
 
 You can spin up the entire intelligence platform on your local machine.
 
@@ -152,7 +152,7 @@ Open **`http://localhost:3000`** in your browser, and you're ready to explore!
 
 ---
 
-## 🐳 Docker Hub Quick Start (Pre-Built Images)
+## Docker Hub Quick Start (Pre-Built Images)
 Want to skip the manual setup? Pull our production-ready images directly from Docker Hub:
 
 **Backend Service:**
@@ -169,4 +169,4 @@ docker run -d -p 3000:3000 --env-file ./frontend/.env.local --name dr-frontend 1
 
 ---
 
-**Developed to build a Safer Digital India. 🇮🇳**
+**Developed to build a Safer Digital India.**
