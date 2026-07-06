@@ -77,7 +77,7 @@ async def send_welcome_email(to_email: str, full_name: str, role: str) -> bool:
 async def send_case_confirmation_email(to_email: str, case_number: str, ai_decision: dict) -> bool:
     subject = f"Report Received - Case #{case_number}"
     
-    threat_level = ai_decision.get('decision', 'Under Review')
+    threat_level = ai_decision.get('threat_class', 'Unknown')
     confidence = (ai_decision.get('confidence', ai_decision.get('score', 0)) * 100)
     
     body = f"""

@@ -52,6 +52,7 @@ const adminSections = [
       { name: 'User Management', href: '/admin/users', icon: Users },
       { name: 'Pending Approvals', href: '/admin/approvals', icon: CheckSquare },
       { name: 'National Analytics', href: '/admin/intelligence', icon: Network },
+      { name: 'AI Health Status', href: '/admin/ai-health', icon: Bot },
       { name: 'Platform Settings', href: '/admin/settings', icon: Settings },
     ]
   },

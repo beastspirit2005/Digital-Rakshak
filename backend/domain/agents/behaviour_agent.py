@@ -32,13 +32,22 @@ class BehaviourAgent(BaseAgent):
         detected_behaviors = result['behaviors']
         confidence = 0.90 if len(detected_behaviors) > 0 else 0.50
         
+        mitre_mapping = {
+            "Impersonation": "T1566: Phishing (Impersonation)",
+            "Urgency": "T1484: Domain Policy (Urgency/Pressure)",
+            "Fear": "T1659: Content Injection (Fear/Intimidation)",
+            "OTP Harvesting": "T1111: 2FA Interception",
+            "Remote Access": "T1219: Remote Access Software"
+        }
+        mapped_behaviors = [mitre_mapping.get(b, b) for b in detected_behaviors]
+        
         return {
             "engine": "Rakshak-Behaviour",
             "engine_version": "1.0",
             "model_version": self.client.version,
             "entities": [],
-            "evidence": detected_behaviors,
-            "reasoning": [f"Detected {len(detected_behaviors)} social engineering indicators."],
+            "evidence": mapped_behaviors,
+            "reasoning": [f"Detected {len(detected_behaviors)} social engineering indicators mapped to MITRE ATT&CK."],
             "recommendation": ["Pass Attack DNA to CampaignAgent for embedding matching."],
             "score": confidence,
             "prompt_version": "n/a"

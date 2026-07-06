@@ -18,6 +18,7 @@ export default function SpatialMap(props: SpatialMapProps) {
   const [clusterData, setClusterData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [mapLayer, setMapLayer] = useState<"scams" | "counterfeit">("scams");
   const { token } = useAuthStore();
   
   // Passed up to the parent page.tsx
@@ -113,6 +114,17 @@ export default function SpatialMap(props: SpatialMapProps) {
     }
   }), []);
 
+  const filteredGeoData = useMemo(() => {
+    if (!geoData) return null;
+    return {
+      ...geoData,
+      features: geoData.features.filter((f: any) => {
+        const isCounterfeit = f.properties.type === "Counterfeit Note";
+        return mapLayer === "counterfeit" ? isCounterfeit : !isCounterfeit;
+      })
+    };
+  }, [geoData, mapLayer]);
+
   if (loading) {
     return (
       <div className="w-full h-full flex flex-col items-center justify-center bg-card rounded-2xl border border-border">
@@ -159,8 +171,23 @@ export default function SpatialMap(props: SpatialMapProps) {
         <NavigationControl position="top-right" />
         <FullscreenControl position="top-right" />
 
-        {geoData && !error && (
-          <Source id="cases" type="geojson" data={geoData}>
+        <div className="absolute top-4 left-4 z-10 bg-background/90 backdrop-blur-md p-1.5 rounded-xl border border-border shadow-lg flex flex-col gap-1">
+          <button 
+            onClick={() => setMapLayer("scams")}
+            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${mapLayer === "scams" ? "bg-primary text-primary-foreground shadow-md" : "text-muted-foreground hover:bg-muted"}`}
+          >
+            Cyber Scams
+          </button>
+          <button 
+            onClick={() => setMapLayer("counterfeit")}
+            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${mapLayer === "counterfeit" ? "bg-emerald-600 text-white shadow-md" : "text-muted-foreground hover:bg-muted"}`}
+          >
+            Fake Currency
+          </button>
+        </div>
+
+        {filteredGeoData && !error && (
+          <Source id="cases" type="geojson" data={filteredGeoData}>
             <Layer {...heatmapLayer} />
             <Layer {...pointLayer} />
           </Source>

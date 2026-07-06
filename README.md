@@ -10,17 +10,17 @@ Moving beyond reactive complaint registration, Digital Rakshak leverages a massi
 
 Digital Rakshak features a state-of-the-art **Dual-Inference Engine** configured globally via the `DEFAULT_AI_MODE` environment variable. This allows the system to easily adapt to different deployment requirements:
 
-### 1. Cloud-Native Mode (`groq`) — *Optimized for Serverless (Vercel)*
-When set to `groq`, the entire platform shifts its heavy analytical workloads to **Groq's high-speed LPU (Language Processing Unit) Cloud Infrastructure**, bypassing all heavy local dependencies:
-*   **The 11 AI Engines Swarm:** Dynamically routed in parallel to Groq's **Llama 3.3 70B** (`llama-3.3-70b-versatile`) model for deep reasoning, legal compliance, and behavioral analysis.
-*   **RAIC Decision Core & Global Chat:** Routed to Groq's **Llama 3.1 8B** (`llama-3.1-8b-instant`) model, leveraging a massive **128,000 token context window** to allow conversational analysis of entire case sheets without token limits.
-*   **AI Copilot Transcription:** Sends voice evidence directly to Groq's **Whisper API** (`whisper-large-v3`) in the cloud.
+### 1. Cloud-Native Mode (`groq` / `openrouter` / `azure`)
+When set to cloud mode, the platform shifts its heavy analytical workloads to a **Cloud Runtime Provider Interface** (defaulting to **Groq's high-speed LPU Cloud**), bypassing all local hardware dependencies:
+*   **The 11 AI Engines Swarm:** Dynamically routed in parallel to the cloud provider's **Llama 3.3 70B** model for deep reasoning, legal compliance, and behavioral analysis.
+*   **RAIC Decision Core & Global Chat:** Routed to **Llama 3.1 8B**, leveraging a massive **128,000 token context window** to allow conversational analysis of entire case sheets without token limits.
+*   **AI Copilot Transcription:** Sends voice evidence directly to the cloud **Whisper API** (`whisper-large-v3`).
 *   **Zero-Hardware Footprint:** Runs instantly on Vercel Serverless Functions with zero memory/size limit crashes.
 
-### 2. Local Native Mode (`auto` / `ollama`) — *Optimized for Secure Air-Gapped LEA Servers*
+### 2. Local Native Mode (`auto` / `ollama`) — *Air-Gapped LEA Servers*
 When set to local mode, the platform runs 100% self-contained on your own hardware with **zero external API calls or internet dependencies**, guaranteeing absolute data privacy for Law Enforcement:
 *   **Rakshak Core (PyTorch):** The `ThreatAnalysisAgent` boots up our custom-trained **Rakshak Multi-Task Model** (a fine-tuned `distilbert-base-multilingual-cased` neural network) directly in CPU/GPU memory to perform multilingual Indian scam classification in under 15ms.
-*   **Local LLM Reasoning:** The analytical agents route their prose-generation prompts to a local **Ollama** daemon (running `qwen2.5:7b` or similar).
+*   **Qwen2.5 Reasoning Engine:** Rather than treating Qwen as a basic local LLM, it serves as the central **Reasoning Engine** of the local stack—refining raw agent logs into highly professional, 2-sentence intelligence briefs for investigators.
 *   **Local Audio Transcription:** The `WhisperAgent` runs a local **`faster-whisper`** instance.
 *   **Local Screenshot OCR:** The `VisionAgent` runs a local **EasyOCR** English/Hindi reader.
 
@@ -31,15 +31,15 @@ When set to local mode, the platform runs 100% self-contained on your own hardwa
 The platform orchestrates 11 specialized subagents to analyze every case before the final fusion:
 
 ### Ingestion & Classification
-1.  **ThreatAnalysisAgent:** The primary classifier. Powered by the custom **Rakshak-Text (PyTorch)** model offline, it maps scams into 5 distinct threat classes (Safe, Banking Fraud, UPI Fraud, Courier Scam, Digital Arrest) and outputs a calibrated confidence score.
-2.  **WhisperAgent:** The ears of the platform. Transcribes citizen voice recordings into text.
-3.  **VisionAgent:** The eyes of the platform. Extracts text, URLs, and banking details from uploaded screenshots (WhatsApp chats, fake payment receipts).
+1.  **ThreatAnalysisAgent (Rakshak-Text):** The primary classifier. Powered by the custom **Rakshak-Text (PyTorch)** model offline, it maps scams into 5 distinct threat classes (Safe, Banking Fraud, UPI Fraud, Courier Scam, Digital Arrest) and outputs a calibrated confidence score.
+2.  **WhisperAgent (Voice Copilot):** The ears of the platform. Transcribes citizen voice recordings into text. In Cloud mode, it routes to Groq Whisper; offline, it falls back to local `faster-whisper`.
+3.  **VisionAgent (Vision OCR):** The eyes of the platform. Extracts text, URLs, and banking details from uploaded screenshots.
 
 ### Deep Analytical Engines (Parallel execution)
 4.  **BehaviourAgent (Rakshak-Behaviour):** Analyzes the attacker's psychological tactics (Fear, Urgency, Impersonation) to fingerprint the attack's behavioral DNA.
 5.  **CampaignAgent (Rakshak-Link):** Uses local sentence embeddings (`BAAI/bge-small-en-v1.5`) to vector-search the database, clustering similar cases into unified, coordinated scam campaigns.
 6.  **GeoAgent (Geo-Resolver):** Resolves geographic identifiers (cities, regions) mentioned in text to calculate spatial threat density.
-7.  **TrustValidationAgent (ZTIVF):** Computes a multi-dimensional trust score based on reporter validation, checking for potential data-poisoning.
+7.  **TrustValidationAgent (ZTIVF):** Computes a multi-dimensional trust score based on reporter validation, checking for potential data-poisoning via evidence, user behavior, and correlations before trusting citizen input.
 
 ### Post-Processing & Persistence
 8.  **TimelineAgent:** Builds a step-by-step chronological narrative of how the victim was targeted and scammed.
@@ -49,63 +49,99 @@ The platform orchestrates 11 specialized subagents to analyze every case before 
 
 ---
 
-## 🛠️ Complete Feature List
+## 👑 RAIC Decision Core & Confidence Fusion
 
-1.  **Multi-Agent AI Swarm (RAIC Core):** Paralleled pipeline of 11 agents coordinated by a supreme decision core to mathematically fuse scores and generate explanations.
-2.  **AI Citizen Copilot:** Allows citizens to speak complaints or upload screenshots, automatically drafting official LEA-formatted reports.
-3.  **Organized Syndicate Tracking (Neo4j):** Links independent complaints sharing identical bank accounts, UPIs, or phone numbers to expose cybercrime syndicates.
-4.  **Spatial Threat Heatmapping:** Geographically plots scams on MapLibreGL maps, highlighting organized scam hotspots (Jamtara, Mewat) while preserving reporter privacy.
-5.  **Automated APK Malware Sandbox:** Analyzes uploaded Android `.apk` files, flags malicious permissions (SMS hijacking, remote overlays), and integrates findings into the AI score.
-6.  **Automated Legal Takedowns:** Drafts legally compliant takedown notices tailored for NPCI, Google, Cloudflare, or local banks.
-7.  **Serverless Progressive Lockout Auth:** Security-hardened passwordless OTP and RBAC logins utilizing a Redis-free PostgreSQL lockout algorithm to prevent brute-force attacks.
-8.  **Self-Healing Database Migrations:** Automatically executes Alembic migrations programmatically inside FastAPI's startup event on Vercel/serverless environments.
+Rather than simple output delivery, Digital Rakshak routes decisions through a mathematical fusion pipeline:
+
+### 1. Multi-Dimensional Threat Scoring
+The `RAICDecisionCore` merges individual agent outputs and breaks down the final score into 6 explainable dimensions:
+*   **Threat Score:** The core classification probability.
+*   **Behaviour Score:** The alignment with established fraud patterns.
+*   **Campaign Score:** The duplicate/clustering index across multiple reports.
+*   **Trust Score:** ZTIVF evaluation of the citizen and evidence integrity.
+*   **Geo Score:** Geolocation density and hotspot proximity.
+*   **Legal Score:** The severity of regulatory violations.
+
+### 2. Intelligence Confidence Evolution
+Confidence is a living metric. As new corroborating evidence arrives over time, the case confidence score evolves:
+*   **Day 1 (Single Report):** Initial confidence starts at **~52%**.
+*   **Bank Verification:** Rises to **~72%** once the bank confirms suspicious account transactions.
+*   **Citizen Corroboration:** Rises to **~89%** when additional citizens report the same phone/UPI.
+*   **Police Approval:** Solidifies to **~98%** upon investigator verification.
+*   *Note: High-impact alerts (e.g., region-wide blocks or warning popups) are throttled until the confidence threshold matures, preventing false positives.*
+
+### 3. Tiered Intelligence Promotion
+To prevent database poisoning, threat data is promoted across three strict layers:
+```
+[ Submitted ] ──> [ Verified (Cyber Cell) ] ──> [ National Intelligence (NTIR) ] ──> [ Learning (Feedback Loop) ]
+```
 
 ---
 
-## 🏗️ System Architecture
+## 🛡️ Enterprise Feature Highlights
 
-```mermaid
-graph TD
-    subgraph Client [Client Tier - Next.js 14]
-        Copilot[Citizen AI Copilot]
-        Map[MapLibre Spatial Maps]
-        Dashboard[Investigation Workbench]
-    end
+### 1. Conversational AI Form-Filling (Citizen Copilot)
+Instead of forcing traumatized victims to fill out complex forms, they simply **talk naturally** to the AI Copilot. The background parser automatically transcribes the audio, extracts key fields (dates, amounts, bank names, scammer phone numbers), and populates the database fields in the background.
 
-    subgraph API [API Tier - FastAPI Serverless]
-        Main[FastAPI main.py]
-        Auth[JWT & PostgreSQL Lockout Auth]
-        
-        subgraph Swarm [RAIC Multi-Agent Swarm]
-            Base[BaseAgent execute]
-            TA[Threat Analysis]
-            BA[Behavioural DNA]
-            CA[Campaign Correlation]
-            Geo[Geospatial Tracker]
-            TV[Trust Validation]
-            Base --> TA & BA & CA & Geo & TV
-        end
-    end
+### 2. Counterfeit Currency Tracking & Local Warnings
+When fake notes are reported:
+*   The bank verifies the serial numbers and registers the incident.
+*   The **GeoAgent** marks the region of discovery on the spatial map.
+*   **PostGIS** automatically calculates the spread and pushes alert warnings to nearby merchant terminals and bank branches.
 
-    subgraph Routing [Dual-Inference Router]
-        Groq[Groq LPU Cloud - Llama 3.3 70B / 3.1 8B]
-        Local[Local Rakshak Suite - PyTorch & Ollama Qwen]
-    end
+### 3. MITRE ATT&CK-Style Cyber Fraud DNA
+Attack methodologies are categorized using an structured behavioral matrix:
+```
+Authority Impersonation ──> Urgency Creation ──> Credential Harvesting ──> Financial Extraction ──> Cleanup/Evasion
+```
 
-    subgraph Data [Data & Intelligence Store]
-        PG[(PostgreSQL DB)]
-        Neo[(Neo4j Graph DB)]
-    end
+### 4. Enterprise AI Health & Telemetry Dashboard
+Administrators have access to a real-time, glassmorphic hardware and software observability panel to monitor the orchestrator:
+*   **Architecture Mode:** Instantly shows whether the system is running in **Cloud Mode (Groq)** or **Offline Mode (Qwen)**.
+*   **Inference Engine Telemetry:** Monitors the active LLM provider, current models (e.g. Llama 3 70B / Qwen 2.5), and live API latency.
+*   **Graph & Persistence Status:** Checks connectivity and latency to the Neo4j Intelligence Graph and PostgreSQL databases.
+*   **Subagent Statuses:** Ensures all 11 subagents in the swarm are healthy and ready to process cases.
 
-    Copilot <-->|REST| Main
-    Dashboard <-->|REST| Main
-    Map -.-> Dashboard
+---
 
-    Main <--> Base
-    TA & BA & CA & Geo & TV <--> Routing
-    
-    Main <--> PG
-    CA <--> Neo
+## 🗺️ Conceptual Platform Mapping
+
+```
+                    Citizens
+                        │
+                Should I Trust This?
+                        │
+               [ Zero Trust Gateway ]
+                        │
+                  [ RAIC Core ]
+                        │
+┌──────────────────────────────────────────┐
+│          11 Intelligence Engines         │
+│  Threat  •  Behaviour  •  Voice  •  Vision │
+│   Geo   •  Campaign  • Knowledge • Policy │
+│  Timeline • Recommendation • Trust Val.  │
+└──────────────────────────────────────────┘
+                        │
+          [ Intelligence Correlation ]
+                        │
+          [ Qwen2.5 Reasoning Engine ]
+                        │
+            [ RAIC Decision Core ]
+                        │
+         [ Human Verification Layer ]
+                        │
+        [ Tiered Intelligence Promotion ]
+         (EVR ──> ADR ──> TPR ──> NTIR)
+                        │
+┌──────────────────────────────────────────┐
+│           Persistence Layer              │
+│  Neo4j  •  PostGIS  •  pgvector  •  Redis  │
+└──────────────────────────────────────────┘
+                        │
+┌──────────────────────────────────────────┐
+│           Role-Based Dashboards          │
+│   Citizen  •  Banker  •  Police  •  Admin │
+└──────────────────────────────────────────┘
 ```
 
 ---
@@ -155,8 +191,6 @@ npm install
 npm run dev
 ```
 *   The application will be available at **`http://localhost:3000`**.
-
-
 
 ---
 

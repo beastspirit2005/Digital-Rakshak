@@ -88,6 +88,7 @@ async def submit_case(
     latitude: Optional[float] = Form(None),
     longitude: Optional[float] = Form(None),
     ai_mode: str = Form("auto"),
+    report_type: str = Form("scam"),
     file: Optional[UploadFile] = File(None),
     user_payload: dict = Depends(get_current_user_token), 
     db: AsyncSession = Depends(get_db)
@@ -195,6 +196,7 @@ async def submit_case(
         case_number=new_case.case_number,
         scam_text=scam_text,
         ai_mode=ai_mode,
+        report_type=report_type,
         file_path=file_path if file else None,
         ev_type=ev_type if file else None,
         city=city,
@@ -216,7 +218,7 @@ async def submit_case(
             res = await db.execute(select(User).where(User.id == user_id))
             user = res.scalar_one_or_none()
             
-            threat_level = ai_decision.get('decision', 'Under Review')
+            threat_level = ai_decision.get('threat_class', 'Unknown')
             
             if user and user.email:
                 # Notify citizen
@@ -378,9 +380,19 @@ async def verify_case(case_id: int, correction: str = Form(...), db: AsyncSessio
             embedding=embedding
         )
         db.add(mistake)
+        
+        # Confidence Evolution Engine:
+        # Since an official verified this, we dynamically evolve the score to 99%
+        # and lock the status as VERIFIED.
+        case.threat_confidence_score = 0.99
+        case.status = CaseStatus.VERIFIED.value if hasattr(CaseStatus, 'VERIFIED') else "verified"
+        if isinstance(case.ai_decision, dict):
+            case.ai_decision["confidence"] = 0.99
+            case.ai_decision["decision"] = f"[OFFICIAL VERIFIED] {case.ai_decision.get('decision', '')}"
+            
         await db.commit()
         
-    return {"message": "Correction logged for Continuous Learning (RLHF)"}
+    return {"message": "Correction logged and Confidence Evolved to 99%."}
 
 @router.post("/simulate-attack")
 async def simulate_attack(db: AsyncSession = Depends(get_db), user_payload: dict = Depends(get_current_user_token)):
@@ -475,6 +487,7 @@ async def process_case_background(
     case_number: str,
     scam_text: str,
     ai_mode: str,
+    report_type: str,
     file_path: Optional[str],
     ev_type: Optional[str],
     city: Optional[str],
@@ -506,25 +519,37 @@ async def process_case_background(
                     vision_res = await VisionAgent().execute({"text": file_path}, case.case_number)
                     processed_text += " " + " ".join(vision_res.get("evidence", []))
 
-            # Phase 2: Parallel Specialized Execution
-            payload = {"text": processed_text, "ai_mode": ai_mode}
+            # Phase 2: Parallel Specialized Execution or Counterfeit Bypass
+            if report_type == "counterfeit" and file_path:
+                from domain.agents.vision_agent import VisionAgent
+                payload = {"text": file_path, "ai_mode": ai_mode, "analyze_type": "counterfeit"}
+                fused_decision = await VisionAgent().execute(payload, case.case_number)
+                
+                # Mock fusion structure for UI
+                if "threat_class" not in fused_decision:
+                    fused_decision["threat_class"] = "Counterfeit Note"
+                fused_decision["raw_explanation"] = fused_decision.get("decision", "Counterfeit currency analysis.")
+                
+            else:
+                payload = {"text": processed_text, "ai_mode": ai_mode}
+                
+                from domain.agents.threat_agent import ThreatAnalysisAgent
+                from domain.agents.behaviour_agent import BehaviourAgent
+                from domain.agents.campaign_agent import CampaignAgent
+                from domain.agents.trust_validation_agent import TrustValidationAgent
+                
+                t_task = asyncio.create_task(ThreatAnalysisAgent().execute(payload, case.case_number))
+                b_task = asyncio.create_task(BehaviourAgent().execute(payload, case.case_number))
+                c_task = asyncio.create_task(CampaignAgent().execute(payload, case.case_number))
+                tr_task = asyncio.create_task(TrustValidationAgent().execute(payload, case.case_number))
+                
+                t_res, b_res, c_res, tr_res = await asyncio.gather(t_task, b_task, c_task, tr_task)
+                
+                # Phase 3: RAIC Decision Core Fusion
+                from domain.agents.router import RAICDecisionCore
+                core = RAICDecisionCore()
+                fused_decision = await core.execute_fusion([t_res, b_res, c_res, tr_res], use_qwen_refinement=True, ai_mode=ai_mode)
             
-            from domain.agents.threat_agent import ThreatAnalysisAgent
-            from domain.agents.behaviour_agent import BehaviourAgent
-            from domain.agents.campaign_agent import CampaignAgent
-            from domain.agents.trust_validation_agent import TrustValidationAgent
-            
-            t_task = asyncio.create_task(ThreatAnalysisAgent().execute(payload, case.case_number))
-            b_task = asyncio.create_task(BehaviourAgent().execute(payload, case.case_number))
-            c_task = asyncio.create_task(CampaignAgent().execute(payload, case.case_number))
-            tr_task = asyncio.create_task(TrustValidationAgent().execute(payload, case.case_number))
-            
-            t_res, b_res, c_res, tr_res = await asyncio.gather(t_task, b_task, c_task, tr_task)
-            
-            # Phase 3: RAIC Decision Core Fusion
-            from domain.agents.router import RAICDecisionCore
-            core = RAICDecisionCore()
-            fused_decision = await core.execute_fusion([t_res, b_res, c_res, tr_res], use_qwen_refinement=True, ai_mode=ai_mode)
             
             # Update Case Record locally in memory for now
             case.threat_confidence_score = fused_decision.get("confidence", 0.0)

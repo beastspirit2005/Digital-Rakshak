@@ -9,6 +9,7 @@ import axios from "axios";
 import { useAuthStore } from "@/lib/auth-store";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from "recharts";
 
 export default function ReportPage() {
   const router = useRouter();
@@ -19,6 +20,7 @@ export default function ReportPage() {
   const [error, setError] = useState("");
   const [successData, setSuccessData] = useState<any>(null);
   const [aiMode, setAiMode] = useState("auto");
+  const [reportType, setReportType] = useState("scam");
   const [file, setFile] = useState<File | null>(null);
   
   // GPS State
@@ -140,6 +142,8 @@ export default function ReportPage() {
       if (state) formData.append("state", state);
       if (latitude) formData.append("latitude", latitude.toString());
       if (longitude) formData.append("longitude", longitude.toString());
+      formData.append("ai_mode", aiMode);
+      formData.append("report_type", reportType);
       if (file) formData.append("file", file);
 
       const response = await axios.post(
@@ -197,6 +201,23 @@ export default function ReportPage() {
                   <p>{error}</p>
                 </div>
               )}
+
+              <div className="flex bg-muted/50 p-1 rounded-xl border border-border">
+                <button
+                  type="button"
+                  onClick={() => setReportType("scam")}
+                  className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${reportType === "scam" ? "bg-primary text-primary-foreground shadow-md" : "text-muted-foreground hover:bg-muted"}`}
+                >
+                  Cyber Scam
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setReportType("counterfeit")}
+                  className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${reportType === "counterfeit" ? "bg-primary text-primary-foreground shadow-md" : "text-muted-foreground hover:bg-muted"}`}
+                >
+                  Fake Currency
+                </button>
+              </div>
 
               <div className="space-y-3">
                 <label className="text-sm font-medium">Describe the Incident / Paste the Message</label>
@@ -320,7 +341,7 @@ export default function ReportPage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="p-3 rounded-xl bg-muted/50">
                       <p className="text-muted-foreground text-xs uppercase tracking-wider font-semibold mb-1">Threat Level</p>
-                      <p className="font-medium text-red-500">{successData.ai_analysis?.decision || "Unknown"}</p>
+                      <p className="font-medium text-red-500">{successData.ai_analysis?.threat_class || "Unknown"}</p>
                     </div>
                     <div className="p-3 rounded-xl bg-muted/50">
                       <p className="text-muted-foreground text-xs uppercase tracking-wider font-semibold mb-1">Confidence Score</p>
@@ -362,6 +383,28 @@ export default function ReportPage() {
                       <p className="text-sm text-foreground/90 leading-relaxed">
                         {successData.ai_analysis.raw_explanation}
                       </p>
+                    </div>
+                  )}
+
+                  {successData.ai_analysis?.six_dim_score && (
+                    <div className="mt-4 p-4 rounded-xl bg-muted/30 border border-border">
+                      <h4 className="text-sm font-semibold mb-4 text-center">Threat DNA (6-Axis Radar)</h4>
+                      <div className="h-64 w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <RadarChart cx="50%" cy="50%" outerRadius="70%" data={[
+                            { subject: 'Threat', A: successData.ai_analysis.six_dim_score.threat * 100 },
+                            { subject: 'Behavior', A: successData.ai_analysis.six_dim_score.behavior * 100 },
+                            { subject: 'Network', A: successData.ai_analysis.six_dim_score.network * 100 },
+                            { subject: 'Integrity', A: successData.ai_analysis.six_dim_score.integrity * 100 },
+                            { subject: 'Impersonation', A: successData.ai_analysis.six_dim_score.impersonation * 100 },
+                            { subject: 'Extraction', A: successData.ai_analysis.six_dim_score.extraction * 100 },
+                          ]}>
+                            <PolarGrid stroke="rgba(255,255,255,0.1)" />
+                            <PolarAngleAxis dataKey="subject" tick={{ fill: '#94a3b8', fontSize: 12 }} />
+                            <Radar name="Threat DNA" dataKey="A" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.3} />
+                          </RadarChart>
+                        </ResponsiveContainer>
+                      </div>
                     </div>
                   )}
                 </div>

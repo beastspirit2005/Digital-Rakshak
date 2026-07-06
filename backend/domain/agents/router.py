@@ -110,14 +110,40 @@ class RAICDecisionCore:
                 f"Rewrite this threat explanation into a short, highly professional 2-sentence "
                 f"intelligence brief for an investigator. Incorporate ZTIVF metrics if relevant: '{raw_explanation}'"
             )
-            if ai_mode == "groq":
+            from core.config import settings
+            resolved_ai_mode = ai_mode
+            if resolved_ai_mode == "auto":
+                resolved_ai_mode = settings.DEFAULT_AI_MODE
+
+            if resolved_ai_mode == "groq":
                 from infrastructure.ai.groq_client import GroqClient
                 qwen_res = await GroqClient().analyze(refine_prompt, context={}, model_name="llama-3.1-8b-instant")
             else:
                 qwen_res = await self.ollama.analyze(refine_prompt, context={}, model_name="qwen2.5:7b")
                 
             if isinstance(qwen_res, dict) and qwen_res.get("decision"):
-                final_explanation = qwen_res["decision"]
+                # Do not leak Ollama connection errors to the frontend
+                if "Ollama Inference Error" in qwen_res["decision"]:
+                    final_explanation = raw_explanation
+                else:
+                    final_explanation = qwen_res["decision"]
+
+        # 6-Dimension Score Generation
+        threat_score = 0.9 if fused_data["threat_class"] else 0.2
+        behavior_score = min(len(fused_data["behaviors"]) * 0.3, 0.95)
+        network_score = min(sum(len(v) for v in fused_data["entities"].values() if v) * 0.25, 0.9)
+        integrity_score = fused_data["trust_metrics"].get("evidence_score", 0.8)
+        impersonation_score = fused_data["trust_metrics"].get("identity_score", 0.6) if "Impersonation" not in fused_data["behaviors"] else 0.95
+        extraction_score = 0.85 if fused_data["evidence"] else 0.4
+        
+        six_dim_score = {
+            "threat": round(threat_score, 2),
+            "behavior": round(behavior_score, 2),
+            "network": round(network_score, 2),
+            "integrity": round(integrity_score, 2),
+            "impersonation": round(impersonation_score, 2),
+            "extraction": round(extraction_score, 2)
+        }
 
         execution_time_ms = int((time.time() - start_time) * 1000)
 
@@ -128,5 +154,6 @@ class RAICDecisionCore:
             "models_used": fused_data["models_used"],
             "execution_time_ms": execution_time_ms,
             "raw_explanation": raw_explanation,
-            "ztivf_metrics": fused_data["trust_metrics"]
+            "ztivf_metrics": fused_data["trust_metrics"],
+            "six_dim_score": six_dim_score
         }
