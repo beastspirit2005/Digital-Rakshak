@@ -83,3 +83,23 @@ app.include_router(scan_router, prefix=f"{settings.API_V1_STR}")
 app.include_router(settings_router, prefix=f"{settings.API_V1_STR}/admin", tags=["admin"])
 app.include_router(osint_router, prefix=f"{settings.API_V1_STR}/admin/osint", tags=["osint"])
 
+@app.on_event("startup")
+def run_migrations():
+    try:
+        from alembic.config import Config
+        from alembic import command
+        
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        alembic_cfg = Config(os.path.join(base_dir, "alembic.ini"))
+        alembic_cfg.set_main_option("script_location", os.path.join(base_dir, "alembic"))
+        
+        # Override SQLAlchemy URL with database settings
+        alembic_cfg.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+        
+        logger.info("Running database migrations programmatically...")
+        command.upgrade(alembic_cfg, "head")
+        logger.info("Migrations successfully applied!")
+    except Exception as e:
+        logger.error(f"Failed to run programmatic migrations: {e}")
+
+
