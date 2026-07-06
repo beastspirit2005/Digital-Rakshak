@@ -16,7 +16,7 @@ interface Message {
 }
 
 export function GlobalChatWidget() {
-  const { user } = useAuthStore();
+  const { user, token } = useAuthStore();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -79,11 +79,17 @@ export function GlobalChatWidget() {
     setIsLoading(true);
 
     try {
-      const response = await axios.post(api("/chat/global"), {
-        query: userMsg.content,
-        ai_mode: aiMode,
-        case_id: caseId || undefined
-      });
+      const response = await axios.post(
+        api("/cases/global"), 
+        {
+          query: userMsg.content,
+          ai_mode: aiMode,
+          case_id: caseId || undefined
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
 
       const aiMsg: Message = {
         id: (Date.now() + 1).toString(),
