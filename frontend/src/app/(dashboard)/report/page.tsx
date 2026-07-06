@@ -265,8 +265,8 @@ export default function ReportPage() {
                   className="w-full bg-slate-50 dark:bg-[#0f172a] border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-slate-900 dark:text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
                   <option value="both">⚡ Ensemble Analysis (Both Cloud & Local) (Heavy)</option>
-                  <optgroup label="Cloud Models (Gemini)">
-                    {models.filter(m => m.provider === 'google').map(m => (
+                  <optgroup label="Cloud Models (Groq LPU)">
+                    {models.filter(m => m.provider === 'groq').map(m => (
                       <option key={m.id} value={m.id}>
                         {m.name} {m.is_recommended ? '(Recommended)' : ''}
                       </option>
