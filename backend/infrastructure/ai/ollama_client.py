@@ -74,3 +74,19 @@ class OllamaClient:
                 "models": [f"ollama-{model}"],
                 "prompt_version": "v1.0"
             }
+
+    async def generate_text(self, prompt: str, model_name: str = None) -> str:
+        """
+        Sends a raw prompt to Ollama for a conversational or unstructured text response.
+        """
+        model = model_name or self.default_model
+        try:
+            response = await self.client.chat(
+                model=model,
+                messages=[{'role': 'user', 'content': prompt}],
+                options={'temperature': 0.4}
+            )
+            return response['message']['content']
+        except Exception as e:
+            print(f"Ollama API Error (generate_text): {e}")
+            return f"Ollama Inference Error: {str(e)}"

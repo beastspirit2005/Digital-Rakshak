@@ -84,3 +84,27 @@ class GroqClient:
                 "models": [model],
                 "prompt_version": "v1.0"
             }
+
+    async def generate_text(self, prompt: str, model_name: str = None) -> str:
+        """
+        Sends a raw prompt to Groq for a conversational or unstructured text response.
+        """
+        model = model_name or self.default_model
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 0.4
+        }
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(self.base_url, headers=headers, json=payload, timeout=30.0)
+                response.raise_for_status()
+                data = response.json()
+                return data["choices"][0]["message"]["content"]
+        except Exception as e:
+            print(f"Groq API Error (generate_text): {e}")
+            return f"Groq Inference Error: {str(e)}"

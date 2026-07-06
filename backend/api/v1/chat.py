@@ -71,19 +71,18 @@ async def case_copilot_chat(
         # Create a single prompt combining system prompt, context, and user query
         full_prompt = f"{system_prompt}\n\n{context}\n\nINVESTIGATOR QUERY: {req.query}"
         
-        if ai_mode == "cloud":
+        if ai_mode == "cloud" or ai_mode == "gemini":
             from infrastructure.ai.gemini_client import GeminiClient
             client = GeminiClient()
-            ai_result = await client.analyze(prompt=full_prompt, context={})
+            reply_text = await client.generate_text(prompt=full_prompt)
+        elif ai_mode == "groq":
+            from infrastructure.ai.groq_client import GroqClient
+            client = GroqClient()
+            reply_text = await client.generate_text(prompt=full_prompt)
         else:
             from infrastructure.ai.ollama_client import OllamaClient
             client = OllamaClient()
-            ai_result = await client.analyze(prompt=full_prompt, context={}, model_name="mistral")
-        
-        if isinstance(ai_result, dict):
-            reply_text = ai_result.get("decision", str(ai_result))
-        else:
-            reply_text = str(ai_result).strip()
+            reply_text = await client.generate_text(prompt=full_prompt, model_name="mistral")
         
         return ChatResponse(reply=reply_text)
     except Exception as e:
