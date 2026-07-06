@@ -9,7 +9,7 @@ import { useAuthStore } from "@/lib/auth-store";
 
 export default function AdminSettingsPage() {
   const [forceLocal, setForceLocal] = useState(false);
-  const [aiMode, setAiMode] = useState<"auto" | "gemini" | "ollama" | "both">("auto");
+  const [aiMode, setAiMode] = useState<"auto" | "groq" | "ollama" | "both">("auto");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -114,7 +114,7 @@ export default function AdminSettingsPage() {
               <div className={`flex items-center gap-3 p-4 rounded-xl border ${geminiConfigured ? 'border-green-500/30 bg-green-500/5' : 'border-red-500/30 bg-red-500/5'}`}>
                 {geminiConfigured ? <Wifi className="w-5 h-5 text-green-500" /> : <WifiOff className="w-5 h-5 text-red-500" />}
                 <div>
-                  <p className="text-sm font-medium text-foreground">Google Gemini</p>
+                  <p className="text-sm font-medium text-foreground">Groq LPU (Cloud)</p>
                   <p className="text-xs text-muted-foreground">{geminiConfigured ? 'API key configured' : 'Not configured'}</p>
                 </div>
               </div>
@@ -158,7 +158,7 @@ export default function AdminSettingsPage() {
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                 {([
                   { id: "auto" as const, label: "Platform Default", desc: "Specialized Native Models + Ollama Qwen", emoji: "🧠" },
-                  { id: "gemini" as const, label: "Cloud (Exp.)", desc: "Experimental Gemini fallback", emoji: "☁️" },
+                  { id: "groq" as const, label: "Cloud Fast (Groq LPU)", desc: "Lightning fast Llama-3 models", emoji: "⚡" },
                   { id: "ollama" as const, label: "Strict Offline", desc: "Local Models + Ollama Only", emoji: "🔒" },
                   { id: "both" as const, label: "Hybrid", desc: "Run both pipelines for A/B testing", emoji: "⚡" },
                 ]).map(mode => (

@@ -136,7 +136,6 @@ export default function ReportPage() {
     try {
       const formData = new FormData();
       formData.append("scam_text", scamText);
-      formData.append("ai_mode", aiMode);
       if (city) formData.append("city", city);
       if (state) formData.append("state", state);
       if (latitude) formData.append("latitude", latitude.toString());
@@ -254,43 +253,6 @@ export default function ReportPage() {
                   </p>
                 )}
               </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                  Intelligence Engine
-                </label>
-                <select
-                  value={aiMode}
-                  onChange={(e) => setAiMode(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-[#0f172a] border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-slate-900 dark:text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                >
-                  <option value="both">⚡ Ensemble Analysis (Both Cloud & Local) (Heavy)</option>
-                  <optgroup label="Cloud Models (Groq LPU)">
-                    {models.filter(m => m.provider === 'groq').map(m => (
-                      <option key={m.id} value={m.id}>
-                        {m.name} {m.is_recommended ? '(Recommended)' : ''}
-                      </option>
-                    ))}
-                  </optgroup>
-                  <optgroup label="Local Models (Ollama - Privacy Preserving)">
-                    {models.filter(m => m.provider === 'ollama').map(m => (
-                      <option key={m.id} value={m.id}>
-                        {m.name} {m.is_recommended ? '(Recommended)' : ''}
-                      </option>
-                    ))}
-                  </optgroup>
-                </select>
-                
-                {isHeavy && (
-                  <div className="mt-3 p-3 bg-yellow-50 dark:bg-yellow-500/10 border border-yellow-200 dark:border-yellow-500/20 rounded-xl flex items-start gap-3">
-                    <AlertCircle className="w-5 h-5 text-yellow-600 dark:text-yellow-500 shrink-0 mt-0.5" />
-                    <p className="text-sm text-yellow-800 dark:text-yellow-400">
-                      <strong>Warning:</strong> This is a heavy compute operation. Analysis may take up to 2 minutes and is strictly rate-limited to 5 requests per minute to protect system hardware.
-                    </p>
-                  </div>
-                )}
-              </div>
-
               <div className="relative border-2 border-dashed border-border rounded-2xl p-8 flex flex-col items-center justify-center text-center hover:bg-muted/30 transition-colors cursor-pointer overflow-hidden group">
                 <input 
                   type="file" 
