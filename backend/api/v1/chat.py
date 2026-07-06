@@ -163,9 +163,14 @@ async def global_chatbot(
             context = "Admin Global Access. You have full oversight of the Digital Rakshak platform."
             
     # 3. Construct System Prompt
+    user_email = user_payload.get("email", "Unknown")
+    
     system_prompt = f"""
     You are the Digital Rakshak Global AI Assistant.
-    The current user has the role of '{role}'.
+    You are currently speaking to a user with the role of '{role}'.
+    Their email address is '{user_email}' (User ID: {user_id}).
+    Address them politely and assist them based on their authorization level.
+    
     Use the following CONTEXT to answer the user's query if relevant.
     CONTEXT:
     {context}

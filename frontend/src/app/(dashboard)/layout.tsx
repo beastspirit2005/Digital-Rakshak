@@ -31,6 +31,7 @@ import { cn } from "@/lib/utils";
 import { ProtectedRoute } from "@/components/protected-route";
 import { useAuthStore } from "@/lib/auth-store";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { GlobalChatWidget } from "@/components/global-chat-widget";
 
 const workbenchNavigation = [
   { name: 'Dashboard', href: '/workbench', icon: Activity },
@@ -288,6 +289,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             onClick={() => setSidebarOpen(false)}
           />
         )}
+        <GlobalChatWidget />
       </div>
     </ProtectedRoute>
   );
