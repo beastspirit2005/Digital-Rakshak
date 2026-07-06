@@ -112,7 +112,7 @@ class RAICDecisionCore:
             )
             if ai_mode == "groq":
                 from infrastructure.ai.groq_client import GroqClient
-                qwen_res = await GroqClient().analyze(refine_prompt, context={}, model_name="llama3-8b-8192")
+                qwen_res = await GroqClient().analyze(refine_prompt, context={}, model_name="llama-3.1-8b-instant")
             else:
                 qwen_res = await self.ollama.analyze(refine_prompt, context={}, model_name="qwen2.5:7b")
                 
