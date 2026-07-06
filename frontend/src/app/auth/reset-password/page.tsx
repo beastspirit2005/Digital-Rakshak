@@ -4,9 +4,11 @@ import { api } from "@/lib/api";
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Shield, ArrowRight, Loader2, CheckCircle2, AlertCircle, KeyRound } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { CheckCircle2 } from "lucide-react";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import axios from "axios";
+import { Button } from "@/components/ui/button";
+import { Input, Label, FormError, FormNotice, OtpInput } from "@/components/ui/field";
 
 export default function ResetPasswordPage() {
   const router = useRouter();
@@ -14,10 +16,10 @@ export default function ResetPasswordPage() {
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
   const [newPassword, setNewPassword] = useState("");
-  
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const reduced = useReducedMotion();
 
   const handleRequestOTP = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,7 +30,7 @@ export default function ResetPasswordPage() {
       await axios.post(api("/auth/forgot-password"), { email });
       setStep("reset");
     } catch (err: any) {
-      setError(err.response?.data?.detail || "Failed to request password reset. Please try again.");
+      setError(err.response?.data?.detail || "Couldn't send the reset code. Try again.");
     } finally {
       setIsLoading(false);
     }
@@ -50,7 +52,7 @@ export default function ResetPasswordPage() {
         router.push("/auth/login");
       }, 3000);
     } catch (err: any) {
-      setError(err.response?.data?.detail || "Failed to reset password. Please try again.");
+      setError(err.response?.data?.detail || "Couldn't reset the password. Try again.");
     } finally {
       setIsLoading(false);
     }
@@ -58,157 +60,111 @@ export default function ResetPasswordPage() {
 
   if (success) {
     return (
-      <motion.div 
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="glass-panel p-8 md:p-10 rounded-3xl w-full text-center space-y-6"
-      >
-        <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto border border-emerald-500/20">
-          <CheckCircle2 className="w-8 h-8 text-emerald-500" />
+      <div className="rise-in text-center">
+        <div className="w-12 h-12 rounded-pill bg-success-tint flex items-center justify-center mx-auto mb-5">
+          <CheckCircle2 className="w-5 h-5 text-success" />
         </div>
-        <h2 className="text-2xl font-bold tracking-tight">Password Reset!</h2>
-        <p className="text-muted-foreground">
-          Your password has been successfully reset. Redirecting you to login...
-        </p>
-      </motion.div>
+        <h2 className="font-display font-semibold text-xl tracking-tight text-ink">
+          Password updated
+        </h2>
+        <p className="text-sm text-ink-2 mt-2">Taking you back to sign in…</p>
+      </div>
     );
   }
 
   return (
-    <div className="glass-panel p-8 md:p-10 rounded-3xl w-full overflow-hidden">
-      <div className="flex justify-center mb-8">
-        <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center border border-primary/20 shadow-inner">
-          <KeyRound className="w-8 h-8 text-primary" />
-        </div>
-      </div>
+    <div>
+      <h2 className="font-display font-semibold text-xl tracking-tight text-ink">
+        Reset your password
+      </h2>
+      <p className="text-sm text-ink-2 mt-1.5 mb-8">
+        {step === "email"
+          ? "Enter your email and we'll send you a reset code."
+          : "Enter the code from your inbox and pick a new password."}
+      </p>
 
-      <div className="text-center mb-8">
-        <h2 className="text-2xl font-bold tracking-tight mb-2">Reset Password</h2>
-        <p className="text-sm text-muted-foreground">
-          {step === "email" ? "Enter your email to receive a reset OTP" : "Enter the OTP and your new password"}
-        </p>
-      </div>
-
-      <AnimatePresence mode="wait">
+      <AnimatePresence mode="wait" initial={false}>
         {step === "email" ? (
-          <motion.form 
+          <motion.form
             key="email-form"
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 20 }}
-            onSubmit={handleRequestOTP} 
-            className="space-y-6"
+            initial={{ opacity: 0, y: reduced ? 0 : 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+            onSubmit={handleRequestOTP}
+            className="space-y-5"
           >
-            {error && (
-              <div className="bg-red-500/10 text-red-600 dark:text-red-400 p-3 rounded-xl flex items-center gap-2 text-sm border border-red-500/20">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                <p>{error}</p>
-              </div>
-            )}
+            <FormError>{error}</FormError>
 
-            <div className="space-y-2">
-              <label htmlFor="resetEmail" className="text-sm font-medium">Email Address</label>
-              <input 
+            <div>
+              <Label htmlFor="resetEmail">Email</Label>
+              <Input
                 id="resetEmail"
-                type="email" 
+                type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
-                className="w-full px-4 py-3 rounded-xl bg-background border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all outline-none"
+                autoComplete="email"
               />
             </div>
-            
-            <button 
-              type="submit" 
-              disabled={isLoading}
-              className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground py-3 rounded-xl font-medium hover:bg-primary/90 transition-all active:scale-[0.98] disabled:opacity-70"
-            >
-              {isLoading ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : (
-                <>Send Reset OTP <ArrowRight className="w-4 h-4" /></>
-              )}
-            </button>
+
+            <Button type="submit" variant="primary" size="lg" loading={isLoading} className="w-full">
+              Send reset code
+            </Button>
           </motion.form>
         ) : (
-          <motion.form 
+          <motion.form
             key="reset-form"
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 20 }}
-            onSubmit={handleResetPassword} 
-            className="space-y-6"
+            initial={{ opacity: 0, y: reduced ? 0 : 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+            onSubmit={handleResetPassword}
+            className="space-y-5"
           >
-            <div className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 p-4 rounded-xl flex items-start gap-3 border border-emerald-500/20">
-              <CheckCircle2 className="w-5 h-5 mt-0.5 shrink-0" />
-              <div className="text-sm">
-                <p className="font-medium">OTP Sent Successfully</p>
-                <p className="opacity-90">Check your inbox for the reset code.</p>
-              </div>
+            <FormNotice>
+              We sent a reset code to <span className="font-medium">{email}</span>.
+            </FormNotice>
+
+            <FormError>{error}</FormError>
+
+            <div>
+              <Label htmlFor="otp">Code</Label>
+              <OtpInput id="otp" value={otp} onChange={setOtp} />
             </div>
 
-            {error && (
-              <div className="bg-red-500/10 text-red-600 dark:text-red-400 p-3 rounded-xl flex items-center gap-2 text-sm border border-red-500/20">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                <p>{error}</p>
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <label htmlFor="otp" className="text-sm font-medium">Enter OTP</label>
-              <input 
-                id="otp"
-                type="text" 
-                required
-                value={otp}
-                onChange={(e) => setOtp(e.target.value)}
-                placeholder="• • • • • •"
-                className="w-full px-4 py-3 rounded-xl bg-background border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all outline-none text-center tracking-[0.5em] text-lg font-mono"
-                maxLength={6}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label htmlFor="newPassword" className="text-sm font-medium">New Password</label>
-              <input 
+            <div>
+              <Label htmlFor="newPassword">New password</Label>
+              <Input
                 id="newPassword"
-                type="password" 
+                type="password"
                 required
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full px-4 py-3 rounded-xl bg-background border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all outline-none"
+                placeholder="8+ characters with a digit and a symbol"
+                autoComplete="new-password"
               />
-              <p className="text-xs text-muted-foreground mt-1">Must be at least 8 chars, 1 digit, and 1 special char.</p>
             </div>
-            
-            <button 
-              type="submit" 
-              disabled={isLoading}
-              className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground py-3 rounded-xl font-medium hover:bg-primary/90 transition-all active:scale-[0.98] disabled:opacity-70"
-            >
-              {isLoading ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : (
-                "Reset Password"
-              )}
-            </button>
 
-            <button 
+            <Button type="submit" variant="primary" size="lg" loading={isLoading} className="w-full">
+              Reset password
+            </Button>
+
+            <button
               type="button"
               onClick={() => setStep("email")}
-              className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors"
+              className="w-full text-sm text-ink-2 hover:text-ink transition-colors"
             >
-              Didn't receive the code? Try again.
+              Didn't get the code? Send it again
             </button>
           </motion.form>
         )}
       </AnimatePresence>
 
-      <p className="text-center text-sm text-muted-foreground mt-6">
-        Remembered your password?{" "}
-        <Link href="/auth/login" className="text-primary hover:underline font-medium">
+      <p className="text-center text-sm text-ink-2 mt-8">
+        Remembered it?{" "}
+        <Link href="/auth/login" className="text-ink font-medium underline underline-offset-4 hover:text-accent-text">
           Sign in
         </Link>
       </p>

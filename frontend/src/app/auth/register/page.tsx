@@ -1,18 +1,20 @@
 "use client";
 
-
 import { api } from "@/lib/api";
 import { useState } from "react";
 import Link from "next/link";
-import { Shield, ArrowRight, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
-import { motion } from "framer-motion";
+import { CheckCircle2 } from "lucide-react";
 import axios from "axios";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Input, Label, FormError } from "@/components/ui/field";
+import { Badge } from "@/components/ui/badge";
 
 const ROLES = [
   { value: "citizen", label: "Citizen", description: "Report scams and check suspicious links" },
-  { value: "police", label: "Police Officer", description: "Investigate cases and manage evidence", requiresApproval: true },
-  { value: "banker", label: "Banker", description: "Financial fraud analysis and account freeze requests", requiresApproval: true },
-  { value: "admin", label: "Administrator", description: "Platform management and user approvals", requiresApproval: true },
+  { value: "police", label: "Police officer", description: "Investigate cases and manage evidence", requiresApproval: true },
+  { value: "banker", label: "Banker", description: "Review fraud flags and freeze requests", requiresApproval: true },
+  { value: "admin", label: "Administrator", description: "Manage the platform and approve users", requiresApproval: true },
 ];
 
 export default function RegisterPage() {
@@ -24,24 +26,21 @@ export default function RegisterPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
 
-  const selectedRole = ROLES.find(r => r.value === role);
-
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError("");
 
     try {
-      const payload: any = {
+      await axios.post(api("/auth/register"), {
         email,
         full_name: fullName,
         role,
         password,
-      };
-      const response = await axios.post(api("/auth/register"), payload);
+      });
       setSuccess(true);
     } catch (err: any) {
-      setError(err.response?.data?.detail || "Registration failed. Please try again.");
+      setError(err.response?.data?.detail || "Registration failed. Try again.");
     } finally {
       setIsLoading(false);
     }
@@ -50,108 +49,91 @@ export default function RegisterPage() {
   if (success) {
     const needsApproval = role !== "citizen";
     return (
-      <motion.div 
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="glass-panel p-8 md:p-10 rounded-3xl w-full text-center space-y-6"
-      >
-        <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto border border-emerald-500/20">
-          <CheckCircle2 className="w-8 h-8 text-emerald-500" />
+      <div className="rise-in text-center">
+        <div className="w-12 h-12 rounded-pill bg-success-tint flex items-center justify-center mx-auto mb-5">
+          <CheckCircle2 className="w-5 h-5 text-success" />
         </div>
-        <h2 className="text-2xl font-bold tracking-tight">Registration Successful!</h2>
-        <p className="text-muted-foreground">
+        <h2 className="font-display font-semibold text-xl tracking-tight text-ink">
+          Account created
+        </h2>
+        <p className="text-sm text-ink-2 mt-2 max-w-sm mx-auto">
           {needsApproval
-            ? "Your account is pending admin approval. You'll receive a welcome email once approved."
-            : "Your account is active! You can now log in using your email."
-          }
+            ? "An administrator will review your registration. You'll get an email once you're approved."
+            : "You're all set — sign in with your email to get started."}
         </p>
-        <Link
-          href="/auth/login"
-          className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-6 py-3 rounded-xl font-medium hover:bg-primary/90 transition-all"
-        >
-          Go to Login <ArrowRight className="w-4 h-4" />
+        <Link href="/auth/login" className="inline-block mt-6">
+          <Button variant="primary" size="lg">Go to sign in</Button>
         </Link>
-      </motion.div>
+      </div>
     );
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="glass-panel p-8 md:p-10 rounded-3xl w-full"
-    >
-      <div className="flex justify-center mb-8">
-        <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center border border-primary/20 shadow-inner">
-          <Shield className="w-8 h-8 text-primary" />
-        </div>
-      </div>
-
-      <div className="text-center mb-8">
-        <h2 className="text-2xl font-bold tracking-tight mb-2">Create Account</h2>
-        <p className="text-sm text-muted-foreground">
-          Join Digital Rakshak to fight digital fraud
-        </p>
-      </div>
+    <div>
+      <h2 className="font-display font-semibold text-xl tracking-tight text-ink">
+        Create an account
+      </h2>
+      <p className="text-sm text-ink-2 mt-1.5 mb-8">
+        Already registered?{" "}
+        <Link href="/auth/login" className="text-ink font-medium underline underline-offset-4 hover:text-accent-text">
+          Sign in
+        </Link>
+      </p>
 
       <form onSubmit={handleRegister} className="space-y-5">
-        {error && (
-          <div className="bg-red-500/10 text-red-600 dark:text-red-400 p-3 rounded-xl flex items-center gap-2 text-sm border border-red-500/20">
-            <AlertCircle className="w-4 h-4 shrink-0" />
-            <p>{error}</p>
-          </div>
-        )}
+        <FormError>{error}</FormError>
 
-        <div className="space-y-2">
-          <label htmlFor="fullName" className="text-sm font-medium">Full Name</label>
-          <input
+        <div>
+          <Label htmlFor="fullName">Full name</Label>
+          <Input
             id="fullName"
             type="text"
             required
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
-            placeholder="John Doe"
-            className="w-full px-4 py-3 rounded-xl bg-background border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all outline-none"
+            placeholder="Asha Verma"
+            autoComplete="name"
           />
         </div>
 
-        <div className="space-y-2">
-          <label htmlFor="registerEmail" className="text-sm font-medium">Email Address</label>
-          <input
+        <div>
+          <Label htmlFor="registerEmail">Email</Label>
+          <Input
             id="registerEmail"
             type="email"
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@example.com"
-            className="w-full px-4 py-3 rounded-xl bg-background border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all outline-none"
+            autoComplete="email"
           />
         </div>
 
-        <div className="space-y-2">
-          <label htmlFor="registerPassword" className="text-sm font-medium">Password</label>
-          <input
+        <div>
+          <Label htmlFor="registerPassword">Password</Label>
+          <Input
             id="registerPassword"
             type="password"
             required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="Min 8 chars, 1 digit, 1 special char"
-            className="w-full px-4 py-3 rounded-xl bg-background border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all outline-none"
+            placeholder="8+ characters with a digit and a symbol"
+            autoComplete="new-password"
           />
         </div>
 
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Role</label>
+        <fieldset>
+          <legend className="block text-sm font-medium text-ink mb-1.5">I am a</legend>
           <div className="grid grid-cols-1 gap-2">
             {ROLES.map((r) => (
               <label
                 key={r.value}
-                className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                className={cn(
+                  "flex items-start gap-3 p-3.5 rounded-control border cursor-pointer transition-colors duration-150",
                   role === r.value
-                    ? "border-primary bg-primary/5 ring-1 ring-primary/20"
-                    : "border-border hover:border-primary/30"
-                }`}
+                    ? "border-accent-text bg-surface"
+                    : "border-line bg-surface hover:border-ink-3"
+                )}
               >
                 <input
                   type="radio"
@@ -159,41 +141,24 @@ export default function RegisterPage() {
                   value={r.value}
                   checked={role === r.value}
                   onChange={(e) => setRole(e.target.value)}
-                  className="mt-1 accent-primary"
+                  className="mt-1 accent-(--accent-text)"
                 />
                 <div>
-                  <span className="text-sm font-medium">{r.label}</span>
+                  <span className="text-sm font-medium text-ink">{r.label}</span>
                   {r.requiresApproval && (
-                    <span className="ml-2 text-xs text-orange-500 bg-orange-500/10 px-1.5 py-0.5 rounded">Requires Approval</span>
+                    <Badge tone="warning" className="ml-2">Needs approval</Badge>
                   )}
-                  <p className="text-xs text-muted-foreground mt-0.5">{r.description}</p>
+                  <p className="text-xs text-ink-2 mt-0.5">{r.description}</p>
                 </div>
               </label>
             ))}
           </div>
-        </div>
+        </fieldset>
 
-        <button
-          type="submit"
-          disabled={isLoading}
-          className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground py-3 rounded-xl font-medium hover:bg-primary/90 transition-all active:scale-[0.98] disabled:opacity-70"
-        >
-          {isLoading ? (
-            <Loader2 className="w-5 h-5 animate-spin" />
-          ) : (
-            <>
-              Create Account <ArrowRight className="w-4 h-4" />
-            </>
-          )}
-        </button>
-
-        <p className="text-center text-sm text-muted-foreground">
-          Already have an account?{" "}
-          <Link href="/auth/login" className="text-primary hover:underline font-medium">
-            Sign in
-          </Link>
-        </p>
+        <Button type="submit" variant="primary" size="lg" loading={isLoading} className="w-full">
+          Create account
+        </Button>
       </form>
-    </motion.div>
+    </div>
   );
 }
