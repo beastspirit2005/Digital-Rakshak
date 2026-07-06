@@ -1,12 +1,14 @@
 "use client";
 
-
 import { api } from "@/lib/api";
 import { useState } from "react";
 import SpatialMap from "@/components/map/spatial-map";
 import { useAuthStore } from "@/lib/auth-store";
-import { Loader2, ShieldAlert, X } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 import axios from "axios";
+import { Card, Inset } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
+import { Badge } from "@/components/ui/badge";
 
 export default function SpatialMapPage() {
   const [selectedCluster, setSelectedCluster] = useState<any>(null);
@@ -28,70 +30,68 @@ export default function SpatialMapPage() {
       setClusterSummary(res.data.summary);
     } catch (err) {
       console.error("Failed to generate summary", err);
-      setClusterSummary("Failed to generate AI summary for this cluster.");
+      setClusterSummary("The AI summary for this cluster couldn't be generated.");
     } finally {
       setLoadingSummary(false);
     }
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-2rem)]">
-      <div className="flex flex-col gap-2 mb-4 shrink-0">
-        <h1 className="text-3xl font-bold tracking-tight">Spatial Map</h1>
-        <p className="text-muted-foreground">Geospatial visualization of cyber threat density and interconnected clusters across India.</p>
-      </div>
+    <div className="flex flex-col h-[calc(100dvh-8.5rem)] md:h-[calc(100dvh-7rem)] pt-2">
+      <PageHeader
+        title="Spatial map"
+        sub="Threat density and linked scam clusters across India. Dashed lines connect cases that share an attacker."
+        className="mb-4 shrink-0"
+      />
 
-      <div className="flex-1 w-full relative min-h-0 flex gap-4">
-        {/* Map Container */}
-        <div className={`transition-all duration-300 ${selectedCluster ? 'w-2/3' : 'w-full'} h-full relative rounded-xl overflow-hidden shadow-xl border border-border`}>
+      <div className="flex-1 w-full relative min-h-0 flex flex-col lg:flex-row gap-4">
+        <div className="flex-1 min-h-64 relative rounded-card overflow-hidden shadow-card">
           <SpatialMap onClusterSelect={handleClusterSelect} />
         </div>
 
-        {/* AI Cluster Summary Side Panel */}
         {selectedCluster && (
-          <div className="w-1/3 h-full glass-panel border border-border rounded-xl p-6 flex flex-col overflow-y-auto animate-in slide-in-from-right-8 fade-in">
-            <div className="flex justify-between items-start mb-6">
-              <div className="flex items-center gap-2 text-primary">
-                <ShieldAlert className="w-5 h-5 text-red-500" />
-                <h2 className="text-xl font-bold">Threat Cluster Detected</h2>
+          <Card className="lg:w-96 shrink-0 max-h-[45%] lg:max-h-full p-5 flex flex-col overflow-y-auto rise-in">
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <p className="text-xs text-ink-3 mb-1">Threat cluster</p>
+                <h2 className="font-display font-semibold text-base text-ink">
+                  Shared {String(selectedCluster.entity_type || "entity").toLowerCase()}
+                </h2>
               </div>
-              <button 
+              <button
                 onClick={() => setSelectedCluster(null)}
-                className="p-1 hover:bg-white/10 rounded-full transition-colors"
+                aria-label="Close panel"
+                className="p-2 -mr-1 rounded-pill text-ink-3 hover:text-ink hover:bg-surface-2 transition-colors"
               >
-                <X className="w-5 h-5 text-muted-foreground" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="space-y-4 mb-6">
-              <div className="p-3 bg-black/40 rounded-lg border border-white/5">
-                <p className="text-sm text-muted-foreground mb-1">Common Vector</p>
-                <p className="font-mono text-red-400 font-semibold break-all">
-                  [{selectedCluster.entity_type}] {selectedCluster.entity_value}
+            <div className="space-y-3 mb-5">
+              <Inset className="p-3">
+                <p className="text-xs text-ink-3 mb-1">Common vector</p>
+                <p className="text-sm font-medium text-danger break-all tabular">
+                  {selectedCluster.entity_value}
                 </p>
-              </div>
-              
-              <div className="p-3 bg-black/40 rounded-lg border border-white/5">
-                <p className="text-sm text-muted-foreground mb-1">Linked Cases</p>
-                <p className="font-bold">{selectedCluster.case_texts?.length || 0} victims</p>
+              </Inset>
+              <div className="flex items-center justify-between px-1">
+                <span className="text-sm text-ink-2">Linked cases</span>
+                <Badge tone="peach">{selectedCluster.case_texts?.length || 0} victims</Badge>
               </div>
             </div>
 
-            <h3 className="font-semibold text-lg mb-3 flex items-center gap-2">
-              <span className="bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">Ollama CTI Summary</span>
-            </h3>
-            
-            <div className="flex-1 p-4 bg-black/30 rounded-lg border border-border/50 text-sm leading-relaxed">
+            <p className="text-xs text-ink-3 mb-2">AI summary</p>
+            <Inset className="flex-1 p-4 text-sm leading-relaxed text-ink">
               {loadingSummary ? (
-                <div className="flex flex-col items-center justify-center h-32 gap-3 text-muted-foreground">
-                  <Loader2 className="w-6 h-6 animate-spin text-primary" />
-                  <p className="animate-pulse">Analyzing cluster footprint...</p>
-                </div>
+                <span className="flex items-center gap-2 text-ink-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Reading the linked cases…
+                </span>
               ) : (
-                <p className="whitespace-pre-wrap">{clusterSummary}</p>
+                <span className="whitespace-pre-wrap">{clusterSummary}</span>
               )}
-            </div>
-          </div>
+            </Inset>
+          </Card>
         )}
       </div>
     </div>

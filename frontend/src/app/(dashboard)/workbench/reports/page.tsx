@@ -1,27 +1,158 @@
 "use client";
 
-
 import { api } from "@/lib/api";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useAuthStore } from "@/lib/auth-store";
 import axios from "axios";
-import { Loader2, Search, Filter, FileText, ChevronDown, ChevronUp, AlertTriangle, Shield } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { Search, FileText, ChevronDown, ChevronUp, Send } from "lucide-react";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { cn } from "@/lib/utils";
+import { Card, Inset } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
+import { StatusBadge, PriorityBadge, Badge } from "@/components/ui/badge";
+import { TableSkeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Button } from "@/components/ui/button";
+import { ZtivfMeters } from "@/components/ztivf-meters";
+
+function CaseDetail({
+  c,
+  chatQuery,
+  setChatQuery,
+  chatHistory,
+  chatLoading,
+  onChatSubmit,
+}: {
+  c: any;
+  chatQuery: string;
+  setChatQuery: (v: string) => void;
+  chatHistory: { role: string; text: string }[];
+  chatLoading: boolean;
+  onChatSubmit: (e: React.FormEvent) => void;
+}) {
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 p-4 sm:p-6">
+      <div className="lg:col-span-2 space-y-4">
+        <Inset className="p-4">
+          <p className="text-xs text-ink-3 mb-2">Original report</p>
+          <p className="text-sm text-ink whitespace-pre-wrap leading-relaxed">{c.scam_text}</p>
+        </Inset>
+
+        {c.ai_decision?.evidence && c.ai_decision.evidence.length > 0 && (
+          <div>
+            <p className="text-xs text-ink-3 mb-2">Extracted evidence</p>
+            <ul className="space-y-1.5">
+              {c.ai_decision.evidence.map((ev: any, idx: number) => (
+                <li key={idx} className="text-sm text-ink bg-surface-2 rounded-control px-3 py-2">
+                  {ev.relevance || JSON.stringify(ev)}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {c.ai_decision?.raw_explanation && (
+          <div>
+            <p className="text-xs text-ink-3 mb-2">AI reasoning</p>
+            <p className="text-sm text-ink-2 leading-relaxed">{c.ai_decision.raw_explanation}</p>
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-4">
+        <Inset className="p-4">
+          <p className="text-xs text-ink-3 mb-3">Analysis summary</p>
+          <dl className="space-y-2.5 text-sm">
+            <div className="flex justify-between gap-3">
+              <dt className="text-ink-2">Decision</dt>
+              <dd className="text-ink font-medium text-right capitalize">
+                {(c.ai_decision?.decision || "—").replace(/_/g, " ")}
+              </dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt className="text-ink-2">Latency</dt>
+              <dd className="text-ink tabular">{c.ai_decision?.inference_time_ms || 0} ms</dd>
+            </div>
+            {(c.ai_decision?.models_used || []).length > 0 && (
+              <div>
+                <dt className="text-ink-2 mb-1.5">Models</dt>
+                <dd className="flex flex-wrap gap-1.5">
+                  {c.ai_decision.models_used.map((m: string) => (
+                    <Badge key={m} className="capitalize">{m}</Badge>
+                  ))}
+                </dd>
+              </div>
+            )}
+          </dl>
+        </Inset>
+
+        {c.ai_decision?.ztivf_metrics && (
+          <Inset className="p-4">
+            <p className="text-xs text-ink-3 mb-3">Zero-trust validation</p>
+            <ZtivfMeters metrics={c.ai_decision.ztivf_metrics} className="grid-cols-1 sm:grid-cols-1" />
+          </Inset>
+        )}
+
+        {/* per-case co-pilot */}
+        <Inset className="p-4 flex flex-col h-72">
+          <p className="text-xs text-ink-3 mb-3">Ask the co-pilot about this case</p>
+          <div className="flex-1 overflow-y-auto mb-3 space-y-2 text-sm">
+            {chatHistory.length === 0 ? (
+              <p className="text-ink-3 text-center mt-6 text-xs">
+                Questions about the evidence, entities, or next steps.
+              </p>
+            ) : (
+              chatHistory.map((msg, i) => (
+                <div
+                  key={i}
+                  className={cn(
+                    "rounded-control px-3 py-2",
+                    msg.role === "user"
+                      ? "bg-surface-3 text-ink ml-6"
+                      : "bg-surface text-ink mr-6 shadow-card"
+                  )}
+                >
+                  {msg.text}
+                </div>
+              ))
+            )}
+            {chatLoading && <p className="text-xs text-ink-3 animate-pulse">Thinking…</p>}
+          </div>
+          <form onSubmit={onChatSubmit} className="flex gap-2">
+            <input
+              type="text"
+              value={chatQuery}
+              onChange={(e) => setChatQuery(e.target.value)}
+              placeholder="Ask a question"
+              className="flex-1 h-9 px-3 bg-surface rounded-control text-sm text-ink placeholder:text-ink-3 border border-transparent focus:border-accent-text focus:outline-none"
+              disabled={chatLoading}
+            />
+            <Button type="submit" size="sm" variant="primary" disabled={chatLoading} aria-label="Send">
+              <Send className="w-3.5 h-3.5" />
+            </Button>
+          </form>
+        </Inset>
+      </div>
+    </div>
+  );
+}
 
 export default function ReportsRegisterPage() {
   const [cases, setCases] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
   const [chatQuery, setChatQuery] = useState("");
-  const [chatHistory, setChatHistory] = useState<{role: string, text: string}[]>([]);
+  const [chatHistory, setChatHistory] = useState<{ role: string; text: string }[]>([]);
   const [chatLoading, setChatLoading] = useState(false);
   const { token } = useAuthStore();
+  const reduced = useReducedMotion();
 
   useEffect(() => {
     const fetchAllCases = async () => {
       try {
         const res = await axios.get(api("/cases/?limit=500"), {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${token}` },
         });
         setCases(res.data.cases);
       } catch (err) {
@@ -33,278 +164,217 @@ export default function ReportsRegisterPage() {
     if (token) fetchAllCases();
   }, [token]);
 
+  const visibleCases = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return cases;
+    return cases.filter(
+      (c) =>
+        (c.case_number || "").toLowerCase().includes(q) ||
+        (c.scam_type_code || "").toLowerCase().includes(q) ||
+        (c.city || "").toLowerCase().includes(q)
+    );
+  }, [cases, search]);
+
+  const toggleExpanded = (id: string) => {
+    setExpandedId(expandedId === id ? null : id);
+    setChatHistory([]);
+    setChatQuery("");
+  };
+
   const handleChatSubmit = async (e: React.FormEvent, caseId: string) => {
     e.preventDefault();
     if (!chatQuery.trim()) return;
 
     const userMessage = chatQuery.trim();
-    setChatHistory(prev => [...prev, { role: "user", text: userMessage }]);
+    setChatHistory((prev) => [...prev, { role: "user", text: userMessage }]);
     setChatQuery("");
     setChatLoading(true);
 
     try {
-      const res = await axios.post(api(`/cases/${caseId}/chat`), 
+      const res = await axios.post(
+        api(`/cases/${caseId}/chat`),
         { query: userMessage },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      setChatHistory(prev => [...prev, { role: "ai", text: res.data.reply }]);
+      setChatHistory((prev) => [...prev, { role: "ai", text: res.data.reply }]);
     } catch (err) {
       console.error("Chat failed", err);
-      setChatHistory(prev => [...prev, { role: "ai", text: "Error: Could not reach the Co-Pilot." }]);
+      setChatHistory((prev) => [
+        ...prev,
+        { role: "ai", text: "The co-pilot couldn't be reached. Try again." },
+      ]);
     } finally {
       setChatLoading(false);
     }
   };
 
-  const getPriorityColor = (priority: string) => {
-    switch(priority?.toLowerCase()) {
-      case 'critical': return 'bg-red-500/10 text-red-500 border-red-500/20';
-      case 'high': return 'bg-orange-500/10 text-orange-500 border-orange-500/20';
-      case 'medium': return 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20';
-      default: return 'bg-blue-500/10 text-blue-500 border-blue-500/20';
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch(status?.toLowerCase()) {
-      case 'under_review': return 'text-orange-500 border-orange-500/30 bg-orange-500/10';
-      case 'investigating': return 'text-blue-500 border-blue-500/30 bg-blue-500/10';
-      case 'resolved': return 'text-emerald-500 border-emerald-500/30 bg-emerald-500/10';
-      default: return 'text-gray-500 border-gray-500/30 bg-gray-500/10';
-    }
-  };
-
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">FIR / TPR Register</h1>
-          <p className="text-muted-foreground mt-1">Comprehensive log of all threat reports and their AI analysis.</p>
-        </div>
-        <div className="flex items-center gap-3">
+    <div className="space-y-6 pt-2">
+      <PageHeader
+        title="Case register"
+        sub="Every report on file, with its full AI analysis."
+        actions={
           <div className="relative">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <input 
-              type="text" 
-              placeholder="Search case ID or type..." 
-              className="pl-9 pr-4 py-2 rounded-xl bg-background border border-border focus:ring-2 focus:ring-primary/20 outline-none text-sm w-64"
+            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-3" />
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search case, type, or city"
+              className="h-10 pl-10 pr-4 w-full sm:w-72 rounded-pill bg-surface text-sm text-ink placeholder:text-ink-3 border border-transparent hover:border-line focus:border-accent-text focus:outline-none transition-colors"
             />
           </div>
-          <button className="p-2 border border-border bg-background rounded-xl hover:bg-muted transition-colors flex items-center gap-2 text-sm font-medium">
-            <Filter className="w-4 h-4" /> Filter
-          </button>
-        </div>
-      </div>
+        }
+      />
 
-      <div className="glass-panel rounded-2xl border border-border overflow-hidden">
+      <Card>
         {loading ? (
-          <div className="p-12 flex flex-col items-center justify-center text-muted-foreground">
-            <Loader2 className="w-8 h-8 animate-spin mb-4 text-primary" />
-            <p>Loading case register...</p>
-          </div>
-        ) : cases.length === 0 ? (
-          <div className="p-12 text-center text-muted-foreground">
-            <FileText className="w-12 h-12 mx-auto mb-4 opacity-20" />
-            <p>No reports found in the database.</p>
-          </div>
+          <TableSkeleton rows={8} />
+        ) : visibleCases.length === 0 ? (
+          <EmptyState
+            icon={FileText}
+            title={search ? "No matches" : "No reports on file"}
+            body={
+              search
+                ? `Nothing matches "${search}". Try a case number, scam type, or city.`
+                : "Reports will appear here as they're filed."
+            }
+          />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left">
-              <thead className="text-xs text-muted-foreground uppercase bg-muted/50 border-b border-border">
-                <tr>
-                  <th className="px-6 py-4 font-medium">Case Number</th>
-                  <th className="px-6 py-4 font-medium">Date & Time</th>
-                  <th className="px-6 py-4 font-medium">Scam Type</th>
-                  <th className="px-6 py-4 font-medium">Location</th>
-                  <th className="px-6 py-4 font-medium">AI Score</th>
-                  <th className="px-6 py-4 font-medium">Priority</th>
-                  <th className="px-6 py-4 font-medium">Status</th>
-                  <th className="px-6 py-4 font-medium text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {cases.map((c) => (
-                  <React.Fragment key={c.id}>
-                    <tr 
-                      className={`hover:bg-muted/30 transition-colors cursor-pointer ${expandedId === c.id ? 'bg-muted/30' : ''}`}
-                      onClick={() => {
-                        setExpandedId(expandedId === c.id ? null : c.id);
-                        setChatHistory([]);
-                        setChatQuery("");
-                      }}
-                    >
-                      <td className="px-6 py-4 font-medium text-primary">{c.case_number}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-muted-foreground">
-                        {new Date(c.created_at).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}
-                      </td>
-                      <td className="px-6 py-4">{c.scam_type_code || "Unknown"}</td>
-                      <td className="px-6 py-4 text-muted-foreground">
-                        {c.city ? `${c.city}${c.state ? `, ${c.state}` : ''}` : "Unknown"}
-                      </td>
-                      <td className="px-6 py-4 font-mono font-medium">
-                        {(c.threat_confidence_score * 100).toFixed(1)}%
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`px-2.5 py-1 rounded-md text-xs font-medium border capitalize ${getPriorityColor(c.priority)}`}>
-                          {c.priority}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-medium border capitalize ${getStatusColor(c.status)}`}>
-                          {c.status.replace("_", " ")}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        {expandedId === c.id ? <ChevronUp className="w-5 h-5 inline text-muted-foreground" /> : <ChevronDown className="w-5 h-5 inline text-muted-foreground" />}
-                      </td>
-                    </tr>
-                    
-                    <AnimatePresence>
-                      {expandedId === c.id && (
-                        <tr>
-                          <td colSpan={8} className="p-0 border-b border-border bg-card/30">
-                            <motion.div 
-                              initial={{ height: 0, opacity: 0 }}
-                              animate={{ height: "auto", opacity: 1 }}
-                              exit={{ height: 0, opacity: 0 }}
-                              className="overflow-hidden"
-                            >
-                              <div className="p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
-                                <div className="lg:col-span-2 space-y-4">
-                                  <div>
-                                    <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Original Report Text</h4>
-                                    <p className="bg-background p-4 rounded-xl text-sm border border-border whitespace-pre-wrap">
-                                      {c.scam_text}
-                                    </p>
-                                  </div>
-                                  
-                                  {c.ai_decision?.evidence && c.ai_decision.evidence.length > 0 && (
-                                    <div>
-                                      <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">AI Extracted Evidence</h4>
-                                      <ul className="space-y-2">
-                                        {c.ai_decision.evidence.map((ev: any, idx: number) => (
-                                          <li key={idx} className="bg-primary/5 text-primary text-sm px-3 py-2 rounded-lg border border-primary/10 flex items-start gap-2">
-                                            <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-                                            {ev.relevance || JSON.stringify(ev)}
-                                          </li>
-                                        ))}
-                                      </ul>
-                                    </div>
-                                  )}
-                                </div>
-                                
-                                <div className="space-y-4">
-                                  <div className="bg-background p-4 rounded-xl border border-border">
-                                    <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">AI Intelligence Summary</h4>
-                                    
-                                    <div className="space-y-3 text-sm">
-                                      <div>
-                                        <span className="text-muted-foreground">Threat Decision:</span>
-                                        <p className="font-medium text-red-500 mt-0.5">{c.ai_decision?.decision || "N/A"}</p>
-                                      </div>
-                                      <div>
-                                        <span className="text-muted-foreground">Models Used:</span>
-                                        <div className="flex gap-2 mt-1">
-                                          {(c.ai_decision?.models_used || []).map((m: string) => (
-                                            <span key={m} className="px-2 py-0.5 rounded bg-muted text-xs capitalize">{m}</span>
-                                          ))}
-                                        </div>
-                                      </div>
-                                      <div>
-                                        <span className="text-muted-foreground">Inference Latency:</span>
-                                        <p className="font-mono mt-0.5">{c.ai_decision?.inference_time_ms || 0}ms</p>
-                                      </div>
-                                    </div>
-                                  </div>
+          <>
+            {/* desktop table */}
+            <div className="hidden lg:block">
+              <table className="w-full text-sm text-left">
+                <thead className="sticky top-0 z-10 bg-surface-2 text-ink-2">
+                  <tr>
+                    <th className="px-6 py-3 text-xs font-medium">Case</th>
+                    <th className="px-6 py-3 text-xs font-medium">Filed</th>
+                    <th className="px-6 py-3 text-xs font-medium">Type</th>
+                    <th className="px-6 py-3 text-xs font-medium">Location</th>
+                    <th className="px-6 py-3 text-xs font-medium text-right">Confidence</th>
+                    <th className="px-6 py-3 text-xs font-medium">Priority</th>
+                    <th className="px-6 py-3 text-xs font-medium">Status</th>
+                    <th className="px-6 py-3" />
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-line">
+                  {visibleCases.map((c) => (
+                    <React.Fragment key={c.id}>
+                      <tr
+                        className={cn(
+                          "cursor-pointer transition-colors duration-150 hover:bg-surface-2/60",
+                          expandedId === c.id && "bg-surface-2/60"
+                        )}
+                        onClick={() => toggleExpanded(c.id)}
+                      >
+                        <td className="px-6 py-4 font-medium text-ink tabular">{c.case_number}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-ink-2">
+                          {new Date(c.created_at).toLocaleString("en-IN", {
+                            dateStyle: "short",
+                            timeStyle: "short",
+                          })}
+                        </td>
+                        <td className="px-6 py-4 capitalize">
+                          {(c.scam_type_code || "Unknown").replace(/_/g, " ")}
+                        </td>
+                        <td className="px-6 py-4 text-ink-2">
+                          {c.city ? `${c.city}${c.state ? `, ${c.state}` : ""}` : "Unknown"}
+                        </td>
+                        <td className="px-6 py-4 text-right font-medium tabular">
+                          {(c.threat_confidence_score * 100).toFixed(1)}%
+                        </td>
+                        <td className="px-6 py-4">
+                          <PriorityBadge priority={c.priority} />
+                        </td>
+                        <td className="px-6 py-4">
+                          <StatusBadge status={c.status} />
+                        </td>
+                        <td className="px-6 py-4 text-right text-ink-3">
+                          {expandedId === c.id ? (
+                            <ChevronUp className="w-4 h-4 inline" />
+                          ) : (
+                            <ChevronDown className="w-4 h-4 inline" />
+                          )}
+                        </td>
+                      </tr>
+                      <AnimatePresence initial={false}>
+                        {expandedId === c.id && (
+                          <tr>
+                            <td colSpan={8} className="p-0">
+                              <motion.div
+                                initial={reduced ? { opacity: 0 } : { height: 0, opacity: 0 }}
+                                animate={reduced ? { opacity: 1 } : { height: "auto", opacity: 1 }}
+                                exit={reduced ? { opacity: 0 } : { height: 0, opacity: 0 }}
+                                transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+                                className="overflow-hidden bg-bg/50"
+                              >
+                                <CaseDetail
+                                  c={c}
+                                  chatQuery={chatQuery}
+                                  setChatQuery={setChatQuery}
+                                  chatHistory={chatHistory}
+                                  chatLoading={chatLoading}
+                                  onChatSubmit={(e) => handleChatSubmit(e, c.id)}
+                                />
+                              </motion.div>
+                            </td>
+                          </tr>
+                        )}
+                      </AnimatePresence>
+                    </React.Fragment>
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
-                                  {c.ai_decision?.ztivf_metrics && (
-                                    <div className="bg-indigo-500/10 p-4 rounded-xl border border-indigo-500/20">
-                                      <h4 className="text-xs font-semibold uppercase tracking-wider text-indigo-400 mb-3 flex items-center gap-2">
-                                        <Shield className="w-4 h-4" /> Zero-Trust Metrics
-                                      </h4>
-                                      <div className="space-y-3 text-xs">
-                                        {Object.entries(c.ai_decision.ztivf_metrics).map(([key, value]) => (
-                                          <div key={key} className="space-y-1">
-                                            <div className="flex justify-between text-muted-foreground capitalize">
-                                              <span>{key.replace('_score', '')}</span>
-                                              <span className="font-medium text-foreground">{((value as number) * 100).toFixed(0)}%</span>
-                                            </div>
-                                            <div className="h-1.5 w-full bg-background rounded-full overflow-hidden">
-                                              <div 
-                                                className={`h-full rounded-full ${
-                                                  (value as number) > 0.8 ? 'bg-emerald-500' : 
-                                                  (value as number) > 0.5 ? 'bg-amber-500' : 'bg-red-500'
-                                                }`} 
-                                                style={{ width: `${(value as number) * 100}%` }}
-                                              />
-                                            </div>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  )}
-
-                                  {c.ai_decision?.raw_explanation && (
-                                    <div className="bg-muted/30 p-4 rounded-xl border border-border">
-                                      <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">AI Reasoning</h4>
-                                      <p className="text-sm text-foreground/90 leading-relaxed">
-                                        {c.ai_decision.raw_explanation}
-                                      </p>
-                                    </div>
-                                  )}
-
-                                  {/* AI Co-Pilot Chat Interface */}
-                                  <div className="bg-background p-4 rounded-xl border border-border flex flex-col h-64">
-                                    <h4 className="text-xs font-semibold uppercase tracking-wider text-primary flex items-center gap-2 mb-3">
-                                      <Search className="w-4 h-4" /> Investigation Co-Pilot
-                                    </h4>
-                                    
-                                    <div className="flex-1 overflow-y-auto mb-3 space-y-3 pr-2 text-sm">
-                                      {chatHistory.length === 0 ? (
-                                        <div className="text-muted-foreground text-center mt-4">
-                                          Ask the AI about the evidence in this case.
-                                        </div>
-                                      ) : (
-                                        chatHistory.map((msg, i) => (
-                                          <div key={i} className={`p-3 rounded-lg ${msg.role === 'user' ? 'bg-muted ml-4 text-right' : 'bg-primary/10 border border-primary/20 mr-4'}`}>
-                                            <span className="font-bold text-xs opacity-50 block mb-1 uppercase">{msg.role}</span>
-                                            {msg.text}
-                                          </div>
-                                        ))
-                                      )}
-                                      {chatLoading && (
-                                        <div className="text-primary text-xs animate-pulse">Co-Pilot is typing...</div>
-                                      )}
-                                    </div>
-
-                                    <form onSubmit={(e) => handleChatSubmit(e, c.id)} className="flex gap-2">
-                                      <input 
-                                        type="text" 
-                                        value={chatQuery}
-                                        onChange={(e) => setChatQuery(e.target.value)}
-                                        placeholder="Ask a question..."
-                                        className="flex-1 px-3 py-2 bg-muted border-transparent rounded-lg text-sm outline-none focus:ring-1 focus:ring-primary"
-                                        disabled={chatLoading}
-                                      />
-                                      <button type="submit" disabled={chatLoading} className="px-3 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90 disabled:opacity-50">
-                                        Send
-                                      </button>
-                                    </form>
-                                  </div>
-                                </div>
-                              </div>
-                            </motion.div>
-                          </td>
-                        </tr>
-                      )}
-                    </AnimatePresence>
-                  </React.Fragment>
-                ))}
-              </tbody>
-            </table>
-          </div>
+            {/* mobile / tablet cards */}
+            <ul className="lg:hidden divide-y divide-line">
+              {visibleCases.map((c) => (
+                <li key={c.id}>
+                  <button
+                    className="w-full text-left px-4 py-4 active:bg-surface-2/60"
+                    onClick={() => toggleExpanded(c.id)}
+                  >
+                    <div className="flex items-center justify-between gap-3 mb-2">
+                      <span className="font-medium text-ink tabular text-sm">{c.case_number}</span>
+                      <StatusBadge status={c.status} />
+                    </div>
+                    <div className="flex items-center justify-between gap-3 text-sm">
+                      <span className="text-ink-2 capitalize">
+                        {(c.scam_type_code || "Unknown").replace(/_/g, " ")}
+                        {c.city ? ` · ${c.city}` : ""}
+                      </span>
+                      <span className="text-ink font-medium tabular">
+                        {(c.threat_confidence_score * 100).toFixed(0)}%
+                      </span>
+                    </div>
+                  </button>
+                  <AnimatePresence initial={false}>
+                    {expandedId === c.id && (
+                      <motion.div
+                        initial={reduced ? { opacity: 0 } : { height: 0, opacity: 0 }}
+                        animate={reduced ? { opacity: 1 } : { height: "auto", opacity: 1 }}
+                        exit={reduced ? { opacity: 0 } : { height: 0, opacity: 0 }}
+                        transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+                        className="overflow-hidden bg-bg/50"
+                      >
+                        <CaseDetail
+                          c={c}
+                          chatQuery={chatQuery}
+                          setChatQuery={setChatQuery}
+                          chatHistory={chatHistory}
+                          chatLoading={chatLoading}
+                          onChatSubmit={(e) => handleChatSubmit(e, c.id)}
+                        />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </li>
+              ))}
+            </ul>
+          </>
         )}
-      </div>
+      </Card>
     </div>
   );
 }
