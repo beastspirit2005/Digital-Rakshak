@@ -40,6 +40,11 @@
   --warning-tint: #f0e6d0;
   --danger-tint: #f2ded6;
 
+  /* chart series — validated for CVD + contrast vs light surface */
+  --chart-1: #4e7a0e;
+  --chart-2: #66589a;
+  --chart-3: #a4522f;
+
   /* elevation */
   --shadow-card: 0 1px 2px rgb(30 42 35 / 0.06), 0 8px 24px rgb(30 42 35 / 0.05);
 
@@ -75,6 +80,11 @@
   --warning-tint: #322a19;
   --danger-tint: #33221b;
 
+  /* chart series — validated for CVD + contrast vs dark surface */
+  --chart-1: #7fa31e;
+  --chart-2: #7d63c4;
+  --chart-3: #c15f33;
+
   --shadow-card: 0 1px 2px rgb(0 0 0 / 0.2);
 }
 
@@ -102,6 +112,9 @@
   --color-success-tint: var(--success-tint);
   --color-warning-tint: var(--warning-tint);
   --color-danger-tint: var(--danger-tint);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
 
   /* legacy aliases so not-yet-migrated pages keep rendering during the revamp */
   --color-background: var(--bg);
