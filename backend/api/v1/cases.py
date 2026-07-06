@@ -56,6 +56,26 @@ async def get_my_cases(db: AsyncSession = Depends(get_db), limit: int = 50, user
     return {"cases": cases}
 
 from fastapi import BackgroundTasks
+import urllib.request
+import json
+
+@router.get("/location")
+async def get_location(lat: float, lon: float):
+    """
+    Proxies the reverse geocoding request to BigDataCloud to bypass frontend ad-blockers.
+    """
+    try:
+        url = f"https://api.bigdatacloud.net/data/reverse-geocode-client?latitude={lat}&longitude={lon}&localityLanguage=en"
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+        with urllib.request.urlopen(req) as response:
+            data = json.loads(response.read().decode())
+            return {
+                "city": data.get("city") or data.get("locality") or "",
+                "state": data.get("principalSubdivision") or data.get("countryName") or ""
+            }
+    except Exception as e:
+        print(f"Backend geocoding failed: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch location data")
 
 @router.post("/submit")
 @limiter.limit("5/minute")

@@ -83,10 +83,10 @@ export default function ReportPage() {
         setLongitude(lon);
         
         try {
-          const res = await axios.get(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`);
+          const res = await axios.get(api(`/cases/location?lat=${lat}&lon=${lon}`));
           if (res.data) {
-            setCity(res.data.city || res.data.locality || "");
-            setState(res.data.principalSubdivision || res.data.countryName || "");
+            setCity(res.data.city || "");
+            setState(res.data.state || "");
             setLocationSuccess(true);
           }
         } catch (err) {
