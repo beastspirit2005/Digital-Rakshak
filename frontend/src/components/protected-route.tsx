@@ -16,9 +16,6 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
   const [isChecking, setIsChecking] = useState(true);
 
   useEffect(() => {
-    // Re-hydrate in case store state isn't up yet
-    useAuthStore.getState().hydrate();
-    
     // Read directly from the synchronous Zustand state to bypass React's render cycle lag
     const state = useAuthStore.getState();
 
