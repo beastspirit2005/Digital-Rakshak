@@ -41,7 +41,6 @@ const workbenchNavigation = [
   { name: 'Reports (FIR/TPR)', href: '/workbench/reports', icon: FileText },
   { name: 'Prevention Suite', href: '/prevention', icon: ShieldCheck },
   { name: 'AI Co-Pilot', href: '/copilot', icon: Bell },
-  { name: 'Rakshak Chat', href: '/chat', icon: Bot },
 ];
 
 const adminSections = [
@@ -54,7 +53,6 @@ const adminSections = [
       { name: 'Pending Approvals', href: '/admin/approvals', icon: CheckSquare },
       { name: 'National Analytics', href: '/admin/intelligence', icon: Network },
       { name: 'Platform Settings', href: '/admin/settings', icon: Settings },
-      { name: 'Rakshak Chat', href: '/chat', icon: Bot },
     ]
   },
   {
@@ -66,7 +64,6 @@ const adminSections = [
       { name: 'Spatial Map', href: '/workbench/map', icon: Map },
       { name: 'Graph Explorer', href: '/workbench/graph', icon: Network },
       { name: 'AI Co-Pilot', href: '/copilot', icon: Bell },
-      { name: 'Rakshak Chat', href: '/chat', icon: Bot },
     ]
   },
   {
@@ -77,7 +74,6 @@ const adminSections = [
       { name: 'Report Scam', href: '/report', icon: ShieldAlert },
       { name: 'Prevention Suite', href: '/prevention', icon: ShieldCheck },
       { name: 'Spatial Map', href: '/workbench/map', icon: Map },
-      { name: 'Rakshak Chat', href: '/chat', icon: Bot },
     ]
   },
   {
@@ -88,7 +84,6 @@ const adminSections = [
       { name: 'Report Scam', href: '/report', icon: ShieldAlert },
       { name: 'Prevention Suite', href: '/prevention', icon: ShieldCheck },
       { name: 'Spatial Map', href: '/workbench/map', icon: Map },
-      { name: 'Rakshak Chat', href: '/chat', icon: Bot },
     ]
   },
 ];
