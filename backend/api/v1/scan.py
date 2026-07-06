@@ -43,14 +43,39 @@ async def live_prevention_scan(
             ml_client_loaded = True
             
         payload_to_scan = text if text else url
-        ai_res = ml_client.predict(payload_to_scan)
         
-        if ai_res["confidence"] > 0.6 and ai_res["threat_class"] != "Safe":
-            is_safe = False
-            risk_level = "CRITICAL"
-            reasons.append(f"AI Zero-Day Detection: {ai_res['threat_class']} ({ai_res['confidence']*100:.1f}% confidence).")
-            if ai_res["behaviors"]:
-                reasons.append(f"Attack DNA detected: {', '.join(ai_res['behaviors'])}.")
+        # Check if PyTorch failed to load (running in Vercel Serverless Lite Mode)
+        if not getattr(ml_client, 'model', None):
+            # Fallback to Groq Llama-3 8B (extremely fast inference for Prevention Suite)
+            try:
+                from infrastructure.ai.groq_client import GroqClient
+                groq = GroqClient()
+                groq_res = await groq.analyze(
+                    prompt=f"Is this text or URL a scam? Answer yes or no, and classify it. Payload: '{payload_to_scan}'", 
+                    context={}, 
+                    model_name="llama3-8b-8192"
+                )
+                
+                confidence = float(groq_res.get("score", 0.0))
+                threat_class = groq_res.get("decision", "Unknown")
+                
+                if confidence > 0.6 and "safe" not in threat_class.lower():
+                    is_safe = False
+                    risk_level = "CRITICAL"
+                    reasons.append(f"Cloud AI Zero-Day Detection: {threat_class} ({confidence*100:.1f}% confidence).")
+            except Exception as e:
+                print(f"Groq fallback failed: {e}")
+                # Silently degrade to OSINT/Neo4j graph rules to avoid blocking the user
+                pass
+        else:
+            ai_res = ml_client.predict(payload_to_scan)
+            
+            if ai_res["confidence"] > 0.6 and ai_res["threat_class"] != "Safe":
+                is_safe = False
+                risk_level = "CRITICAL"
+                reasons.append(f"Native AI Zero-Day Detection: {ai_res['threat_class']} ({ai_res['confidence']*100:.1f}% confidence).")
+                if ai_res.get("behaviors"):
+                    reasons.append(f"Attack DNA detected: {', '.join(ai_res['behaviors'])}.")
 
     # 1. Check OSINT Static Rules (URLs/Keywords)
     scanner = OSINTScanner()

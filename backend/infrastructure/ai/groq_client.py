@@ -108,3 +108,33 @@ class GroqClient:
         except Exception as e:
             print(f"Groq API Error (generate_text): {e}")
             return f"Groq Inference Error: {str(e)}"
+
+    async def transcribe_audio(self, audio_file_path: str) -> dict:
+        """
+        Sends an audio file to Groq's Whisper API for transcription.
+        """
+        import os
+        url = "https://api.groq.com/openai/v1/audio/transcriptions"
+        headers = {
+            "Authorization": f"Bearer {self.api_key}"
+        }
+        
+        if not os.path.exists(audio_file_path):
+            return {"error": "Audio file not found."}
+            
+        try:
+            async with httpx.AsyncClient() as client:
+                with open(audio_file_path, "rb") as f:
+                    files = {
+                        "file": (os.path.basename(audio_file_path), f, "audio/mpeg")
+                    }
+                    data = {
+                        "model": "whisper-large-v3"
+                    }
+                    response = await client.post(url, headers=headers, data=data, files=files, timeout=60.0)
+                    response.raise_for_status()
+                    result = response.json()
+                    return {"transcript": result.get("text", ""), "source": "groq_whisper"}
+        except Exception as e:
+            print(f"Groq Audio API Error: {e}")
+            return {"error": f"Groq Audio API Error: {str(e)}"}

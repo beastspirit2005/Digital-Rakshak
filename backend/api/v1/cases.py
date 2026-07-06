@@ -524,7 +524,7 @@ async def process_case_background(
             # Phase 3: RAIC Decision Core Fusion
             from domain.agents.router import RAICDecisionCore
             core = RAICDecisionCore()
-            fused_decision = await core.execute_fusion([t_res, b_res, c_res, tr_res], use_qwen_refinement=False)
+            fused_decision = await core.execute_fusion([t_res, b_res, c_res, tr_res], use_qwen_refinement=True, ai_mode=ai_mode)
             
             # Update Case Record locally in memory for now
             case.threat_confidence_score = fused_decision.get("confidence", 0.0)

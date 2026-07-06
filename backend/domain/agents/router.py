@@ -62,7 +62,7 @@ class RAICDecisionCore:
                 
         return " | ".join(reasons)
 
-    async def execute_fusion(self, agent_payloads: List[Dict[str, Any]], use_qwen_refinement: bool = True) -> Dict[str, Any]:
+    async def execute_fusion(self, agent_payloads: List[Dict[str, Any]], use_qwen_refinement: bool = True, ai_mode: str = "auto") -> Dict[str, Any]:
         """
         The core fusion pipeline.
         """
@@ -103,14 +103,19 @@ class RAICDecisionCore:
         # 4. Rule-based explanation
         raw_explanation = self._build_rule_based_explanation(fused_data)
         
-        # 5. (Optional) Qwen Refinement
+        # 5. (Optional) LLM Refinement
         final_explanation = raw_explanation
         if use_qwen_refinement and final_confidence > 0.5:
             refine_prompt = (
                 f"Rewrite this threat explanation into a short, highly professional 2-sentence "
                 f"intelligence brief for an investigator. Incorporate ZTIVF metrics if relevant: '{raw_explanation}'"
             )
-            qwen_res = await self.ollama.analyze(refine_prompt, context={}, model_name="qwen2.5:7b")
+            if ai_mode == "groq":
+                from infrastructure.ai.groq_client import GroqClient
+                qwen_res = await GroqClient().analyze(refine_prompt, context={}, model_name="llama3-8b-8192")
+            else:
+                qwen_res = await self.ollama.analyze(refine_prompt, context={}, model_name="qwen2.5:7b")
+                
             if isinstance(qwen_res, dict) and qwen_res.get("decision"):
                 final_explanation = qwen_res["decision"]
 

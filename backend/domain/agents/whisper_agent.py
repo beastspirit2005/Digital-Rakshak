@@ -24,7 +24,19 @@ class WhisperAgent:
         if not os.path.exists(audio_path):
             return {"error": "Audio file not found"}
             
-        # Try local whisper first
+        from core.config import settings
+        
+        if settings.DEFAULT_AI_MODE == "groq":
+            try:
+                from infrastructure.ai.groq_client import GroqClient
+                groq = GroqClient()
+                res = await groq.transcribe_audio(audio_path)
+                if not "error" in res:
+                    return res
+            except Exception as e:
+                logger.warning(f"Groq Whisper failed: {e}. Falling back to local.")
+                
+        # Try local whisper (or fallback to Gemini if missing ffmpeg)
         try:
             import whisper
             model = await asyncio.to_thread(self._load_model)

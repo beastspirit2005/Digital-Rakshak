@@ -87,14 +87,39 @@ class BaseAgent(ABC):
             
         context = await self.retrieve_context(case_id)
         
+        from core.config import settings
+        
         # Extract ai_mode from payload and inject into context so inference() can use it
         if "ai_mode" in payload:
             context["ai_mode"] = payload["ai_mode"]
+            
+        ai_mode = context.get("ai_mode", settings.DEFAULT_AI_MODE)
         
         # Build prompt from text only (not the entire payload dict)
         prompt = payload.get("text", str(payload))
         
-        inference_result = await self.inference(prompt, context)
+        if ai_mode == "groq":
+            from infrastructure.ai.groq_client import GroqClient
+            groq = GroqClient()
+            system_injection = (
+                f"You are the {self.agent_name}. You must analyze the following text and respond "
+                "with a highly structured JSON according to your specific analytical specialty. "
+                "Output ONLY valid JSON."
+            )
+            try:
+                inference_result = await groq.analyze(
+                    prompt=f"{system_injection}\n\nTEXT TO ANALYZE:\n{prompt}", 
+                    context=context,
+                    model_name="llama-3.3-70b-versatile"
+                )
+                inference_result["engine"] = "Groq-Cloud"
+                inference_result["engine_version"] = "llama-3.3-70b"
+            except Exception as e:
+                print(f"{self.agent_name} Groq Cloud inference failed: {e}. Falling back to offline inference.")
+                inference_result = await self.inference(prompt, context)
+        else:
+            inference_result = await self.inference(prompt, context)
+            
         raw_score = inference_result.get("score", 0.0)
         
         confidence = self.calculate_confidence(raw_score)
