@@ -1,127 +1,133 @@
 # Digital Rakshak: AI-Powered Cyber Threat Intelligence Platform
 
-**Digital Rakshak** is a next-generation, AI-driven cyber-threat intelligence and prevention platform built to combat organized financial fraud and cybercrime. 
+**Digital Rakshak** is a next-generation, hybrid AI-driven cyber-threat intelligence, classification, and prevention platform built to combat organized financial fraud and cybercrime in India. 
 
 Moving beyond reactive complaint registration, Digital Rakshak leverages a massive **Multi-Agent AI Swarm**, **Graph Intelligence (Neo4j)**, and **Spatial Threat Mapping** to automatically identify organized crime syndicates, extract attack DNA, and provide actionable intelligence to Law Enforcement Agencies (LEAs), nodal officers, and citizens.
 
 ---
 
-## Comprehensive Feature List
+## 🚀 Unified Dual-Mode Architecture (Cloud vs. Offline)
 
-### 1. Multi-Agent AI Swarm (RAIC Core)
-The heart of Digital Rakshak is the **R**esponsive **A**I **I**ntelligence **C**ore (RAIC), which dynamically routes every submitted case through a parallel pipeline of specialized AI agents:
-*   **Threat Analysis Agent:** Extracts Indicator of Compromise (IoC) vectors like malicious UPI IDs, crypto wallets, and phishing domains.
-*   **Trust & Validation Agent:** Computes a mathematical "Trust Score" using ZTIVF (Zero Trust Identity & Verification Framework) rules.
-*   **Behavioural DNA Agent:** Analyzes the psychological tactics used by the attacker (Urgency, Fear, Authority Impersonation).
-*   **Campaign Agent:** Cross-references the attack DNA with the national database to detect if this is part of a larger, coordinated campaign.
+Digital Rakshak features a state-of-the-art **Dual-Inference Engine** configured globally via the `DEFAULT_AI_MODE` environment variable. This allows the system to easily adapt to different deployment requirements:
 
-### 2. AI Citizen Copilot & Evidence Extraction
-A fully interactive reporting interface where victims can simply **speak** about what happened to them or upload evidence. 
-*   **Whisper Audio Extraction:** Automatically transcribes voice complaints and extracts crucial threat indicators.
-*   **Vision OCR Extraction:** Scans uploaded screenshots (e.g., WhatsApp chats, fake payment receipts) to extract textual evidence.
-*   **Automated FIR Formatting:** Drafts an official report formatted perfectly for LEAs.
+### 1. Cloud-Native Mode (`groq`) — *Optimized for Serverless (Vercel)*
+When set to `groq`, the entire platform shifts its heavy analytical workloads to **Groq's high-speed LPU (Language Processing Unit) Cloud Infrastructure**, bypassing all heavy local dependencies:
+*   **The 11 AI Engines Swarm:** Dynamically routed in parallel to Groq's **Llama 3.3 70B** (`llama-3.3-70b-versatile`) model for deep reasoning, legal compliance, and behavioral analysis.
+*   **RAIC Decision Core & Global Chat:** Routed to Groq's **Llama 3.1 8B** (`llama-3.1-8b-instant`) model, leveraging a massive **128,000 token context window** to allow conversational analysis of entire case sheets without token limits.
+*   **AI Copilot Transcription:** Sends voice evidence directly to Groq's **Whisper API** (`whisper-large-v3`) in the cloud.
+*   **Zero-Hardware Footprint:** Runs instantly on Vercel Serverless Functions with zero memory/size limit crashes.
 
-### 3. Organized Syndicate Tracking (Neo4j)
-Every phone number, UPI ID, and malicious URL is stored as a node in a **Neo4j Graph Database**. When multiple victims report cases involving the same phone number or bank account, the Intelligence Graph automatically links them, exposing the hidden infrastructure of organized syndicates.
-
-### 4. Spatial Threat Mapping
-Real-time geographic visualization of cyber attacks using MapLibre. Watch threat clusters form on the map as the AI isolates coordinated attacks originating from specific regions (e.g., Jamtara, Mewat), with privacy-preserving geolocation jitter applied for citizen anonymity.
-
-### 5. Automated Malware Sandbox (APK Scanner)
-Citizens can upload suspicious Android apps (.apk). The system conducts a static analysis sandbox scan to identify dangerous permissions (e.g., SMS reading, OTP interception, overlay attacks) typical of Banking Trojans, automatically fusing this intelligence into the AI threat score.
-
-### 6. Automated Takedown Engine
-When a high-confidence threat (e.g., a phishing domain or rogue UPI ID) is detected, the **Takedown Generation Agent** automatically drafts legally compliant takedown requests tailored to the specific platform (Google, Cloudflare, NPCI) and jurisdiction, accelerating the neutralization of the threat.
-
-### 7. Progressive Serverless Authentication
-Built for massive scale and DoS resilience, Digital Rakshak uses a **Redis-free PostgreSQL Progressive Lockout** authentication system. 
-*   **Passwordless OTP Login:** Citizens can log in via secure, escalating-timeout email OTPs.
-*   **Role-Based Access Control (RBAC):** Strict boundaries separating Citizens, Police Officers, Cyber Cell Analysts, and Bank Employees.
-
-### 8. Dual-Inference Engine (Cloud + Local Edge)
-Built for air-gapped security environments. Digital Rakshak can run on cloud-based LLMs (Google Gemini Pro) for maximum reasoning capabilities, or seamlessly switch to a completely offline, local PyTorch engine (`xlm-roberta-base`) for extreme privacy.
+### 2. Local Native Mode (`auto` / `ollama`) — *Optimized for Secure Air-Gapped LEA Servers*
+When set to local mode, the platform runs 100% self-contained on your own hardware with **zero external API calls or internet dependencies**, guaranteeing absolute data privacy for Law Enforcement:
+*   **Rakshak Core (PyTorch):** The `ThreatAnalysisAgent` boots up our custom-trained **Rakshak Multi-Task Model** (a fine-tuned `distilbert-base-multilingual-cased` neural network) directly in CPU/GPU memory to perform multilingual Indian scam classification in under 15ms.
+*   **Local LLM Reasoning:** The analytical agents route their prose-generation prompts to a local **Ollama** daemon (running `qwen2.5:7b` or similar).
+*   **Local Audio Transcription:** The `WhisperAgent` runs a local **`faster-whisper`** instance.
+*   **Local Screenshot OCR:** The `VisionAgent` runs a local **EasyOCR** English/Hindi reader.
 
 ---
 
-## System Architecture
+## 🧠 The 11 Active Specialist Subagents (MAIF v10.0 Swarm)
 
-Digital Rakshak is built as a unified monorepo for seamless deployment.
+The platform orchestrates 11 specialized subagents to analyze every case before the final fusion:
+
+### Ingestion & Classification
+1.  **ThreatAnalysisAgent:** The primary classifier. Powered by the custom **Rakshak-Text (PyTorch)** model offline, it maps scams into 5 distinct threat classes (Safe, Banking Fraud, UPI Fraud, Courier Scam, Digital Arrest) and outputs a calibrated confidence score.
+2.  **WhisperAgent:** The ears of the platform. Transcribes citizen voice recordings into text.
+3.  **VisionAgent:** The eyes of the platform. Extracts text, URLs, and banking details from uploaded screenshots (WhatsApp chats, fake payment receipts).
+
+### Deep Analytical Engines (Parallel execution)
+4.  **BehaviourAgent (Rakshak-Behaviour):** Analyzes the attacker's psychological tactics (Fear, Urgency, Impersonation) to fingerprint the attack's behavioral DNA.
+5.  **CampaignAgent (Rakshak-Link):** Uses local sentence embeddings (`BAAI/bge-small-en-v1.5`) to vector-search the database, clustering similar cases into unified, coordinated scam campaigns.
+6.  **GeoAgent (Geo-Resolver):** Resolves geographic identifiers (cities, regions) mentioned in text to calculate spatial threat density.
+7.  **TrustValidationAgent (ZTIVF):** Computes a multi-dimensional trust score based on reporter validation, checking for potential data-poisoning.
+
+### Post-Processing & Persistence
+8.  **TimelineAgent:** Builds a step-by-step chronological narrative of how the victim was targeted and scammed.
+9.  **KnowledgeAgent:** Cross-references threat patterns with real-world Indian regulatory frameworks (RBI circulars, TRAI rules, IT Act).
+10. **RecommendationAgent:** Formulates concrete actions for investigators (e.g. *"Freeze target Bank Account X"*, *"Block Phishing Domain Y"*).
+11. **IntelligenceAgent:** Extracts all parsed entities (Phones, UPIs, IPs) and commits them as nodes and relationships in the **Neo4j Graph Database**.
+
+---
+
+## 🛠️ Complete Feature List
+
+1.  **Multi-Agent AI Swarm (RAIC Core):** Paralleled pipeline of 11 agents coordinated by a supreme decision core to mathematically fuse scores and generate explanations.
+2.  **AI Citizen Copilot:** Allows citizens to speak complaints or upload screenshots, automatically drafting official LEA-formatted reports.
+3.  **Organized Syndicate Tracking (Neo4j):** Links independent complaints sharing identical bank accounts, UPIs, or phone numbers to expose cybercrime syndicates.
+4.  **Spatial Threat Heatmapping:** Geographically plots scams on MapLibreGL maps, highlighting organized scam hotspots (Jamtara, Mewat) while preserving reporter privacy.
+5.  **Automated APK Malware Sandbox:** Analyzes uploaded Android `.apk` files, flags malicious permissions (SMS hijacking, remote overlays), and integrates findings into the AI score.
+6.  **Automated Legal Takedowns:** Drafts legally compliant takedown notices tailored for NPCI, Google, Cloudflare, or local banks.
+7.  **Serverless Progressive Lockout Auth:** Security-hardened passwordless OTP and RBAC logins utilizing a Redis-free PostgreSQL lockout algorithm to prevent brute-force attacks.
+8.  **Self-Healing Database Migrations:** Automatically executes Alembic migrations programmatically inside FastAPI's startup event on Vercel/serverless environments.
+
+---
+
+## 🏗️ System Architecture
 
 ```mermaid
 graph TD
-    subgraph Frontend [Client Tier - Next.js]
+    subgraph Client [Client Tier - Next.js 14]
         Copilot[Citizen AI Copilot]
         Map[MapLibre Spatial Maps]
         Dashboard[Investigation Workbench]
     end
 
-    subgraph Backend [API Tier - FastAPI]
-        API[FastAPI Router]
-        Auth[JWT & PostgreSQL Auth]
+    subgraph API [API Tier - FastAPI Serverless]
+        Main[FastAPI main.py]
+        Auth[JWT & PostgreSQL Lockout Auth]
         
-        subgraph Agents [RAIC Multi-Agent Swarm]
-            Router[AI Router]
+        subgraph Swarm [RAIC Multi-Agent Swarm]
+            Base[BaseAgent execute]
             TA[Threat Analysis]
+            BA[Behavioural DNA]
             CA[Campaign Correlation]
             Geo[Geospatial Tracker]
             TV[Trust Validation]
-            Router --> TA & CA & Geo & TV
+            Base --> TA & BA & CA & Geo & TV
         end
     end
 
-    subgraph Persistence [Data & Intelligence]
-        PG[(PostgreSQL / pgvector)]
-        Neo[(Neo4j Graph)]
-        LLM[Gemini / Local PyTorch]
+    subgraph Routing [Dual-Inference Router]
+        Groq[Groq LPU Cloud - Llama 3.3 70B / 3.1 8B]
+        Local[Local Rakshak Suite - PyTorch & Ollama Qwen]
     end
 
-    Copilot <-->|REST| API
-    Dashboard <-->|REST| API
+    subgraph Data [Data & Intelligence Store]
+        PG[(PostgreSQL DB)]
+        Neo[(Neo4j Graph DB)]
+    end
+
+    Copilot <-->|REST| Main
+    Dashboard <-->|REST| Main
     Map -.-> Dashboard
 
-    API <--> Router
-    TA <--> LLM
-    CA <--> Neo
+    Main <--> Base
+    TA & BA & CA & Geo & TV <--> Routing
     
-    API <--> PG
+    Main <--> PG
+    CA <--> Neo
 ```
 
 ---
 
-## Technology Stack
+## 💻 Technology Stack
 
 *   **Frontend:** Next.js 14 (App Router), React, Tailwind CSS, MapLibre GL, Framer Motion, Axios.
 *   **Backend:** FastAPI, Python 3.12, SQLAlchemy 2.0 (Async), Asyncpg.
 *   **Databases:** PostgreSQL (Relational & pgvector embeddings) and Neo4j (Graph data).
-*   **AI Integration:** Google Gemini Pro API, OpenAI Whisper API, Local PyTorch (`xlm-roberta`).
+*   **AI Integration:** Groq Cloud LPU API (Llama 3.3 70B, Llama 3.1 8B, Whisper-large-v3), Local PyTorch (`xlm-roberta-base`), Local Ollama (`qwen2.5:7b`), Local EasyOCR.
 *   **Deployment:** Vercel (Frontend & Serverless Backend).
 
 ---
 
-## Local Development Setup
+## 🔧 Local Development Setup
 
-### Prerequisites
-*   Python 3.11+
-*   Node.js 18+
-*   Docker & Docker Compose (for databases, optional if using Neon/Aura)
-
-### 1. Start the Databases
-Start your local instances of PostgreSQL and Neo4j.
+### 1. Start the Databases (Docker)
 ```bash
 docker-compose up -d
 ```
 
-### 2. Backend Setup (via Docker Hub - Recommended)
-To avoid downloading massive PyTorch models locally, you can pull the pre-built backend image directly from Docker Hub. This image encapsulates the entire FastAPI application and the local LLM weights.
-
-*   🔗 **[View Backend Image on Docker Hub](https://hub.docker.com/r/1065925/digital-rakshak-backend)**
-
-```bash
-docker pull 1065925/digital-rakshak-backend:latest
-docker run -d -p 8000:8000 --env-file ./backend/.env --name dr-backend 1065925/digital-rakshak-backend:latest
-```
-
-### 3. Backend Setup (Manual Source Build)
+### 2. Backend Setup
 ```bash
 cd backend
 python -m venv venv
@@ -130,40 +136,50 @@ python -m venv venv
 
 pip install -r requirements.txt
 ```
-Create a `.env` file based on `.env.example`.
-Run database migrations and start the server:
+*   Create a `backend/.env` file containing your `DATABASE_URL`, `NEO4J_URI`, and `GROQ_API_KEY`.
+*   Run database migrations and seed mockup threat cases:
 ```bash
+# Migrations run programmatically on server start, but you can also run manually:
 alembic upgrade head
 python scripts/seed_diverse_cases.py
 uvicorn main:app --reload --port 8000
 ```
 
-### 4. Frontend Setup (via Docker Hub - Recommended)
-For a production-ready client without installing Node.js, pull the pre-built frontend image:
+### 3. Frontend Setup
+```bash
+cd frontend
+npm install
+```
+*   Create `frontend/.env.local` containing: `NEXT_PUBLIC_API_URL=http://127.0.0.1:8000/v1`
+```bash
+npm run dev
+```
+*   The application will be available at **`http://localhost:3000`**.
 
+
+
+---
+
+## 🐳 Docker Hub Quick Start (Pre-Built Images)
+To run the platform without manually compiling PyTorch or setting up Node.js locally, you can pull our pre-built production images directly from Docker Hub:
+
+### 1. Backend Service (Includes Python stack)
+*   🔗 **[View Backend Image on Docker Hub](https://hub.docker.com/r/1065925/digital-rakshak-backend)**
+```bash
+docker pull 1065925/digital-rakshak-backend:latest
+docker run -d -p 8000:8000 --env-file ./backend/.env --name dr-backend 1065925/digital-rakshak-backend:latest
+```
+
+### 2. Frontend Service (Includes Next.js build)
 *   🔗 **[View Frontend Image on Docker Hub](https://hub.docker.com/r/1065925/digital-rakshak-frontend)**
-
 ```bash
 docker pull 1065925/digital-rakshak-frontend:latest
 docker run -d -p 3000:3000 --env-file ./frontend/.env.local --name dr-frontend 1065925/digital-rakshak-frontend:latest
 ```
 
-### 5. Frontend Setup (Manual Source Build)
-Open a new terminal.
-```bash
-cd frontend
-npm install
-```
-Create a `.env.local` file with: `NEXT_PUBLIC_API_URL=http://127.0.0.1:8000/v1`
-Start the Next.js development server:
-```bash
-npm run dev
-```
-The application will be available at **`http://localhost:3000`**.
-
 ---
 
-## Security & Contribution
-This repository utilizes strict `.gitignore` rules to prevent credentials (`.env`, database volumes, model weights) from being committed. If deploying, ensure you configure your cloud provider's environment variables appropriately.
+## 🔒 Security & Contribution
+This repository utilizes strict `.gitignore` rules to prevent credentials (`.env`, local database volumes, model weights) from being committed to public version control. If deploying, configure your cloud environment variables via Vercel or your hosting dashboard.
 
 **Developed for a Safer Digital India.**
