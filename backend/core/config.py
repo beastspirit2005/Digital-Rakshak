@@ -20,8 +20,10 @@ class Settings(BaseSettings):
     # AI
     GEMINI_API_KEY: str
     GOOGLE_API_KEY: str = ""  # Will be set from GEMINI_API_KEY if not provided
+    GROQ_API_KEY: Optional[str] = None
     OLLAMA_HOST: str
     FORCE_LOCAL_INFERENCE: bool = False
+    DEFAULT_AI_MODE: str = "groq"
     
     
     # SMTP
