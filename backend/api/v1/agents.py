@@ -16,16 +16,16 @@ async def list_models():
     
     # 1. Add Cloud Models (Hardcoded Gemini)
     models.append({
-        "id": "gemini:gemini-1.5-flash",
-        "name": "Gemini 1.5 Flash",
-        "provider": "google",
+        "id": "groq:llama-3.3-70b-versatile",
+        "name": "Llama 3.3 (70B) Intelligence",
+        "provider": "groq",
         "is_heavy": False,
         "is_recommended": True
     })
     models.append({
-        "id": "gemini:gemini-1.5-pro",
-        "name": "Gemini 1.5 Pro",
-        "provider": "google",
+        "id": "groq:mixtral-8x7b-32768",
+        "name": "Mixtral 8x7b (Groq)",
+        "provider": "groq",
         "is_heavy": True,
         "is_recommended": False
     })

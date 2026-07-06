@@ -64,7 +64,7 @@ export default function AdminSettingsPage() {
     saveSettings({ force_local_inference: newVal });
   };
 
-  const handleModeChange = (mode: "auto" | "gemini" | "ollama" | "both") => {
+  const handleModeChange = (mode: "auto" | "groq" | "ollama" | "both") => {
     setAiMode(mode);
     saveSettings({ default_ai_mode: mode });
   };
