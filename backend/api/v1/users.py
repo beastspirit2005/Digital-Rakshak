@@ -118,8 +118,27 @@ async def approve_user(user_id: str, admin_payload: dict = Depends(get_current_a
     return {"message": f"User {user.email} has been approved and welcome email sent."}
 
 def generate_secure_password(length=12):
-    alphabet = string.ascii_letters + string.digits + "!@#$%^&*"
-    return ''.join(secrets.choice(alphabet) for i in range(length))
+    lowercase = string.ascii_lowercase
+    uppercase = string.ascii_uppercase
+    digits = string.digits
+    special = "!@#$%^&*"
+    
+    # Guarantee at least one of each required group
+    pwd = [
+        secrets.choice(lowercase),
+        secrets.choice(uppercase),
+        secrets.choice(digits),
+        secrets.choice(special)
+    ]
+    
+    # Fill the rest of the password length
+    alphabet = lowercase + uppercase + digits + special
+    pwd += [secrets.choice(alphabet) for _ in range(length - 4)]
+    
+    # Cryptographically shuffle the characters to avoid a predictable position pattern
+    shuffled_pwd = sorted(pwd, key=lambda x: secrets.randbelow(10000))
+    
+    return ''.join(shuffled_pwd)
 
 @router.post("/")
 async def create_user(data: UserCreate, admin_payload: dict = Depends(get_current_admin), db: AsyncSession = Depends(get_db)):
