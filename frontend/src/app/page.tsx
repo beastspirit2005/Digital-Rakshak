@@ -1,9 +1,13 @@
+"use client";
+
 import Link from "next/link";
 import { Shield } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ConfidenceDial } from "@/components/ui/stat";
+import { useAuthStore } from "@/lib/auth-store";
+import { useState, useEffect } from "react";
 
 const STEPS = [
   {
@@ -28,6 +32,18 @@ const STATS = [
 ];
 
 export default function LandingPage() {
+  const { isAuthenticated } = useAuthStore();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const getHref = (path: string) => {
+    if (!mounted) return path;
+    return isAuthenticated ? path : `/auth/login?next=${encodeURIComponent(path)}`;
+  };
+
   return (
     <div className="min-h-screen bg-bg">
       {/* nav */}
@@ -40,15 +56,15 @@ export default function LandingPage() {
             </span>
           </div>
           <div className="hidden md:flex items-center gap-8">
+            <a href="#about" className="text-sm text-ink-2 hover:text-ink transition-colors">
+              About
+            </a>
             <a href="#how-it-works" className="text-sm text-ink-2 hover:text-ink transition-colors">
               How it works
             </a>
-            <Link href="/report" className="text-sm text-ink-2 hover:text-ink transition-colors">
-              Report a scam
-            </Link>
-            <Link href="/prevention" className="text-sm text-ink-2 hover:text-ink transition-colors">
-              Check a link
-            </Link>
+            <a href="#features" className="text-sm text-ink-2 hover:text-ink transition-colors">
+              Features
+            </a>
           </div>
           <div className="flex items-center gap-3">
             <ThemeToggle />
@@ -64,7 +80,7 @@ export default function LandingPage() {
 
       <main className="max-w-6xl mx-auto px-6">
         {/* hero */}
-        <section className="grid lg:grid-cols-2 gap-12 lg:gap-8 items-center pt-16 pb-20 sm:pt-24 sm:pb-28">
+        <section id="about" className="grid lg:grid-cols-2 gap-12 lg:gap-8 items-center pt-16 pb-20 sm:pt-24 sm:pb-28">
           <div className="rise-in">
             <p className="font-serif italic text-ink-2 mb-5">Cyber threat intelligence for India</p>
             <h1 className="font-display font-semibold text-2xl sm:text-display leading-none tracking-tight text-ink">
@@ -77,13 +93,13 @@ export default function LandingPage() {
             </p>
             <div className="flex flex-col sm:flex-row gap-3 mt-9">
               <Link
-                href="/report"
+                href={getHref("/report")}
                 className="inline-flex items-center justify-center h-12 px-6 rounded-control bg-accent text-accent-ink font-semibold text-sm hover:bg-accent-hover transition-colors duration-150 active:scale-[0.98]"
               >
                 Report a scam
               </Link>
               <Link
-                href="/prevention"
+                href={getHref("/prevention")}
                 className="inline-flex items-center justify-center h-12 px-6 rounded-control bg-surface text-ink font-medium text-sm shadow-card hover:bg-surface-2 transition-colors duration-150"
               >
                 Check a suspicious link
@@ -117,7 +133,7 @@ export default function LandingPage() {
         </section>
 
         {/* stats */}
-        <section className="border-y border-line py-10">
+        <section id="features" className="border-y border-line py-10">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             {STATS.map((stat) => (
               <div key={stat.label}>
@@ -158,7 +174,7 @@ export default function LandingPage() {
               </p>
             </div>
             <Link
-              href="/report"
+              href={getHref("/report")}
               className="inline-flex items-center justify-center h-12 px-6 rounded-control bg-accent text-accent-ink font-semibold text-sm hover:bg-accent-hover transition-colors duration-150 shrink-0 active:scale-[0.98]"
             >
               Report a scam

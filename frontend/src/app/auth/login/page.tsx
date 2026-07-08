@@ -1,12 +1,14 @@
 "use client";
 
+import { Suspense } from "react";
+
 import { api } from "@/lib/api";
 import { useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import axios from "axios";
 import { useAuthStore } from "@/lib/auth-store";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input, Label, FormError, FormNotice, OtpInput } from "@/components/ui/field";
 import { Segmented } from "@/components/ui/tabs";
@@ -17,8 +19,7 @@ function routeForRole(role: string) {
   if (role === "banker") return "/banker";
   return "/workbench";
 }
-
-export default function LoginPage() {
+function LoginForm() {
   const [loginMethod, setLoginMethod] = useState<"password" | "otp">("password");
   const [step, setStep] = useState<"email" | "otp">("email");
   const [email, setEmail] = useState("");
@@ -28,6 +29,8 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const { login } = useAuthStore();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const nextParam = searchParams.get("next");
   const reduced = useReducedMotion();
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -48,7 +51,7 @@ export default function LoginPage() {
       try {
         const response = await axios.post(api("/auth/login-password"), { email, password });
         login(response.data.access_token, response.data.user);
-        router.push(routeForRole(response.data.user.role));
+        router.push(nextParam || routeForRole(response.data.user.role));
       } catch (err: any) {
         const status = err.response?.status;
         const detail = err.response?.data?.detail;
@@ -69,7 +72,7 @@ export default function LoginPage() {
     try {
       const response = await axios.post(api("/auth/verify-otp"), { email, otp });
       login(response.data.access_token, response.data.user);
-      router.push(routeForRole(response.data.user.role));
+      router.push(nextParam || routeForRole(response.data.user.role));
     } catch (err: any) {
       const status = err.response?.status;
       const detail = err.response?.data?.detail;
@@ -190,5 +193,13 @@ export default function LoginPage() {
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   );
 }

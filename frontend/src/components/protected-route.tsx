@@ -20,7 +20,8 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
     const state = useAuthStore.getState();
 
     if (!state.isAuthenticated) {
-      router.replace("/auth/login");
+      const currentPath = window.location.pathname;
+      router.replace(`/auth/login?next=${encodeURIComponent(currentPath)}`);
       return;
     }
 

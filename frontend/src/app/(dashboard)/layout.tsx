@@ -31,6 +31,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { GlobalChatWidget } from "@/components/global-chat-widget";
 import { ToastProvider } from "@/components/ui/toast";
 import { Avatar } from "@/components/ui/avatar";
+import { useSessionTimeout } from "@/hooks/use-session-timeout";
 
 const adminSections = [
   {
@@ -107,6 +108,7 @@ function NavLink({
 }
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  useSessionTimeout();
   const pathname = usePathname();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);

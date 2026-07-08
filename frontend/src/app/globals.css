@@ -159,6 +159,10 @@
   --ease-out-soft: var(--ease-out);
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   background-color: var(--bg);
   color: var(--ink);
