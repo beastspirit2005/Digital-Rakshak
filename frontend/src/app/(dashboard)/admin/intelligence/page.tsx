@@ -1,191 +1,249 @@
 "use client";
 
-
 import { api } from "@/lib/api";
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { useAuthStore } from "@/lib/auth-store";
-import { Loader2, Activity, ShieldAlert, CheckCircle, TrendingUp, Globe, RefreshCw } from "lucide-react";
-import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  LineChart, Line, PieChart, Pie, Cell
-} from 'recharts';
+import { RefreshCw } from "lucide-react";
+import { useReducedMotion } from "framer-motion";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  PieChart,
+  Pie,
+  Cell,
+} from "recharts";
+import { Card, CardHeader } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
+import { StatBlock } from "@/components/ui/stat";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { StatSkeleton, Skeleton } from "@/components/ui/skeleton";
+import { Rise } from "@/components/ui/motion";
+import { useToast } from "@/components/ui/toast";
+import {
+  chartSeries,
+  axisTick,
+  tooltipStyle,
+  tooltipItemStyle,
+  tooltipLabelStyle,
+  useDrawInOnce,
+} from "@/components/ui/chart";
+
+// Fixed categorical assignment; anything past the third slice folds to neutral.
+const sliceColor = (index: number) =>
+  index < chartSeries.length ? chartSeries[index] : "var(--ink-3)";
 
 export default function PolicyMakerDashboard() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
   const { token } = useAuthStore();
+  const toast = useToast();
+  const reduced = useReducedMotion();
+  const drawIn = useDrawInOnce();
+
+  const fetchAnalytics = async () => {
+    try {
+      const res = await axios.get(api("/analytics/dashboard"), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setData(res.data);
+    } catch (err) {
+      console.error("Failed to load analytics", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchAnalytics = async () => {
-      try {
-        const res = await axios.get(api("/analytics/dashboard"), {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        setData(res.data);
-      } catch (err) {
-        console.error("Failed to load analytics", err);
-      } finally {
-        setLoading(false);
-      }
-    };
     if (token) fetchAnalytics();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
+
+  const handleOsintSync = async () => {
+    setSyncing(true);
+    try {
+      await axios.post(api("/admin/osint/sync"), {}, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      toast("success", "OSINT feeds synced. The AI now has the latest threat data.");
+      await fetchAnalytics();
+    } catch (err) {
+      toast("danger", "The OSINT feeds couldn't be synced.");
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   if (loading || !data) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="space-y-6 pt-2">
+        <PageHeader title="National analytics" sub="Live aggregated intelligence." />
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <StatSkeleton />
+          <StatSkeleton />
+          <StatSkeleton />
+        </div>
+        <Skeleton className="h-80 rounded-card" />
       </div>
     );
   }
 
-  const COLORS = ['#3b82f6', '#8b5cf6', '#ef4444', '#10b981', '#f59e0b'];
+  const threatCritical = data.stats.threat_level === "CRITICAL";
 
   return (
-    <div className="flex flex-col gap-6 max-w-7xl mx-auto h-full overflow-y-auto pb-10 pr-2">
-      <div className="flex justify-between items-end">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">National Intelligence Analytics</h1>
-          <p className="text-muted-foreground mt-1">Live aggregated metrics for policy makers and administrators.</p>
-        </div>
-        <div className={`px-4 py-2 rounded-full border font-bold flex items-center gap-2 ${
-          data.stats.threat_level === 'CRITICAL' 
-            ? 'bg-red-500/20 text-red-500 border-red-500/50' 
-            : 'bg-yellow-500/20 text-yellow-500 border-yellow-500/50'
-        }`}>
-          <Activity className="w-4 h-4" />
-          NATIONAL THREAT: {data.stats.threat_level}
-        </div>
+    <div className="space-y-6 pt-2">
+      <Rise>
+        <PageHeader
+          title="National analytics"
+          sub="Live aggregated intelligence for policy decisions."
+          actions={
+            <Badge tone={threatCritical ? "danger" : "warning"}>
+              National threat: {String(data.stats.threat_level || "—").toLowerCase()}
+            </Badge>
+          }
+        />
+      </Rise>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <Rise index={1}>
+          <StatBlock label="Total incidents" value={data.stats.total_cases} />
+        </Rise>
+        <Rise index={2}>
+          <StatBlock label="Resolved" value={data.stats.resolved_cases} />
+        </Rise>
+        <Rise index={3}>
+          <StatBlock label="High priority" value={data.stats.high_priority} />
+        </Rise>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="glass-panel p-6 rounded-2xl border border-border flex items-center gap-4">
-          <div className="p-4 bg-primary/20 rounded-xl text-primary">
-            <Activity className="w-8 h-8" />
-          </div>
+      <Rise index={4}>
+        <Card className="px-6 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <p className="text-sm text-muted-foreground font-semibold uppercase tracking-wider">Total Incidents</p>
-            <h2 className="text-4xl font-black">{data.stats.total_cases}</h2>
-          </div>
-        </div>
-        
-        <div className="glass-panel p-6 rounded-2xl border border-border flex items-center gap-4">
-          <div className="p-4 bg-green-500/20 rounded-xl text-green-500">
-            <CheckCircle className="w-8 h-8" />
-          </div>
-          <div>
-            <p className="text-sm text-muted-foreground font-semibold uppercase tracking-wider">Resolved</p>
-            <h2 className="text-4xl font-black">{data.stats.resolved_cases}</h2>
-          </div>
-        </div>
-
-        <div className="glass-panel p-6 rounded-2xl border border-border flex items-center gap-4">
-          <div className="p-4 bg-red-500/20 rounded-xl text-red-500">
-            <ShieldAlert className="w-8 h-8" />
-          </div>
-          <div>
-            <p className="text-sm text-muted-foreground font-semibold uppercase tracking-wider">High Priority Threats</p>
-            <h2 className="text-4xl font-black">{data.stats.high_priority}</h2>
-          </div>
-        </div>
-      </div>
-
-      {/* OSINT Section */}
-      <div className="glass-panel p-6 rounded-2xl border border-border">
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h3 className="font-bold text-lg flex items-center gap-2">
-              <Globe className="w-5 h-5 text-purple-500" /> Public Threat Feeds (OSINT)
-            </h3>
-            <p className="text-sm text-muted-foreground mt-1">
-              Synchronize known malicious IoCs and scam scripts from external global databases (e.g. MHA, PhishTank).
+            <h3 className="font-display font-semibold text-base text-ink">Public threat feeds</h3>
+            <p className="text-sm text-ink-2 mt-0.5 max-w-xl">
+              Pull known malicious indicators and scam scripts from external databases like MHA
+              and PhishTank into the AI's knowledge.
             </p>
           </div>
-          <button 
-            onClick={async () => {
-              try {
-                setLoading(true);
-                await axios.post(api("/admin/osint/sync"), {}, {
-                  headers: { Authorization: `Bearer ${token}` }
-                });
-                alert("OSINT Feeds Synchronized Successfully! The AI now has access to the latest supervised learning RAG data.");
-              } catch (err) {
-                alert("Failed to sync OSINT feeds.");
-              } finally {
-                setLoading(false);
-                window.location.reload();
-              }
-            }}
-            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-medium transition-colors flex items-center gap-2"
-          >
-            <RefreshCw className="w-4 h-4" /> Sync Global OSINT Feeds
-          </button>
-        </div>
+          <Button loading={syncing} onClick={handleOsintSync}>
+            <RefreshCw className="w-4 h-4" />
+            Sync OSINT feeds
+          </Button>
+        </Card>
+      </Rise>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Rise index={5}>
+          <Card className="flex flex-col h-80">
+            <CardHeader title="Incidents" sub="Reports per day, last 7 days" />
+            <div className="flex-1 min-h-0 px-4 pb-4">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={data.timeline} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                  <XAxis dataKey="date" axisLine={false} tickLine={false} tick={axisTick} dy={8} />
+                  <YAxis axisLine={false} tickLine={false} tick={axisTick} width={40} />
+                  <Tooltip
+                    contentStyle={tooltipStyle}
+                    itemStyle={tooltipItemStyle}
+                    labelStyle={tooltipLabelStyle}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="reports"
+                    name="Reports"
+                    stroke="var(--chart-1)"
+                    strokeWidth={2}
+                    dot={false}
+                    activeDot={{ r: 5, strokeWidth: 2, stroke: "var(--surface)" }}
+                    isAnimationActive={drawIn && !reduced}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </Card>
+        </Rise>
+
+        <Rise index={6}>
+          <Card className="flex flex-col h-80">
+            <CardHeader title="Threat mix" sub="Cases by scam type" />
+            <div className="flex-1 min-h-0 flex items-center px-4 pb-4 gap-4">
+              <div className="flex-1 h-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={data.scam_types}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius="58%"
+                      outerRadius="85%"
+                      paddingAngle={2}
+                      dataKey="value"
+                      stroke="var(--surface)"
+                      strokeWidth={2}
+                      isAnimationActive={drawIn && !reduced}
+                    >
+                      {data.scam_types.map((entry: any, index: number) => (
+                        <Cell key={entry.name} fill={sliceColor(index)} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={tooltipStyle}
+                      itemStyle={tooltipItemStyle}
+                      labelStyle={tooltipLabelStyle}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="space-y-2 pr-2 max-w-[45%]">
+                {data.scam_types.map((entry: any, index: number) => (
+                  <div key={entry.name} className="flex items-center gap-2 text-sm min-w-0">
+                    <span
+                      className="w-2.5 h-2.5 rounded-[3px] shrink-0"
+                      style={{ backgroundColor: sliceColor(index) }}
+                    />
+                    <span className="text-ink-2 truncate">{entry.name}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </Card>
+        </Rise>
       </div>
 
-      {/* Charts Row 1 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-96">
-        <div className="glass-panel p-6 rounded-2xl border border-border flex flex-col">
-          <h3 className="font-bold text-lg mb-6 flex items-center gap-2">
-            <TrendingUp className="w-5 h-5 text-primary" /> Incident Timeline (Last 7 Days)
-          </h3>
-          <div className="flex-1 w-full h-full min-h-0">
+      <Rise index={7}>
+        <Card className="flex flex-col h-80">
+          <CardHeader title="Incidents by state" />
+          <div className="flex-1 min-h-0 px-4 pb-4">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={data.timeline}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                <XAxis dataKey="date" stroke="#888" />
-                <YAxis stroke="#888" />
-                <Tooltip contentStyle={{ backgroundColor: '#000', borderColor: '#333' }} />
-                <Line type="monotone" dataKey="reports" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 8 }} />
-              </LineChart>
+              <BarChart data={data.state_distribution} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                <XAxis dataKey="state" axisLine={false} tickLine={false} tick={axisTick} dy={8} />
+                <YAxis axisLine={false} tickLine={false} tick={axisTick} width={40} />
+                <Tooltip
+                  contentStyle={tooltipStyle}
+                  itemStyle={tooltipItemStyle}
+                  labelStyle={tooltipLabelStyle}
+                  cursor={{ fill: "var(--surface-2)" }}
+                />
+                <Bar
+                  dataKey="cases"
+                  name="Cases"
+                  fill="var(--chart-1)"
+                  radius={[4, 4, 0, 0]}
+                  maxBarSize={40}
+                  isAnimationActive={drawIn && !reduced}
+                />
+              </BarChart>
             </ResponsiveContainer>
           </div>
-        </div>
-
-        <div className="glass-panel p-6 rounded-2xl border border-border flex flex-col">
-          <h3 className="font-bold text-lg mb-6">Threat Distribution by Type</h3>
-          <div className="flex-1 w-full h-full min-h-0 flex items-center justify-center">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={data.scam_types}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={100}
-                  paddingAngle={5}
-                  dataKey="value"
-                  label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
-                >
-                  {data.scam_types.map((entry: any, index: number) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip contentStyle={{ backgroundColor: '#000', borderColor: '#333' }} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      </div>
-
-      {/* Charts Row 2 */}
-      <div className="glass-panel p-6 rounded-2xl border border-border h-96 flex flex-col">
-        <h3 className="font-bold text-lg mb-6">Incident Volume by State/Region</h3>
-        <div className="flex-1 w-full h-full min-h-0">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data.state_distribution}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-              <XAxis dataKey="state" stroke="#888" />
-              <YAxis stroke="#888" />
-              <Tooltip contentStyle={{ backgroundColor: '#000', borderColor: '#333' }} cursor={{fill: '#222'}} />
-              <Bar dataKey="cases" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
+        </Card>
+      </Rise>
     </div>
   );
 }

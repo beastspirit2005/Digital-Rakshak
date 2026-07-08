@@ -1,12 +1,20 @@
 "use client";
 
-
 import { api } from "@/lib/api";
 import { useEffect, useState, useMemo } from "react";
 import { NetworkVisualizer } from "@/components/graph/network-visualizer";
-import { Network, Search, Loader2, Hexagon, Square, ArrowRight, AlertTriangle, Phone, Landmark, Globe, ShieldAlert } from "lucide-react";
+import { Search, Loader2 } from "lucide-react";
 import axios from "axios";
 import { useAuthStore } from "@/lib/auth-store";
+import { Card, Inset } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
+import { Badge } from "@/components/ui/badge";
+
+const LEGEND = [
+  { type: "Case", shape: "hexagon", color: "var(--chart-3)", label: "Scam case" },
+  { type: "PhoneNumber", shape: "square", color: "var(--chart-2)", label: "Phone number" },
+  { type: "BankAccount", shape: "diamond", color: "var(--chart-1)", label: "Bank account" },
+];
 
 export default function GraphExplorerPage() {
   const [nodes, setNodes] = useState<any[]>([]);
@@ -21,7 +29,7 @@ export default function GraphExplorerPage() {
     const fetchGraph = async () => {
       try {
         const response = await axios.get(api("/graph/network"), {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${token}` },
         });
         setNodes(response.data.nodes || []);
         setEdges(response.data.links || []);
@@ -31,7 +39,7 @@ export default function GraphExplorerPage() {
         setLoading(false);
       }
     };
-    
+
     if (token) fetchGraph();
   }, [token]);
 
@@ -43,7 +51,7 @@ export default function GraphExplorerPage() {
     const fetchCaseDetails = async () => {
       try {
         const res = await axios.get(api(`/cases/${selectedNode.value}`), {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${token}` },
         });
         setSelectedCaseDetails(res.data);
       } catch (err) {
@@ -53,23 +61,21 @@ export default function GraphExplorerPage() {
     fetchCaseDetails();
   }, [selectedNode, token]);
 
-  // Compute stats
   const stats = useMemo(() => {
-    const caseNodes = nodes.filter(n => n.label === 'Case');
-    const entityNodes = nodes.filter(n => n.label !== 'Case');
-    
-    // Find clusters by counting edges per entity
+    const caseNodes = nodes.filter((n) => n.label === "Case");
+    const entityNodes = nodes.filter((n) => n.label !== "Case");
+
     const entityEdgeCount: Record<string, number> = {};
-    edges.forEach(e => {
-      // The entity is usually the target
-      const entityId = nodes.find(n => n.id === e.target && n.label !== 'Case')?.id 
-                    || nodes.find(n => n.id === e.source && n.label !== 'Case')?.id;
+    edges.forEach((e) => {
+      const entityId =
+        nodes.find((n) => n.id === e.target && n.label !== "Case")?.id ||
+        nodes.find((n) => n.id === e.source && n.label !== "Case")?.id;
       if (entityId) {
         entityEdgeCount[entityId] = (entityEdgeCount[entityId] || 0) + 1;
       }
     });
 
-    const clusterSizes = Object.values(entityEdgeCount).filter(c => c > 1);
+    const clusterSizes = Object.values(entityEdgeCount).filter((c) => c > 1);
     const maxCluster = clusterSizes.length > 0 ? Math.max(...clusterSizes) : 0;
 
     return {
@@ -81,186 +87,183 @@ export default function GraphExplorerPage() {
     };
   }, [nodes, edges]);
 
-  // Filter nodes
   const filteredNodes = useMemo(() => {
     if (!filter.trim()) return nodes;
     const q = filter.toLowerCase();
     const matchingIds = new Set<string>();
-    
-    nodes.forEach(n => {
-      if ((n.value || '').toLowerCase().includes(q) || (n.label || '').toLowerCase().includes(q)) {
+
+    nodes.forEach((n) => {
+      if ((n.value || "").toLowerCase().includes(q) || (n.label || "").toLowerCase().includes(q)) {
         matchingIds.add(n.id);
       }
     });
 
-    // Also include connected nodes
-    edges.forEach(e => {
+    edges.forEach((e) => {
       if (matchingIds.has(e.source)) matchingIds.add(e.target);
       if (matchingIds.has(e.target)) matchingIds.add(e.source);
     });
 
-    return nodes.filter(n => matchingIds.has(n.id));
+    return nodes.filter((n) => matchingIds.has(n.id));
   }, [nodes, edges, filter]);
 
   const filteredEdges = useMemo(() => {
-    const nodeIds = new Set(filteredNodes.map(n => n.id));
-    return edges.filter(e => nodeIds.has(e.source) && nodeIds.has(e.target));
+    const nodeIds = new Set(filteredNodes.map((n) => n.id));
+    return edges.filter((e) => nodeIds.has(e.source) && nodeIds.has(e.target));
   }, [filteredNodes, edges]);
 
-  return (
-    <div className="h-[calc(100vh-8rem)] flex flex-col gap-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground flex items-center gap-2">
-            <Network className="w-8 h-8 text-blue-500" />
-            Cyber Threat Intelligence Graph
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Interactive Neo4j visualization — connected nodes reveal organized scam campaigns.
-          </p>
-        </div>
-        
-        <div className="relative w-72">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <input 
-            type="text"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            placeholder="Filter nodes (e.g., +91987...)" 
-            className="w-full pl-10 pr-4 py-2 bg-card border border-border rounded-xl text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all"
-          />
-        </div>
-      </div>
+  const graphStats = [
+    { label: "Cases", value: stats.totalCases },
+    { label: "Shared entities", value: stats.totalEntities },
+    { label: "Connections", value: stats.totalLinks },
+    { label: "Scam clusters", value: stats.clusters },
+    { label: "Largest ring", value: `${stats.maxCluster} victims` },
+  ];
 
-      {/* Stats Bar */}
+  return (
+    <div className="flex flex-col lg:h-[calc(100dvh-7rem)] pt-2 gap-4">
+      <PageHeader
+        title="Graph explorer"
+        sub="Cases that share a phone number or bank account belong to the same operation."
+        actions={
+          <div className="relative">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-3" />
+            <input
+              type="search"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              placeholder="Filter nodes, e.g. +91 98…"
+              className="h-10 pl-10 pr-4 w-full sm:w-64 rounded-pill bg-surface text-sm text-ink placeholder:text-ink-3 border border-transparent hover:border-line focus:border-accent-text focus:outline-none transition-colors"
+            />
+          </div>
+        }
+      />
+
       {!loading && (
-        <div className="grid grid-cols-5 gap-3">
-          {[
-            { label: 'Total Cases', value: stats.totalCases, color: 'text-red-500', bg: 'bg-red-500/10' },
-            { label: 'Shared Entities', value: stats.totalEntities, color: 'text-blue-500', bg: 'bg-blue-500/10' },
-            { label: 'Connections', value: stats.totalLinks, color: 'text-slate-500', bg: 'bg-slate-500/10' },
-            { label: 'Scam Clusters', value: stats.clusters, color: 'text-amber-500', bg: 'bg-amber-500/10' },
-            { label: 'Largest Ring', value: `${stats.maxCluster} victims`, color: 'text-purple-500', bg: 'bg-purple-500/10' },
-          ].map(s => (
-            <div key={s.label} className={`${s.bg} rounded-xl px-4 py-3 border border-border`}>
-              <p className="text-xs text-muted-foreground">{s.label}</p>
-              <p className={`text-xl font-bold ${s.color}`}>{s.value}</p>
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 shrink-0">
+          {graphStats.map((s) => (
+            <div key={s.label} className="rounded-card bg-surface-2 px-4 py-3">
+              <p className="text-xs text-ink-3">{s.label}</p>
+              <p className="font-display font-semibold text-lg text-ink tabular mt-0.5">{s.value}</p>
             </div>
           ))}
         </div>
       )}
 
-      {/* Main Graph + Legend */}
-      <div className="flex-1 flex gap-4 min-h-0">
-        {/* Graph */}
-        <div className="flex-1 glass-panel relative p-2">
+      <div className="flex-1 flex flex-col lg:flex-row gap-4 min-h-0">
+        <Card className="flex-1 relative overflow-hidden min-h-96">
           {loading ? (
-            <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground">
-              <Loader2 className="w-8 h-8 animate-spin mb-4 text-blue-500" />
-              Querying Neo4j Graph Database...
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-sm text-ink-2 gap-3">
+              <Loader2 className="w-6 h-6 animate-spin" />
+              Querying the intelligence graph…
             </div>
           ) : (
-            <NetworkVisualizer 
-              nodes={filteredNodes} 
-              edges={filteredEdges} 
+            <NetworkVisualizer
+              nodes={filteredNodes}
+              edges={filteredEdges}
               onNodeClick={setSelectedNode}
             />
           )}
-        </div>
+        </Card>
 
-        <div className="w-80 glass-panel flex flex-col overflow-hidden">
+        <Card className="lg:w-80 shrink-0 flex flex-col overflow-hidden max-h-[50vh] lg:max-h-none">
           {selectedNode ? (
             <div className="p-5 flex-1 overflow-y-auto flex flex-col gap-4">
               <div className="flex justify-between items-start">
-                <h3 className="font-semibold text-foreground text-sm uppercase tracking-wider">Node Details</h3>
-                <button onClick={() => setSelectedNode(null)} className="text-xs text-muted-foreground hover:text-foreground">Close</button>
+                <p className="text-xs text-ink-3">Node details</p>
+                <button
+                  onClick={() => setSelectedNode(null)}
+                  className="text-xs text-ink-2 hover:text-ink underline underline-offset-4"
+                >
+                  Close
+                </button>
               </div>
-              
-              <div className="bg-muted/50 p-4 rounded-xl border border-border">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className={`w-3 h-3 rounded-full ${selectedNode.type === 'Case' ? 'bg-red-500' : 'bg-blue-500'}`} />
-                  <span className="font-semibold text-foreground">{selectedNode.type}</span>
+
+              <Inset className="p-4">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span
+                    className="w-2.5 h-2.5 rounded-[3px]"
+                    style={{
+                      backgroundColor:
+                        LEGEND.find((l) => l.type === selectedNode.type)?.color ?? "var(--ink-3)",
+                    }}
+                  />
+                  <span className="text-sm font-medium text-ink">{selectedNode.type}</span>
                 </div>
-                <p className="text-sm font-medium text-foreground break-all">{selectedNode.label}</p>
-                <p className="text-xs text-muted-foreground mt-1">ID: {selectedNode.id}</p>
-              </div>
+                <p className="text-sm text-ink break-all">{selectedNode.label}</p>
+              </Inset>
 
               {selectedNode.type === "Case" && selectedCaseDetails ? (
                 <div className="space-y-4">
                   <div>
-                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mb-2">AI Reasoning</p>
-                    <div className="bg-primary/10 border border-primary/20 p-3 rounded-lg text-sm text-foreground">
-                      {selectedCaseDetails.ai_decision?.reasoning || "No reasoning available."}
-                    </div>
+                    <p className="text-xs text-ink-3 mb-1.5">AI reasoning</p>
+                    <p className="text-sm text-ink leading-relaxed">
+                      {selectedCaseDetails.ai_decision?.reasoning || "No reasoning recorded."}
+                    </p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mb-2">Scam Classification</p>
-                    <div className="flex items-center gap-2">
-                      <ShieldAlert className="w-4 h-4 text-amber-500" />
-                      <span className="text-sm font-medium">{selectedCaseDetails.ai_decision?.scam_type_classification || "Unknown"}</span>
-                    </div>
+                    <p className="text-xs text-ink-3 mb-1.5">Classification</p>
+                    <Badge tone="peach" className="capitalize">
+                      {(selectedCaseDetails.ai_decision?.scam_type_classification || "Unknown").replace(/_/g, " ")}
+                    </Badge>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mb-2">Prevention Strategy</p>
+                    <p className="text-xs text-ink-3 mb-1.5">What to do</p>
                     <ul className="list-disc pl-4 space-y-1">
-                      {selectedCaseDetails.ai_decision?.preventative_measures?.map((pm: string, i: number) => (
-                        <li key={i} className="text-sm text-muted-foreground">{pm}</li>
-                      )) || <li className="text-sm text-muted-foreground">No strategies generated.</li>}
+                      {selectedCaseDetails.ai_decision?.preventative_measures?.map(
+                        (pm: string, i: number) => (
+                          <li key={i} className="text-sm text-ink-2">{pm}</li>
+                        )
+                      ) || <li className="text-sm text-ink-2">No steps generated.</li>}
                     </ul>
                   </div>
                 </div>
               ) : selectedNode.type !== "Case" ? (
-                <div className="space-y-4">
-                  <div className="bg-amber-500/10 border border-amber-500/20 p-3 rounded-lg flex gap-2 items-start">
-                    <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-                    <p className="text-xs text-amber-500/90 leading-relaxed">
-                      This is a shared entity node (IoC). Cases connected to this node belong to the same organized scam network.
-                    </p>
-                  </div>
-                  <p className="text-xs text-muted-foreground">Select a connected Case node (Red Hexagon) to view the AI's deep analysis and prevention strategy for this cluster.</p>
-                </div>
+                <p className="text-sm text-ink-2 leading-relaxed">
+                  This is a shared entity. Every case connected to it belongs to the same
+                  organized network — select a connected case node to read its analysis.
+                </p>
               ) : (
                 <div className="flex items-center justify-center p-8">
-                  <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                  <Loader2 className="w-5 h-5 animate-spin text-ink-3" />
                 </div>
               )}
             </div>
           ) : (
             <div className="p-5 flex-1 overflow-y-auto flex flex-col gap-5">
-              <h3 className="font-semibold text-foreground text-sm uppercase tracking-wider">Legend</h3>
-              
+              <p className="text-xs text-ink-3">Legend</p>
+
               <div className="space-y-3">
-                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Node Types</p>
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-red-500 rounded-md flex items-center justify-center"><Hexagon className="w-5 h-5 text-white" /></div>
-                  <div><p className="text-sm font-medium text-foreground">Scam Case</p></div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-blue-500 rounded-md flex items-center justify-center"><Phone className="w-5 h-5 text-white" /></div>
-                  <div><p className="text-sm font-medium text-foreground">Phone Number</p></div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-green-500 rounded-md flex items-center justify-center"><Landmark className="w-5 h-5 text-white" /></div>
-                  <div><p className="text-sm font-medium text-foreground">Bank Account</p></div>
-                </div>
+                {LEGEND.map((item) => (
+                  <div key={item.type} className="flex items-center gap-3">
+                    <span
+                      className="w-3.5 h-3.5 shrink-0"
+                      style={{
+                        backgroundColor: item.color,
+                        borderRadius: item.shape === "square" ? 3 : undefined,
+                        clipPath:
+                          item.shape === "hexagon"
+                            ? "polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%)"
+                            : item.shape === "diamond"
+                              ? "polygon(50% 0, 100% 50%, 50% 100%, 0 50%)"
+                              : undefined,
+                      }}
+                    />
+                    <span className="text-sm text-ink">{item.label}</span>
+                  </div>
+                ))}
               </div>
 
-              <div className="border-t border-border" />
-              <div className="space-y-2">
-                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">How to Read</p>
-                <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
-                  <div className="flex items-start gap-2">
-                    <AlertTriangle className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
-                    <p className="text-xs text-muted-foreground leading-relaxed">
-                      When multiple <span className="text-red-500 font-medium">red cases</span> connect to the same <span className="text-blue-500 font-medium">blue entity</span>, it means <span className="text-foreground font-semibold">one scammer is targeting multiple victims</span>.
-                    </p>
-                  </div>
-                </div>
+              <div className="border-t border-line" />
+              <div>
+                <p className="text-xs text-ink-3 mb-2">How to read it</p>
+                <p className="text-sm text-ink-2 leading-relaxed">
+                  When several cases connect to one phone number or account, a single scammer is
+                  targeting multiple victims. Tap any node for detail.
+                </p>
               </div>
             </div>
           )}
-        </div>
+        </Card>
       </div>
     </div>
   );

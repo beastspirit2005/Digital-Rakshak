@@ -1,10 +1,18 @@
 "use client";
 
-
 import { api } from "@/lib/api";
 import { useEffect, useState } from "react";
 import { useAuthStore } from "@/lib/auth-store";
-import { ShieldAlert, CheckCircle, AlertTriangle, Loader2 } from "lucide-react";
+import { CheckCircle, ShieldAlert } from "lucide-react";
+import { Card, CardHeader } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { DataTable, type Column } from "@/components/ui/data-table";
+import { TableSkeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Rise } from "@/components/ui/motion";
+import { useToast } from "@/components/ui/toast";
 
 interface TakedownPolicy {
   id: number;
@@ -17,31 +25,31 @@ interface TakedownPolicy {
 }
 
 export default function BankerDashboard() {
-  const { token, user } = useAuthStore();
+  const { token } = useAuthStore();
+  const toast = useToast();
   const [policies, setPolicies] = useState<TakedownPolicy[]>([]);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState<number | null>(null);
 
   useEffect(() => {
+    const fetchPendingPolicies = async () => {
+      if (!token) return;
+      try {
+        const res = await fetch(api("/takedowns/pending"), {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setPolicies(data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch policies", error);
+      } finally {
+        setLoading(false);
+      }
+    };
     fetchPendingPolicies();
   }, [token]);
-
-  const fetchPendingPolicies = async () => {
-    if (!token) return;
-    try {
-      const res = await fetch(api("/takedowns/pending"), {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setPolicies(data);
-      }
-    } catch (error) {
-      console.error("Failed to fetch policies", error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const approvePolicy = async (id: number) => {
     if (!token) return;
@@ -49,102 +57,111 @@ export default function BankerDashboard() {
     try {
       const res = await fetch(api(`/takedowns/${id}/approve`), {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
-      
+
       if (res.ok) {
-        // Remove from list
-        setPolicies(policies.filter(p => p.id !== id));
+        setPolicies((prev) => prev.filter((p) => p.id !== id));
+        toast("success", "Takedown executed.");
       } else {
-        alert("Failed to approve policy");
+        toast("danger", "The takedown couldn't be approved.");
       }
     } catch (error) {
       console.error("Error approving policy", error);
+      toast("danger", "The takedown couldn't be approved.");
     } finally {
       setProcessing(null);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
+  const columns: Column<TakedownPolicy>[] = [
+    {
+      key: "target",
+      header: "Target",
+      mobile: "title",
+      render: (p) => <span className="font-medium text-ink break-all tabular">{p.target}</span>,
+    },
+    {
+      key: "case_number",
+      header: "Case",
+      render: (p) => <span className="tabular text-ink-2">{p.case_number}</span>,
+    },
+    {
+      key: "target_type",
+      header: "Type",
+      render: (p) => <Badge className="uppercase">{p.target_type}</Badge>,
+    },
+    {
+      key: "action",
+      header: "Requested action",
+      render: (p) => (
+        <span className="capitalize text-ink">{p.action.replace(/_/g, " ")}</span>
+      ),
+    },
+    {
+      key: "reason",
+      header: "Reason",
+      mobile: "meta",
+      render: (p) => (
+        <span className="text-ink-2 block max-w-xs truncate" title={p.reason}>
+          {p.reason}
+        </span>
+      ),
+    },
+    {
+      key: "approve",
+      header: "",
+      align: "right",
+      mobile: "trailing",
+      render: (p) => (
+        <Button
+          variant="danger"
+          size="sm"
+          loading={processing === p.id}
+          onClick={() => approvePolicy(p.id)}
+        >
+          Execute takedown
+        </Button>
+      ),
+    },
+  ];
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-red-600 to-orange-500 bg-clip-text text-transparent">
-          Nodal Officer Dashboard
-        </h1>
-        <p className="text-muted-foreground mt-2">
-          Review and approve automated takedown policies generated by the RAIC Core.
-        </p>
-      </div>
+    <div className="space-y-6 pt-2">
+      <Rise>
+        <PageHeader
+          title="Nodal desk"
+          sub="Takedown requests generated by the AI core, awaiting your sign-off."
+        />
+      </Rise>
 
-      <div className="glass-panel p-6">
-        <div className="flex items-center gap-2 mb-4 text-red-500 font-semibold">
-          <ShieldAlert className="h-5 w-5" />
-          <h2>Pending Takedown Actions ({policies.length})</h2>
-        </div>
-
-        {policies.length === 0 ? (
-          <div className="text-center py-12 text-muted-foreground">
-            <CheckCircle className="h-12 w-12 mx-auto mb-3 text-green-500 opacity-50" />
-            <p>All clear. No pending policies await your approval.</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left">
-              <thead className="text-xs uppercase bg-black/20 text-muted-foreground">
-                <tr>
-                  <th className="px-6 py-3">Case No.</th>
-                  <th className="px-6 py-3">Target</th>
-                  <th className="px-6 py-3">Type</th>
-                  <th className="px-6 py-3">Action</th>
-                  <th className="px-6 py-3">Reason</th>
-                  <th className="px-6 py-3">Approval</th>
-                </tr>
-              </thead>
-              <tbody>
-                {policies.map((p) => (
-                  <tr key={p.id} className="border-b border-border/50 hover:bg-black/10">
-                    <td className="px-6 py-4 font-mono">{p.case_number}</td>
-                    <td className="px-6 py-4 font-bold text-red-400">{p.target}</td>
-                    <td className="px-6 py-4">
-                      <span className="px-2 py-1 rounded bg-black/30 border border-border text-xs uppercase">
-                        {p.target_type}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 font-semibold text-orange-400">
-                      {p.action.replace("_", " ")}
-                    </td>
-                    <td className="px-6 py-4 text-xs text-muted-foreground max-w-xs truncate" title={p.reason}>
-                      {p.reason}
-                    </td>
-                    <td className="px-6 py-4">
-                      <button
-                        onClick={() => approvePolicy(p.id)}
-                        disabled={processing === p.id}
-                        className="px-4 py-2 bg-red-600/20 hover:bg-red-600 text-red-100 hover:text-white rounded-md border border-red-500/50 transition-all flex items-center gap-2 disabled:opacity-50"
-                      >
-                        {processing === p.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <AlertTriangle className="h-4 w-4" />
-                        )}
-                        Execute Takedown
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      <Rise index={1}>
+        <Card>
+          <CardHeader
+            title="Pending takedowns"
+            sub={loading ? undefined : `${policies.length} awaiting approval`}
+            action={
+              !loading && policies.length > 0 ? (
+                <Badge tone="warning">
+                  <ShieldAlert className="w-3 h-3" />
+                  Action needed
+                </Badge>
+              ) : undefined
+            }
+          />
+          {loading ? (
+            <TableSkeleton rows={4} />
+          ) : policies.length === 0 ? (
+            <EmptyState
+              icon={CheckCircle}
+              title="All clear"
+              body="No takedown requests are waiting on you right now."
+            />
+          ) : (
+            <DataTable columns={columns} rows={policies} rowKey={(p) => p.id} />
+          )}
+        </Card>
+      </Rise>
     </div>
   );
 }

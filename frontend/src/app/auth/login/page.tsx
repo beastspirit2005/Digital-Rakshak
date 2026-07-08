@@ -1,14 +1,22 @@
 "use client";
 
-
 import { api } from "@/lib/api";
 import { useState } from "react";
 import Link from "next/link";
-import { Shield, ArrowRight, Loader2, CheckCircle2, AlertCircle, KeyRound, Mail } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import axios from "axios";
 import { useAuthStore } from "@/lib/auth-store";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input, Label, FormError, FormNotice, OtpInput } from "@/components/ui/field";
+import { Segmented } from "@/components/ui/tabs";
+
+function routeForRole(role: string) {
+  if (role === "admin") return "/admin";
+  if (role === "citizen") return "/citizen";
+  if (role === "banker") return "/banker";
+  return "/workbench";
+}
 
 export default function LoginPage() {
   const [loginMethod, setLoginMethod] = useState<"password" | "otp">("password");
@@ -20,18 +28,19 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const { login } = useAuthStore();
   const router = useRouter();
+  const reduced = useReducedMotion();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError("");
-    
+
     if (loginMethod === "otp") {
       try {
         await axios.post(api("/auth/request-otp"), { email });
         setStep("otp");
       } catch (err: any) {
-        setError(err.response?.data?.detail || "Failed to request OTP. Please try again.");
+        setError(err.response?.data?.detail || "Couldn't send the code. Try again.");
       } finally {
         setIsLoading(false);
       }
@@ -39,18 +48,13 @@ export default function LoginPage() {
       try {
         const response = await axios.post(api("/auth/login-password"), { email, password });
         login(response.data.access_token, response.data.user);
-        
-        const role = response.data.user.role;
-        if (role === 'admin') router.push("/admin");
-        else if (role === 'citizen') router.push("/citizen");
-        else if (role === 'banker') router.push("/banker");
-        else router.push("/workbench");
+        router.push(routeForRole(response.data.user.role));
       } catch (err: any) {
         const status = err.response?.status;
         const detail = err.response?.data?.detail;
-        if (status === 403) setError(detail || "Account not approved yet.");
-        else if (status === 401) setError("Invalid email or password.");
-        else setError(detail || "Login failed. Please try again.");
+        if (status === 403) setError(detail || "Your account hasn't been approved yet.");
+        else if (status === 401) setError("That email or password doesn't match.");
+        else setError(detail || "Sign-in failed. Try again.");
       } finally {
         setIsLoading(false);
       }
@@ -63,200 +67,128 @@ export default function LoginPage() {
     setError("");
 
     try {
-      const response = await axios.post(api("/auth/verify-otp"), { 
-        email,
-        otp
-      });
+      const response = await axios.post(api("/auth/verify-otp"), { email, otp });
       login(response.data.access_token, response.data.user);
-      
-      const role = response.data.user.role;
-      if (role === 'admin') {
-        router.push("/admin");
-      } else if (role === 'citizen') {
-        router.push("/citizen");
-      } else if (role === 'banker') {
-        router.push("/banker");
-      } else {
-        router.push("/workbench");
-      }
+      router.push(routeForRole(response.data.user.role));
     } catch (err: any) {
       const status = err.response?.status;
       const detail = err.response?.data?.detail;
-      if (status === 403) setError(detail || "Account not approved yet.");
-      else if (status === 401) setError("Invalid or expired OTP.");
-      else setError(detail || "Login failed. Please try again.");
+      if (status === 403) setError(detail || "Your account hasn't been approved yet.");
+      else if (status === 401) setError("That code is invalid or has expired.");
+      else setError(detail || "Sign-in failed. Try again.");
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="glass-panel p-8 md:p-10 rounded-3xl w-full">
-      <div className="flex justify-center mb-8">
-        <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center border border-primary/20 shadow-inner">
-          <Shield className="w-8 h-8 text-primary" />
-        </div>
-      </div>
-      
-      <div className="text-center mb-8">
-        <h2 className="text-2xl font-bold tracking-tight mb-2">Welcome Back</h2>
-        <p className="text-sm text-muted-foreground">
-          Enter your credentials to access the platform
-        </p>
-      </div>
+    <div>
+      <h2 className="font-display font-semibold text-xl tracking-tight text-ink">Sign in</h2>
+      <p className="text-sm text-ink-2 mt-1.5 mb-8">
+        New here?{" "}
+        <Link href="/auth/register" className="text-ink font-medium underline underline-offset-4 hover:text-accent-text">
+          Create an account
+        </Link>
+      </p>
 
-      <AnimatePresence mode="wait">
+      <AnimatePresence mode="wait" initial={false}>
         {step === "email" ? (
-          <motion.form 
+          <motion.form
             key="email-form"
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 20 }}
-            onSubmit={handleLogin} 
-            className="space-y-6"
+            initial={{ opacity: 0, y: reduced ? 0 : 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+            onSubmit={handleLogin}
+            className="space-y-5"
           >
-            <div className="flex p-1 bg-background border border-border rounded-xl">
-              <button
-                type="button"
-                onClick={() => setLoginMethod("password")}
-                className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-lg transition-all ${
-                  loginMethod === "password" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-white"
-                }`}
-              >
-                <KeyRound className="w-4 h-4" /> Password
-              </button>
-              <button
-                type="button"
-                onClick={() => setLoginMethod("otp")}
-                className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-lg transition-all ${
-                  loginMethod === "otp" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-white"
-                }`}
-              >
-                <Mail className="w-4 h-4" /> Email OTP
-              </button>
-            </div>
+            <Segmented
+              className="w-full"
+              items={[
+                { id: "password", label: "Password" },
+                { id: "otp", label: "Email code" },
+              ]}
+              value={loginMethod}
+              onChange={(id) => setLoginMethod(id as "password" | "otp")}
+            />
 
-            {error && (
-              <div className="bg-red-500/10 text-red-600 dark:text-red-400 p-3 rounded-xl flex items-center gap-2 text-sm border border-red-500/20">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                <p>{error}</p>
-              </div>
-            )}
-            
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <label htmlFor="email" className="text-sm font-medium">Email Address</label>
-                <input 
-                  id="email"
-                  type="email" 
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="analyst@agency.gov"
-                  className="w-full px-4 py-3 rounded-xl bg-background border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all outline-none"
-                />
-              </div>
+            <FormError>{error}</FormError>
 
-              {loginMethod === "password" && (
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <label htmlFor="password" className="text-sm font-medium">Password</label>
-                    <Link href="/auth/reset-password" className="text-xs text-primary hover:underline">Forgot password?</Link>
-                  </div>
-                  <input 
-                    id="password"
-                    type="password" 
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full px-4 py-3 rounded-xl bg-background border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all outline-none"
-                  />
-                </div>
-              )}
-            </div>
-            
-            <button 
-              type="submit" 
-              disabled={isLoading}
-              className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground py-3 rounded-xl font-medium hover:bg-primary/90 transition-all active:scale-[0.98] disabled:opacity-70"
-            >
-              {isLoading ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : (
-                <>
-                  {loginMethod === "password" ? "Login" : "Continue"} <ArrowRight className="w-4 h-4" />
-                </>
-              )}
-            </button>
-          </motion.form>
-        ) : (
-          <motion.form 
-            key="otp-form"
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 20 }}
-            onSubmit={handleVerifyOTP} 
-            className="space-y-6"
-          >
-            <div className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 p-4 rounded-xl flex items-start gap-3 border border-emerald-500/20">
-              <CheckCircle2 className="w-5 h-5 mt-0.5 shrink-0" />
-              <div className="text-sm">
-                <p className="font-medium">OTP Sent Successfully</p>
-                <p className="opacity-90">We've sent a one-time password to {email}</p>
-              </div>
-            </div>
-
-            {error && (
-              <div className="bg-red-500/10 text-red-600 dark:text-red-400 p-3 rounded-xl flex items-center gap-2 text-sm border border-red-500/20">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                <p>{error}</p>
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <label htmlFor="otp" className="text-sm font-medium">Enter OTP</label>
-              <input 
-                id="otp"
-                type="text" 
+            <div>
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
                 required
-                value={otp}
-                onChange={(e) => setOtp(e.target.value)}
-                placeholder="• • • • • •"
-                className="w-full px-4 py-3 rounded-xl bg-background border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all outline-none text-center tracking-[0.5em] text-lg font-mono"
-                maxLength={6}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                autoComplete="email"
               />
             </div>
-            
-            <button 
-              type="submit" 
-              disabled={isLoading}
-              className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground py-3 rounded-xl font-medium hover:bg-primary/90 transition-all active:scale-[0.98] disabled:opacity-70"
-            >
-              {isLoading ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : (
-                "Verify & Login"
-              )}
-            </button>
 
-            <button 
+            {loginMethod === "password" && (
+              <div>
+                <div className="flex justify-between items-center mb-1.5">
+                  <Label htmlFor="password" className="mb-0">Password</Label>
+                  <Link
+                    href="/auth/reset-password"
+                    className="text-xs text-ink-2 hover:text-ink underline underline-offset-4"
+                  >
+                    Forgot password?
+                  </Link>
+                </div>
+                <Input
+                  id="password"
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  autoComplete="current-password"
+                />
+              </div>
+            )}
+
+            <Button type="submit" variant="primary" size="lg" loading={isLoading} className="w-full">
+              {loginMethod === "password" ? "Sign in" : "Send code"}
+            </Button>
+          </motion.form>
+        ) : (
+          <motion.form
+            key="otp-form"
+            initial={{ opacity: 0, y: reduced ? 0 : 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+            onSubmit={handleVerifyOTP}
+            className="space-y-5"
+          >
+            <FormNotice>
+              We sent a six-digit code to <span className="font-medium">{email}</span>.
+            </FormNotice>
+
+            <FormError>{error}</FormError>
+
+            <div>
+              <Label htmlFor="otp">Code</Label>
+              <OtpInput id="otp" value={otp} onChange={setOtp} />
+            </div>
+
+            <Button type="submit" variant="primary" size="lg" loading={isLoading} className="w-full">
+              Verify and sign in
+            </Button>
+
+            <button
               type="button"
               onClick={() => setStep("email")}
-              className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors"
+              className="w-full text-sm text-ink-2 hover:text-ink transition-colors"
             >
               Use a different email
             </button>
           </motion.form>
         )}
       </AnimatePresence>
-
-      <p className="text-center text-sm text-muted-foreground mt-6">
-        Don't have an account?{" "}
-        <Link href="/auth/register" className="text-primary hover:underline font-medium">
-          Register
-        </Link>
-      </p>
     </div>
   );
 }

@@ -3,93 +3,109 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { 
-  Shield, 
-  Activity, 
-  Map, 
-  FileText, 
-  Settings, 
-  LogOut, 
-  Menu,
+import {
+  Shield,
+  Activity,
+  Map,
+  FileText,
+  Settings,
+  LogOut,
   Bell,
   Search,
   ShieldAlert,
   Users,
   CheckSquare,
-  ArrowLeft,
   Network,
-  LayoutDashboard,
   ShieldCheck,
-  Home,
-  AlertTriangle,
   Building,
   Siren,
   UserCircle,
-  Bot
+  Bot,
+  MoreHorizontal,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ProtectedRoute } from "@/components/protected-route";
 import { useAuthStore } from "@/lib/auth-store";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { GlobalChatWidget } from "@/components/global-chat-widget";
-
-const workbenchNavigation = [
-  { name: 'Dashboard', href: '/workbench', icon: Activity },
-  { name: 'Report Scam', href: '/report', icon: ShieldAlert },
-  { name: 'Spatial Map', href: '/workbench/map', icon: Map },
-  { name: 'Graph Explorer', href: '/workbench/graph', icon: Network },
-  { name: 'Reports (FIR/TPR)', href: '/workbench/reports', icon: FileText },
-  { name: 'Prevention Suite', href: '/prevention', icon: ShieldCheck },
-  { name: 'AI Co-Pilot', href: '/copilot', icon: Bell },
-];
+import { ToastProvider } from "@/components/ui/toast";
+import { Avatar } from "@/components/ui/avatar";
 
 const adminSections = [
   {
-    label: 'Admin Console',
-    color: 'purple',
+    label: "Admin",
     items: [
-      { name: 'Admin Dashboard', href: '/admin', icon: Activity },
-      { name: 'User Management', href: '/admin/users', icon: Users },
-      { name: 'Pending Approvals', href: '/admin/approvals', icon: CheckSquare },
-      { name: 'National Analytics', href: '/admin/intelligence', icon: Network },
-      { name: 'AI Health Status', href: '/admin/ai-health', icon: Bot },
-      { name: 'Platform Settings', href: '/admin/settings', icon: Settings },
-    ]
+      { name: "Admin dashboard", short: "Admin", href: "/admin", icon: Activity },
+      { name: "Users", short: "Users", href: "/admin/users", icon: Users },
+      { name: "Approvals", short: "Approvals", href: "/admin/approvals", icon: CheckSquare },
+      { name: "National analytics", short: "Analytics", href: "/admin/intelligence", icon: Network },
+      { name: "AI health", short: "AI health", href: "/admin/ai-health", icon: Bot },
+      { name: "Platform settings", short: "Settings", href: "/admin/settings", icon: Settings },
+    ],
   },
   {
-    label: 'Investigator / Police',
-    color: 'blue',
+    label: "Investigation",
     items: [
-      { name: 'Investigator Workbench', href: '/workbench', icon: Siren },
-      { name: 'Reports (FIR/TPR)', href: '/workbench/reports', icon: FileText },
-      { name: 'Spatial Map', href: '/workbench/map', icon: Map },
-      { name: 'Graph Explorer', href: '/workbench/graph', icon: Network },
-      { name: 'AI Co-Pilot', href: '/copilot', icon: Bell },
-    ]
+      { name: "Workbench", short: "Workbench", href: "/workbench", icon: Siren },
+      { name: "Case register", short: "Cases", href: "/workbench/reports", icon: FileText },
+      { name: "Spatial map", short: "Map", href: "/workbench/map", icon: Map },
+      { name: "Graph explorer", short: "Graph", href: "/workbench/graph", icon: Network },
+      { name: "AI co-pilot", short: "Co-pilot", href: "/copilot", icon: Bot },
+    ],
   },
   {
-    label: 'Banker / Nodal Officer',
-    color: 'green',
+    label: "Nodal desk",
     items: [
-      { name: 'Nodal Dashboard', href: '/banker', icon: Building },
-      { name: 'Report Scam', href: '/report', icon: ShieldAlert },
-      { name: 'Prevention Suite', href: '/prevention', icon: ShieldCheck },
-      { name: 'Spatial Map', href: '/workbench/map', icon: Map },
-    ]
+      { name: "Nodal dashboard", short: "Desk", href: "/banker", icon: Building },
+      { name: "Report a scam", short: "Report", href: "/report", icon: ShieldAlert },
+      { name: "Prevention", short: "Prevent", href: "/prevention", icon: ShieldCheck },
+      { name: "Spatial map", short: "Map", href: "/workbench/map", icon: Map },
+    ],
   },
   {
-    label: 'Citizen',
-    color: 'amber',
+    label: "Citizen",
     items: [
-      { name: 'Citizen Dashboard', href: '/citizen', icon: UserCircle },
-      { name: 'Report Scam', href: '/report', icon: ShieldAlert },
-      { name: 'Prevention Suite', href: '/prevention', icon: ShieldCheck },
-      { name: 'Spatial Map', href: '/workbench/map', icon: Map },
-    ]
+      { name: "My reports", short: "Reports", href: "/citizen", icon: UserCircle },
+      { name: "Report a scam", short: "Report", href: "/report", icon: ShieldAlert },
+      { name: "Prevention", short: "Prevent", href: "/prevention", icon: ShieldCheck },
+      { name: "Spatial map", short: "Map", href: "/workbench/map", icon: Map },
+    ],
   },
 ];
 
-const adminNavigation = adminSections.flatMap(s => s.items);
+type NavItem = (typeof adminSections)[number]["items"][number];
+
+function NavLink({
+  item,
+  active,
+  onClick,
+}: {
+  item: NavItem;
+  active: boolean;
+  onClick?: () => void;
+}) {
+  const Icon = item.icon;
+  return (
+    <Link
+      href={item.href}
+      onClick={onClick}
+      className={cn(
+        "relative flex items-center gap-3 px-3 py-2 rounded-control text-sm transition-colors duration-150",
+        active
+          ? "bg-surface text-ink font-medium shadow-card"
+          : "text-ink-2 hover:text-ink hover:bg-surface/60"
+      )}
+    >
+      {active && (
+        <span className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-0.5 rounded-pill bg-accent" />
+      )}
+      <Icon className="w-4 h-4 shrink-0" strokeWidth={active ? 2.2 : 2} />
+      {item.name}
+    </Link>
+  );
+}
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -101,13 +117,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     router.push("/auth/login");
   };
 
-  // Determine what part of the app we are in
+  // Section detection and role gating — unchanged behavior.
   const isAdminSection = pathname.startsWith("/admin");
   const isCitizenSection = pathname.startsWith("/citizen");
   const isWorkbenchMap = pathname === "/workbench/map";
   const isWorkbenchSection = pathname.startsWith("/workbench") && !isWorkbenchMap;
 
-  // Determine allowed roles for this section based on path
   let allowedRoles: string[] | undefined = undefined;
   if (isAdminSection) {
     allowedRoles = ["admin"];
@@ -125,168 +140,179 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     allowedRoles = ["admin", "police", "cyber_cell"];
   }
 
-  // Populate Sidebar Navigation strictly based on the User's Role
-  let navigation: any[] = [];
-  if (user?.role === 'admin') {
-    navigation = adminNavigation; // Will render all sections
-  } else if (user?.role === 'police' || user?.role === 'cyber_cell') {
-    navigation = adminSections.find(s => s.label === 'Investigator / Police')?.items || [];
-  } else if (user?.role === 'banker' || user?.role === 'bank_employee') {
-    navigation = adminSections.find(s => s.label === 'Banker / Nodal Officer')?.items || [];
-  } else if (user?.role === 'citizen') {
-    navigation = adminSections.find(s => s.label === 'Citizen')?.items || [];
+  let sections: typeof adminSections = [];
+  if (user?.role === "admin") {
+    sections = adminSections;
+  } else if (user?.role === "police" || user?.role === "cyber_cell") {
+    sections = adminSections.filter((s) => s.label === "Investigation");
+  } else if (user?.role === "banker" || user?.role === "bank_employee") {
+    sections = adminSections.filter((s) => s.label === "Nodal desk");
+  } else if (user?.role === "citizen") {
+    sections = adminSections.filter((s) => s.label === "Citizen");
   }
+
+  const flatNav = sections.flatMap((s) => s.items);
+  // Mobile tab bar: first three destinations plus "More".
+  const tabItems = flatNav
+    .filter((item, i, arr) => arr.findIndex((x) => x.href === item.href) === i)
+    .slice(0, 3);
+
+  const isActive = (href: string) => pathname === href;
+
+  const sidebarContent = (
+    <>
+      <div className="h-16 flex items-center gap-2.5 px-5">
+        <Shield className="w-6 h-6 text-ink" strokeWidth={2.2} />
+        <span className="font-display font-semibold text-base tracking-tight text-ink">
+          Digital Rakshak
+        </span>
+      </div>
+
+      <nav className="px-3 pb-4 flex-1 overflow-y-auto space-y-6">
+        {sections.map((section) => (
+          <div key={section.label}>
+            {sections.length > 1 && (
+              <p className="px-3 mb-1.5 text-xs text-ink-3">{section.label}</p>
+            )}
+            <div className="space-y-0.5">
+              {section.items.map((item) => (
+                <NavLink
+                  key={`${section.label}-${item.href}`}
+                  item={item}
+                  active={isActive(item.href)}
+                  onClick={() => setSidebarOpen(false)}
+                />
+              ))}
+            </div>
+          </div>
+        ))}
+      </nav>
+
+      <div className="p-3">
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-3 px-3 py-2 rounded-control text-sm text-ink-2 hover:text-danger hover:bg-danger-tint transition-colors duration-150"
+        >
+          <LogOut className="w-4 h-4" />
+          Sign out
+        </button>
+      </div>
+    </>
+  );
 
   return (
     <ProtectedRoute allowedRoles={allowedRoles}>
-      <div className="min-h-screen bg-muted/30 flex">
-        {/* Sidebar */}
-        <aside className={cn(
-          "fixed inset-y-0 left-0 z-50 w-64 bg-card border-r border-border transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 flex flex-col",
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        )}>
-          {isAdminSection ? (
-            <div className="h-16 flex items-center gap-2 px-6 border-b border-border bg-purple-500/5">
-              <Settings className="w-8 h-8 text-purple-500" />
-              <span className="text-xl font-bold">Admin Console</span>
-            </div>
-          ) : (
-            <div className="h-16 flex items-center gap-2 px-6 border-b border-border">
-              <Shield className="w-8 h-8 text-primary" />
-              <span className="text-xl font-bold">Rakshak Core</span>
-            </div>
-          )}
-          
-          <div className="p-4 space-y-1 flex-1 overflow-y-auto">
-            {user?.role === 'admin' ? (
-              <>
-                {adminSections.map((section, sIdx) => {
-                  const colorMap: Record<string, { dot: string, activeText: string, activeBg: string }> = {
-                    purple: { dot: 'bg-purple-500', activeText: 'text-purple-600 dark:text-purple-400', activeBg: 'bg-purple-500/10' },
-                    blue:   { dot: 'bg-blue-500',   activeText: 'text-blue-600 dark:text-blue-400',     activeBg: 'bg-blue-500/10' },
-                    green:  { dot: 'bg-green-500',  activeText: 'text-green-600 dark:text-green-400',   activeBg: 'bg-green-500/10' },
-                    amber:  { dot: 'bg-amber-500',  activeText: 'text-amber-600 dark:text-amber-400',   activeBg: 'bg-amber-500/10' },
-                  };
-                  const colors = colorMap[section.color] || colorMap.purple;
+      <ToastProvider>
+        <div className="min-h-screen bg-bg flex">
+          {/* desktop sidebar */}
+          <aside className="hidden md:flex w-60 shrink-0 flex-col bg-surface-2 sticky top-0 h-screen">
+            {sidebarContent}
+          </aside>
 
-                  return (
-                    <div key={section.label} className={sIdx > 0 ? 'pt-4 mt-4 border-t border-border' : ''}>
-                      <div className="flex items-center gap-2 px-3 mb-2">
-                        <span className={cn("w-2 h-2 rounded-full", colors.dot)} />
-                        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{section.label}</span>
-                      </div>
-                      {section.items.map((item) => {
-                        const isActive = pathname === item.href;
-                        const Icon = item.icon;
-                        return (
-                          <Link
-                            key={item.name}
-                            href={item.href}
-                            className={cn(
-                              "flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-colors",
-                              isActive 
-                                ? `${colors.activeBg} ${colors.activeText}`
-                                : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                            )}
-                          >
-                            <Icon className={cn("w-5 h-5", isActive ? colors.activeText : "text-muted-foreground")} />
-                            {item.name}
-                          </Link>
-                        );
-                      })}
-                    </div>
-                  );
-                })}
-              </>
-            ) : (
-              <>
-                {navigation.map((item) => {
-                  const isActive = pathname === item.href;
-                  const Icon = item.icon;
-                  return (
-                    <Link
-                      key={item.name}
-                      href={item.href}
-                      className={cn(
-                        "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors",
-                        isActive 
-                          ? "bg-primary/10 text-primary"
-                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                      )}
-                    >
-                      <Icon className={cn("w-5 h-5", isActive ? "text-primary" : "text-muted-foreground")} />
-                      {item.name}
-                    </Link>
-                  );
-                })}
-              </>
+          {/* mobile slide-in */}
+          <div
+            className={cn(
+              "fixed inset-0 z-50 md:hidden transition-[visibility]",
+              sidebarOpen ? "visible" : "invisible delay-300"
             )}
+          >
+            <div
+              className={cn(
+                "absolute inset-0 bg-ink/40 transition-opacity duration-300",
+                sidebarOpen ? "opacity-100" : "opacity-0"
+              )}
+              onClick={() => setSidebarOpen(false)}
+            />
+            <aside
+              className={cn(
+                "absolute inset-y-0 left-0 w-72 max-w-[85vw] flex flex-col bg-surface-2 transition-transform duration-300 ease-out",
+                sidebarOpen ? "translate-x-0" : "-translate-x-full"
+              )}
+            >
+              <button
+                onClick={() => setSidebarOpen(false)}
+                aria-label="Close menu"
+                className="absolute top-4 right-4 p-2 rounded-pill text-ink-3 hover:text-ink hover:bg-surface transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+              {sidebarContent}
+            </aside>
           </div>
 
-          <div className="p-4 border-t border-border mt-auto">
-            <button 
-              onClick={handleLogout}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-red-500 hover:bg-red-500/10 transition-colors"
-            >
-              <LogOut className="w-5 h-5" />
-              Sign Out
-            </button>
-          </div>
-        </aside>
+          {/* main column */}
+          <div className="flex-1 flex flex-col min-w-0">
+            <header className="h-16 flex items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+              <div className="flex items-center gap-2.5 md:hidden">
+                <Shield className="w-5 h-5 text-ink" strokeWidth={2.2} />
+                <span className="font-display font-semibold text-sm text-ink">Digital Rakshak</span>
+              </div>
 
-        {/* Main Content */}
-        <div className="flex-1 flex flex-col min-w-0">
-          <header className="h-16 bg-card border-b border-border flex items-center justify-between px-4 sm:px-6 sticky top-0 z-40">
-            <button 
-              className="md:hidden p-2 -ml-2 text-muted-foreground hover:text-foreground rounded-lg"
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-            >
-              <Menu className="w-6 h-6" />
-            </button>
+              <div className="hidden md:block relative w-full max-w-sm">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-3" />
+                <input
+                  type="search"
+                  placeholder="Search cases, numbers, domains"
+                  className="w-full h-10 pl-10 pr-4 bg-surface rounded-pill text-sm text-ink placeholder:text-ink-3 border border-transparent hover:border-line focus:border-accent-text focus:outline-none transition-colors"
+                />
+              </div>
 
-            {!isAdminSection ? (
-              <div className="flex-1 flex items-center gap-4 max-w-2xl ml-4 md:ml-0">
-                <div className="relative w-full max-w-md hidden sm:block">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <input 
-                    type="text" 
-                    placeholder="Search threats, IPs, or domains..." 
-                    className="w-full pl-10 pr-4 py-2 bg-muted border-transparent rounded-full text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
-                  />
+              <div className="flex items-center gap-1.5">
+                <ThemeToggle />
+                <button
+                  aria-label="Notifications"
+                  className="relative p-2 text-ink-2 hover:text-ink rounded-pill hover:bg-surface-2 transition-colors duration-150"
+                >
+                  <Bell className="w-4 h-4" />
+                </button>
+                <div className="flex items-center gap-2.5 pl-2">
+                  <Avatar name={user?.full_name || user?.email} size="sm" />
+                  <span className="hidden lg:block text-sm text-ink-2 max-w-[12rem] truncate">
+                    {user?.full_name || user?.email}
+                  </span>
                 </div>
               </div>
-            ) : (
-              <div className="flex-1" />
-            )}
+            </header>
 
-            <div className="flex items-center gap-3">
-              <ThemeToggle />
-              <button className="relative p-2 text-muted-foreground hover:text-foreground rounded-full hover:bg-muted transition-colors">
-                <Bell className="w-5 h-5" />
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-card" />
+            <main className="flex-1 px-4 sm:px-6 lg:px-8 pb-24 md:pb-10">
+              <div className="max-w-6xl mx-auto w-full">{children}</div>
+            </main>
+          </div>
+
+          {/* mobile bottom tab bar */}
+          <nav className="fixed md:hidden bottom-0 inset-x-0 z-40 bg-surface border-t border-line pb-[env(safe-area-inset-bottom)]">
+            <div className="flex">
+              {tabItems.map((item) => {
+                const Icon = item.icon;
+                const active = isActive(item.href);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={cn(
+                      "flex-1 flex flex-col items-center justify-center gap-1 min-h-14 text-xs transition-colors duration-150",
+                      active ? "text-ink font-medium" : "text-ink-3"
+                    )}
+                  >
+                    <Icon className="w-5 h-5" strokeWidth={active ? 2.2 : 2} />
+                    {item.short}
+                    {active && <span className="absolute top-0 h-0.5 w-8 rounded-pill bg-accent" />}
+                  </Link>
+                );
+              })}
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="flex-1 flex flex-col items-center justify-center gap-1 min-h-14 text-xs text-ink-3"
+              >
+                <MoreHorizontal className="w-5 h-5" />
+                More
               </button>
-              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-primary to-purple-500 border-2 border-card shadow-sm cursor-pointer flex items-center justify-center text-xs font-bold text-white">
-                {user?.email?.charAt(0).toUpperCase() || "U"}
-              </div>
             </div>
-          </header>
+          </nav>
 
-          <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
-            <div className="max-w-7xl mx-auto space-y-6">
-              {children}
-            </div>
-          </main>
+          <GlobalChatWidget />
         </div>
-
-        {/* Mobile Overlay */}
-        {sidebarOpen && (
-          <div 
-            className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40 md:hidden"
-            onClick={() => setSidebarOpen(false)}
-          />
-        )}
-        <GlobalChatWidget />
-      </div>
+      </ToastProvider>
     </ProtectedRoute>
   );
 }

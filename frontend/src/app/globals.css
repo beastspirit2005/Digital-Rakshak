@@ -1,58 +1,215 @@
 @import "tailwindcss";
 @custom-variant dark (&:is(.dark *));
 
+/* ------------------------------------------------------------------
+   Digital Rakshak — "paper & moss" token layer.
+   Every color in the app must come from these variables.
+   Light = warm paper + sage. Dark = green-charcoal, never pure black.
+------------------------------------------------------------------- */
+
 :root {
-  --background: #f8fafc;
-  --foreground: #0f172a;
-  --primary: #4f46e5;
-  --primary-foreground: #ffffff;
-  --card: #ffffff;
-  --card-foreground: #0f172a;
-  --border: #e2e8f0;
-  --muted: #f1f5f9;
-  --muted-foreground: #64748b;
-  --ring: #4f46e5;
-  --radius: 0.75rem;
+  /* surfaces */
+  --bg: #f3f1e9;
+  --surface: #fbfaf5;
+  --surface-2: #e9eadf;
+  --surface-3: #dfe3d2;
+  --line: #dcdcd0;
+
+  /* ink */
+  --ink: #1e2a23;
+  --ink-2: #5a665e;
+  --ink-3: #8a948c;
+
+  /* accent — chartreuse, fills only in light mode */
+  --accent: #b8e92e;
+  --accent-hover: #a8d926;
+  --accent-ink: #182013;
+  --accent-text: #4e7a0e;
+
+  /* support tones */
+  --lilac: #a99bd4;
+  --lilac-text: #66589a;
+  --peach: #d98e70;
+  --peach-text: #a4522f;
+
+  /* semantic */
+  --success: #3e7a48;
+  --warning: #9a6b1f;
+  --danger: #b2452f;
+  --success-tint: #e2ecdd;
+  --warning-tint: #f0e6d0;
+  --danger-tint: #f2ded6;
+
+  /* chart series — validated for CVD + contrast vs light surface */
+  --chart-1: #4e7a0e;
+  --chart-2: #66589a;
+  --chart-3: #a4522f;
+
+  /* elevation */
+  --shadow-card: 0 1px 2px rgb(30 42 35 / 0.06), 0 8px 24px rgb(30 42 35 / 0.05);
+
+  /* motion */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .dark {
-  --background: #09090b;
-  --foreground: #f8fafc;
-  --primary: #6366f1;
-  --primary-foreground: #ffffff;
-  --card: #18181b;
-  --card-foreground: #f8fafc;
-  --border: #27272a;
-  --muted: #27272a;
-  --muted-foreground: #a1a1aa;
-  --ring: #6366f1;
+  --bg: #141813;
+  --surface: #1c211a;
+  --surface-2: #242b22;
+  --surface-3: #2d352a;
+  --line: #2e332b;
+
+  --ink: rgba(242, 241, 232, 0.92);
+  --ink-2: #a3ac9e;
+  --ink-3: #6e7769;
+
+  --accent: #c6f24e;
+  --accent-hover: #d3f76a;
+  --accent-ink: #161b10;
+  --accent-text: #c6f24e;
+
+  --lilac: #bdafe3;
+  --lilac-text: #bdafe3;
+  --peach: #e5a183;
+  --peach-text: #e5a183;
+
+  --success: #8cc98f;
+  --warning: #d9b36a;
+  --danger: #e08a75;
+  --success-tint: #22301f;
+  --warning-tint: #322a19;
+  --danger-tint: #33221b;
+
+  /* chart series — validated for CVD + contrast vs dark surface */
+  --chart-1: #7fa31e;
+  --chart-2: #7d63c4;
+  --chart-3: #c15f33;
+
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.2);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-border: var(--border);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-ring: var(--ring);
-  --radius-xl: var(--radius);
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  /* palette */
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-line: var(--line);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-text: var(--accent-text);
+  --color-lilac: var(--lilac);
+  --color-lilac-text: var(--lilac-text);
+  --color-peach: var(--peach);
+  --color-peach-text: var(--peach-text);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-success-tint: var(--success-tint);
+  --color-warning-tint: var(--warning-tint);
+  --color-danger-tint: var(--danger-tint);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+
+  /* legacy aliases so not-yet-migrated pages keep rendering during the revamp */
+  --color-background: var(--bg);
+  --color-foreground: var(--ink);
+  --color-primary: var(--accent-text);
+  --color-primary-foreground: var(--accent-ink);
+  --color-card: var(--surface);
+  --color-card-foreground: var(--ink);
+  --color-border: var(--line);
+  --color-muted: var(--surface-2);
+  --color-muted-foreground: var(--ink-2);
+  --color-ring: var(--accent-text);
+
+  /* type */
+  --font-sans: var(--font-instrument), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-archivo), var(--font-instrument), ui-sans-serif, sans-serif;
+  --font-serif: var(--font-fraunces), ui-serif, Georgia, serif;
+
+  /* type scale: 12 / 14 / 16 / 20 / 28 / 40 / 64 */
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1rem;
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.25rem;
+  --text-base: 1rem;
+  --text-base--line-height: 1.5rem;
+  --text-lg: 1.25rem;
+  --text-lg--line-height: 1.75rem;
+  --text-xl: 1.75rem;
+  --text-xl--line-height: 2.125rem;
+  --text-2xl: 2.5rem;
+  --text-2xl--line-height: 2.75rem;
+  --text-display: 4rem;
+  --text-display--line-height: 4.25rem;
+
+  /* radius: cards 12, controls 8, pills full */
+  --radius-card: 12px;
+  --radius-control: 8px;
+  --radius-pill: 999px;
+
+  --shadow-card: var(--shadow-card);
+
+  --ease-out-soft: var(--ease-out);
 }
 
 body {
-  background-color: var(--background);
-  color: var(--foreground);
+  background-color: var(--bg);
+  color: var(--ink);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-@layer utilities {
-  .glass-panel {
-    @apply bg-card/70 backdrop-blur-md border border-border shadow-xl;
+::selection {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+/* single focus treatment everywhere */
+:focus-visible {
+  outline: 2px solid var(--accent-text);
+  outline-offset: 2px;
+}
+
+/* stats, balances, table figures always line up */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* entrance used by the motion pass — rise + fade, opacity-only under reduced motion */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.rise-in {
+  animation: rise-in 0.4s var(--ease-out) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rise-in {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

@@ -1,17 +1,22 @@
 "use client";
 
-
 import { api } from "@/lib/api";
 import { useEffect, useMemo, useState } from "react";
 import Map, { Source, Layer, NavigationControl, FullscreenControl } from "react-map-gl/maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
 import axios from "axios";
+import { useTheme } from "next-themes";
 import { useAuthStore } from "@/lib/auth-store";
-import { Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface SpatialMapProps {
   onClusterSelect?: (cluster: any) => void;
 }
+
+/* Map layers render to canvas, so ramp colors are literal values chosen to sit
+   on both Carto basemaps: neutral → warm → danger as confidence rises. */
+const CONFIDENCE_RAMP = { low: "#8a948c", mid: "#d9a441", high: "#c4553f" };
 
 export default function SpatialMap(props: SpatialMapProps) {
   const [geoData, setGeoData] = useState<any>(null);
@@ -20,8 +25,8 @@ export default function SpatialMap(props: SpatialMapProps) {
   const [error, setError] = useState<string | null>(null);
   const [mapLayer, setMapLayer] = useState<"scams" | "counterfeit">("scams");
   const { token } = useAuthStore();
-  
-  // Passed up to the parent page.tsx
+  const { resolvedTheme } = useTheme();
+
   const { onClusterSelect } = props;
 
   useEffect(() => {
@@ -29,90 +34,99 @@ export default function SpatialMap(props: SpatialMapProps) {
       try {
         setError(null);
         const response = await axios.get(api("/cases/spatial"), {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${token}` },
         });
-        
+
         if (!response.data.features || response.data.features.length === 0) {
-          setError("No threat data available on the map.");
+          setError("No threat data on the map yet.");
         }
         setGeoData(response.data);
 
-        // Also fetch spatial clusters
         const clusterRes = await axios.get(api("/cases/clusters"), {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${token}` },
         });
         setClusterData(clusterRes.data);
-
       } catch (error) {
         console.error("Failed to fetch spatial data", error);
-        setError("Failed to load spatial data. Ensure backend is running.");
+        setError("The map data couldn't be loaded. Check that the backend is running.");
       } finally {
         setLoading(false);
       }
     };
-    
+
     if (token) fetchSpatialData();
   }, [token]);
 
-  // Heatmap Layer Configuration
-  const heatmapLayer: any = useMemo(() => ({
-    id: "cases-heat",
-    type: "heatmap",
-    source: "cases",
-    maxzoom: 15,
-    paint: {
-      "heatmap-weight": ["interpolate", ["linear"], ["get", "confidence_score"], 0, 0, 1, 1],
-      "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 0, 1, 15, 3],
-      "heatmap-color": [
-        "interpolate", ["linear"], ["heatmap-density"],
-        0, "rgba(33,102,172,0)",
-        0.2, "rgb(103,169,207)",
-        0.4, "rgb(209,229,240)",
-        0.6, "rgb(253,219,199)",
-        0.8, "rgb(239,138,98)",
-        1, "rgb(220,57,18)"
-      ],
-      "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 0, 10, 15, 40],
-      "heatmap-opacity": ["interpolate", ["linear"], ["zoom"], 7, 1, 15, 0],
-    }
-  }), []);
+  const heatmapLayer: any = useMemo(
+    () => ({
+      id: "cases-heat",
+      type: "heatmap",
+      source: "cases",
+      maxzoom: 15,
+      paint: {
+        "heatmap-weight": ["interpolate", ["linear"], ["get", "confidence_score"], 0, 0, 1, 1],
+        "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 0, 1, 15, 3],
+        "heatmap-color": [
+          "interpolate",
+          ["linear"],
+          ["heatmap-density"],
+          0, "rgba(138,148,140,0)",
+          0.3, "rgba(138,148,140,0.35)",
+          0.55, "rgba(217,164,65,0.55)",
+          0.8, "rgba(217,142,112,0.75)",
+          1, "rgba(196,85,63,0.9)",
+        ],
+        "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 0, 10, 15, 40],
+        "heatmap-opacity": ["interpolate", ["linear"], ["zoom"], 7, 1, 15, 0],
+      },
+    }),
+    []
+  );
 
-  // Point Layer Configuration
-  const pointLayer: any = useMemo(() => ({
-    id: "cases-point",
-    type: "circle",
-    source: "cases",
-    minzoom: 10,
-    paint: {
-      "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 4, 16, 12],
-      "circle-color": [
-        "interpolate", ["linear"], ["get", "confidence_score"],
-        0, "#3b82f6",
-        0.5, "#eab308",
-        1, "#ef4444"
-      ],
-      "circle-stroke-color": "#ffffff",
-      "circle-stroke-width": 1,
-      "circle-opacity": [
-        "interpolate", ["linear"], ["zoom"],
-        7, 0,
-        10, ["case", ["==", ["get", "is_unknown_location"], true], 0.3, 1]
-      ]
-    }
-  }), []);
+  const pointLayer: any = useMemo(
+    () => ({
+      id: "cases-point",
+      type: "circle",
+      source: "cases",
+      minzoom: 10,
+      paint: {
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 4, 16, 12],
+        "circle-color": [
+          "interpolate",
+          ["linear"],
+          ["get", "confidence_score"],
+          0, CONFIDENCE_RAMP.low,
+          0.5, CONFIDENCE_RAMP.mid,
+          1, CONFIDENCE_RAMP.high,
+        ],
+        "circle-stroke-color": resolvedTheme === "dark" ? "#1c211a" : "#fbfaf5",
+        "circle-stroke-width": 1.5,
+        "circle-opacity": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          7, 0,
+          10, ["case", ["==", ["get", "is_unknown_location"], true], 0.3, 1],
+        ],
+      },
+    }),
+    [resolvedTheme]
+  );
 
-  // Line Layer for clusters
-  const lineLayer: any = useMemo(() => ({
-    id: "cases-cluster-lines",
-    type: "line",
-    source: "clusters",
-    paint: {
-      "line-color": "#ff0044",
-      "line-width": 3,
-      "line-opacity": 0.8,
-      "line-dasharray": [2, 2]
-    }
-  }), []);
+  const lineLayer: any = useMemo(
+    () => ({
+      id: "cases-cluster-lines",
+      type: "line",
+      source: "clusters",
+      paint: {
+        "line-color": CONFIDENCE_RAMP.high,
+        "line-width": 2.5,
+        "line-opacity": 0.85,
+        "line-dasharray": [2, 2],
+      },
+    }),
+    []
+  );
 
   const filteredGeoData = useMemo(() => {
     if (!geoData) return null;
@@ -121,17 +135,12 @@ export default function SpatialMap(props: SpatialMapProps) {
       features: geoData.features.filter((f: any) => {
         const isCounterfeit = f.properties.type === "Counterfeit Note";
         return mapLayer === "counterfeit" ? isCounterfeit : !isCounterfeit;
-      })
+      }),
     };
   }, [geoData, mapLayer]);
 
   if (loading) {
-    return (
-      <div className="w-full h-full flex flex-col items-center justify-center bg-card rounded-2xl border border-border">
-        <Loader2 className="w-8 h-8 animate-spin text-primary mb-4" />
-        <p className="text-sm text-muted-foreground">Initializing Spatial Canvas...</p>
-      </div>
-    );
+    return <Skeleton className="w-full h-full rounded-card" />;
   }
 
   return (
@@ -140,30 +149,36 @@ export default function SpatialMap(props: SpatialMapProps) {
         initialViewState={{
           longitude: 78.9629,
           latitude: 20.5937,
-          zoom: 3.5
+          zoom: 3.5,
         }}
-        mapStyle="https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
-        style={{ width: "100%", height: "100%", borderRadius: "1rem" }}
+        mapStyle={
+          resolvedTheme === "dark"
+            ? "https://basemaps.cartocdn.com/gl/dark-matter-nolabels-gl-style/style.json"
+            : "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json"
+        }
+        style={{ width: "100%", height: "100%" }}
         interactiveLayerIds={["cases-point", "cases-cluster-lines"]}
         onClick={(e) => {
           if (e.features && e.features.length > 0) {
             const feature = e.features[0];
             if (feature.layer.id === "cases-cluster-lines") {
-               // Parse the stringified JSON properties back into objects if needed
-               const texts = typeof feature.properties?.case_texts === 'string' 
-                 ? JSON.parse(feature.properties?.case_texts) 
-                 : feature.properties?.case_texts;
-                 
-               if (onClusterSelect) {
-                 onClusterSelect({
-                   entity_type: feature.properties?.entity_type,
-                   entity_value: feature.properties?.entity_value,
-                   case_texts: texts,
-                   is_unknown_location: feature.properties?.is_unknown_location
-                 });
-               }
+              const texts =
+                typeof feature.properties?.case_texts === "string"
+                  ? JSON.parse(feature.properties?.case_texts)
+                  : feature.properties?.case_texts;
+
+              if (onClusterSelect) {
+                onClusterSelect({
+                  entity_type: feature.properties?.entity_type,
+                  entity_value: feature.properties?.entity_value,
+                  case_texts: texts,
+                  is_unknown_location: feature.properties?.is_unknown_location,
+                });
+              }
             } else {
-               alert(`Case: ${feature.properties?.case_number}\nType: ${feature.properties?.type}\nStatus: ${feature.properties?.status}`);
+              alert(
+                `Case: ${feature.properties?.case_number}\nType: ${feature.properties?.type}\nStatus: ${feature.properties?.status}`
+              );
             }
           }
         }}
@@ -171,19 +186,39 @@ export default function SpatialMap(props: SpatialMapProps) {
         <NavigationControl position="top-right" />
         <FullscreenControl position="top-right" />
 
-        <div className="absolute top-4 left-4 z-10 bg-background/90 backdrop-blur-md p-1.5 rounded-xl border border-border shadow-lg flex flex-col gap-1">
-          <button 
-            onClick={() => setMapLayer("scams")}
-            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${mapLayer === "scams" ? "bg-primary text-primary-foreground shadow-md" : "text-muted-foreground hover:bg-muted"}`}
-          >
-            Cyber Scams
-          </button>
-          <button 
-            onClick={() => setMapLayer("counterfeit")}
-            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${mapLayer === "counterfeit" ? "bg-emerald-600 text-white shadow-md" : "text-muted-foreground hover:bg-muted"}`}
-          >
-            Fake Currency
-          </button>
+        {/* layer switch */}
+        <div className="absolute top-3 left-3 z-10 bg-surface p-1 rounded-control shadow-card flex gap-1">
+          {(
+            [
+              { id: "scams", label: "Cyber scams" },
+              { id: "counterfeit", label: "Fake currency" },
+            ] as const
+          ).map((layer) => (
+            <button
+              key={layer.id}
+              onClick={() => setMapLayer(layer.id)}
+              className={cn(
+                "px-3 h-8 text-xs font-medium rounded-[6px] transition-colors duration-150",
+                mapLayer === layer.id
+                  ? "bg-surface-3 text-ink"
+                  : "text-ink-2 hover:text-ink hover:bg-surface-2"
+              )}
+            >
+              {layer.label}
+            </button>
+          ))}
+        </div>
+
+        {/* confidence legend */}
+        <div className="absolute bottom-3 left-3 z-10 bg-surface px-3 py-2 rounded-control shadow-card flex items-center gap-2 text-xs text-ink-2">
+          <span>Low</span>
+          <span
+            className="h-1.5 w-16 rounded-pill"
+            style={{
+              background: `linear-gradient(to right, ${CONFIDENCE_RAMP.low}, ${CONFIDENCE_RAMP.mid}, ${CONFIDENCE_RAMP.high})`,
+            }}
+          />
+          <span>High confidence</span>
         </div>
 
         {filteredGeoData && !error && (
@@ -192,7 +227,7 @@ export default function SpatialMap(props: SpatialMapProps) {
             <Layer {...pointLayer} />
           </Source>
         )}
-        
+
         {clusterData && !error && (
           <Source id="clusters" type="geojson" data={clusterData}>
             <Layer {...lineLayer} />
@@ -201,10 +236,12 @@ export default function SpatialMap(props: SpatialMapProps) {
       </Map>
 
       {error && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/80 backdrop-blur-sm rounded-2xl">
-          <div className="glass-panel p-6 rounded-2xl border border-border text-center max-w-md shadow-2xl">
-            <h3 className="text-xl font-bold mb-2 text-primary">Map Unavailable</h3>
-            <p className="text-muted-foreground">{error}</p>
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-bg/70">
+          <div className="bg-surface rounded-card shadow-card p-6 text-center max-w-sm">
+            <h3 className="font-display font-semibold text-base text-ink mb-1.5">
+              Map unavailable
+            </h3>
+            <p className="text-sm text-ink-2">{error}</p>
           </div>
         </div>
       )}
