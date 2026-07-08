@@ -57,8 +57,10 @@ export default function SpatialMap(props: SpatialMapProps) {
     if (token) fetchSpatialData();
   }, [token]);
 
-  const heatmapLayer: any = useMemo(
-    () => ({
+  // Heatmap Layer Configuration
+  const heatmapLayer: any = useMemo(() => {
+    const isCounterfeit = mapLayer === "counterfeit";
+    return {
       id: "cases-heat",
       type: "heatmap",
       source: "cases",
@@ -66,25 +68,39 @@ export default function SpatialMap(props: SpatialMapProps) {
       paint: {
         "heatmap-weight": ["interpolate", ["linear"], ["get", "confidence_score"], 0, 0, 1, 1],
         "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 0, 1, 15, 3],
-        "heatmap-color": [
-          "interpolate",
-          ["linear"],
-          ["heatmap-density"],
-          0, "rgba(138,148,140,0)",
-          0.3, "rgba(138,148,140,0.35)",
-          0.55, "rgba(217,164,65,0.55)",
-          0.8, "rgba(217,142,112,0.75)",
-          1, "rgba(196,85,63,0.9)",
-        ],
+        "heatmap-color": isCounterfeit 
+          ? [
+              "interpolate", ["linear"], ["heatmap-density"],
+              0, "rgba(16,185,129,0)",
+              0.2, "rgba(52,211,153,0.35)",
+              0.4, "rgba(16,185,129,0.55)",
+              0.6, "rgba(5,150,105,0.75)",
+              0.8, "rgba(4,120,87,0.85)",
+              1, "rgba(2,44,34,0.9)"
+            ]
+          : [
+              "interpolate",
+              ["linear"],
+              ["heatmap-density"],
+              0, "rgba(138,148,140,0)",
+              0.3, "rgba(138,148,140,0.35)",
+              0.55, "rgba(217,164,65,0.55)",
+              0.8, "rgba(217,142,112,0.75)",
+              1, "rgba(196,85,63,0.9)",
+            ],
         "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 0, 10, 15, 40],
         "heatmap-opacity": ["interpolate", ["linear"], ["zoom"], 7, 1, 15, 0],
       },
-    }),
-    []
-  );
+    };
+  }, [mapLayer]);
 
-  const pointLayer: any = useMemo(
-    () => ({
+  // Point Layer Configuration
+  const pointLayer: any = useMemo(() => {
+    const isCounterfeit = mapLayer === "counterfeit";
+    const ramp = isCounterfeit 
+      ? { low: "#6e8a75", mid: "#10b981", high: "#047857" } 
+      : CONFIDENCE_RAMP;
+    return {
       id: "cases-point",
       type: "circle",
       source: "cases",
@@ -95,9 +111,9 @@ export default function SpatialMap(props: SpatialMapProps) {
           "interpolate",
           ["linear"],
           ["get", "confidence_score"],
-          0, CONFIDENCE_RAMP.low,
-          0.5, CONFIDENCE_RAMP.mid,
-          1, CONFIDENCE_RAMP.high,
+          0, ramp.low,
+          0.5, ramp.mid,
+          1, ramp.high,
         ],
         "circle-stroke-color": resolvedTheme === "dark" ? "#1c211a" : "#fbfaf5",
         "circle-stroke-width": 1.5,
@@ -109,24 +125,40 @@ export default function SpatialMap(props: SpatialMapProps) {
           10, ["case", ["==", ["get", "is_unknown_location"], true], 0.3, 1],
         ],
       },
-    }),
-    [resolvedTheme]
-  );
+    };
+  }, [mapLayer, resolvedTheme]);
 
-  const lineLayer: any = useMemo(
-    () => ({
+  // Warning Zone Layer
+  const warningZoneLayer: any = useMemo(() => {
+    const isCounterfeit = mapLayer === "counterfeit";
+    return {
+      id: "warning-zones",
+      type: "circle",
+      source: "cases",
+      paint: {
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 20, 10, 80, 15, 200],
+        "circle-color": isCounterfeit ? "#10b981" : "#ef4444",
+        "circle-opacity": 0.25,
+        "circle-blur": 0.8
+      }
+    };
+  }, [mapLayer]);
+
+  // Line Layer for clusters
+  const lineLayer: any = useMemo(() => {
+    const isCounterfeit = mapLayer === "counterfeit";
+    return {
       id: "cases-cluster-lines",
       type: "line",
       source: "clusters",
       paint: {
-        "line-color": CONFIDENCE_RAMP.high,
+        "line-color": isCounterfeit ? "#34d399" : CONFIDENCE_RAMP.high,
         "line-width": 2.5,
         "line-opacity": 0.85,
         "line-dasharray": [2, 2],
       },
-    }),
-    []
-  );
+    };
+  }, [mapLayer]);
 
   const filteredGeoData = useMemo(() => {
     if (!geoData) return null;
@@ -223,6 +255,7 @@ export default function SpatialMap(props: SpatialMapProps) {
 
         {filteredGeoData && !error && (
           <Source id="cases" type="geojson" data={filteredGeoData}>
+            <Layer {...warningZoneLayer} />
             <Layer {...heatmapLayer} />
             <Layer {...pointLayer} />
           </Source>
