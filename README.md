@@ -169,4 +169,11 @@ docker run -d -p 3000:3000 --env-file ./frontend/.env.local --name dr-frontend 1
 
 ---
 
+## Contributors
+
+* **beastspirit2005** - Backend and System Design
+* **Pranika** - Frontend Design
+
+---
+
 **Developed to build a Safer Digital India.**
