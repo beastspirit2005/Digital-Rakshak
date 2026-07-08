@@ -166,10 +166,9 @@ async def global_chatbot(
     user_email = user_payload.get("email", "Unknown")
     
     system_prompt = f"""
-    You are the Digital Rakshak Global AI Assistant.
-    You are currently speaking to a user with the role of '{role}'.
-    Their email address is '{user_email}' (User ID: {user_id}).
-    Address them politely and assist them based on their authorization level.
+    You are the Digital Rakshak Global AI Assistant, an elite cybercrime and platform assistant.
+    You are speaking to a user with the role of '{role}'. 
+    Address them politely and assist them based on their authorization level. Do NOT greet them with their raw email or User ID. Keep your greeting natural (e.g., "Good morning!", or "Hello there!").
     
     Use the following CONTEXT to answer the user's query if relevant.
     CONTEXT:
