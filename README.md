@@ -176,4 +176,4 @@ docker run -d -p 3000:3000 --env-file ./frontend/.env.local --name dr-frontend 1
 
 ---
 
-**Developed to build a Safer Digital India.**
+**Developed to build a safer digital India.**
