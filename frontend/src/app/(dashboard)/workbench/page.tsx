@@ -174,7 +174,7 @@ export default function WorkbenchDashboard() {
             <CardHeader title="Threat trend" sub="Reports per day by vector" />
             <div className="flex-1 min-h-64 px-4 pb-2">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={trendData} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+                <AreaChart data={trendData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                   <defs>
                     <linearGradient id="fillUpi" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="var(--chart-1)" stopOpacity={0.25} />

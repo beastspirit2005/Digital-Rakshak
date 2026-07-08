@@ -146,7 +146,7 @@ export default function PolicyMakerDashboard() {
             <CardHeader title="Incidents" sub="Reports per day, last 7 days" />
             <div className="flex-1 min-h-0 px-4 pb-4">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={data.timeline} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+                <LineChart data={data.timeline} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                   <XAxis dataKey="date" axisLine={false} tickLine={false} tick={axisTick} dy={8} />
                   <YAxis axisLine={false} tickLine={false} tick={axisTick} width={40} />
                   <Tooltip
@@ -222,7 +222,7 @@ export default function PolicyMakerDashboard() {
           <CardHeader title="Incidents by state" />
           <div className="flex-1 min-h-0 px-4 pb-4">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={data.state_distribution} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+              <BarChart data={data.state_distribution} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                 <XAxis dataKey="state" axisLine={false} tickLine={false} tick={axisTick} dy={8} />
                 <YAxis axisLine={false} tickLine={false} tick={axisTick} width={40} />
                 <Tooltip
