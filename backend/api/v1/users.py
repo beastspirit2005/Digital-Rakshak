@@ -45,9 +45,17 @@ router = APIRouter()
 @router.get("/")
 @router.get("")
 @limiter.limit("60/minute")
-async def get_users(request: Request, skip: int = 0, limit: int = 50, db: AsyncSession = Depends(get_db), admin: User = Depends(get_current_admin)):
+async def get_users(request: Request, skip: int = 0, limit: int = 50, full_name: Optional[str] = None, email: Optional[str] = None, role: Optional[str] = None, db: AsyncSession = Depends(get_db), admin: User = Depends(get_current_admin)):
     """List all users (Admin only)"""
-    result = await db.execute(select(User).offset(skip).limit(limit))
+    query = select(User)
+    if full_name:
+        query = query.where(User.full_name.ilike(f"%{full_name}%"))
+    if email:
+        query = query.where(User.email.ilike(f"%{email}%"))
+    if role:
+        query = query.where(User.role == role)
+        
+    result = await db.execute(query.offset(skip).limit(limit))
     users = result.scalars().all()
     return [
         {

@@ -100,7 +100,7 @@ app.include_router(help_chat_router, prefix=f"{settings.API_V1_STR}/help")
 
 @app.on_event("startup")
 def run_migrations():
-    if os.getenv("RUN_MIGRATIONS", "false").lower() != "true":
+    if os.getenv("RUN_MIGRATIONS", "true").lower() != "true":
         logger.info("Skipping migrations. Set RUN_MIGRATIONS=true to run them.")
         return
         

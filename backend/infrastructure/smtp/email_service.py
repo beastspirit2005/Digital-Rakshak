@@ -1,6 +1,7 @@
 import aiosmtplib
 from email.message import EmailMessage
 from core.config import settings
+import os
 import logging
 
 logger = logging.getLogger(__name__)
@@ -39,7 +40,7 @@ async def send_otp_email(to_email: str, otp: str):
         <body>
             <h2>Welcome to Digital Rakshak</h2>
             <p>Your One-Time Password (OTP) for login is: <strong>{otp}</strong></p>
-            <p>This OTP is valid for 5 minutes. Do not share it with anyone.</p>
+            <p>This OTP is valid for 10 minutes. Do not share it with anyone.</p>
         </body>
     </html>
     """
@@ -159,7 +160,7 @@ async def send_admin_case_notification_email(admin_email: str, case_number: str,
             <p class="value" style="color: #fbbf24;">{threat_level}</p>
           </div>
           
-          <a href="http://localhost:3000/admin/workbench" class="btn">Open Admin Workbench</a>
+          <a href="{os.getenv('PLATFORM_URL', 'http://localhost:3000')}/admin/workbench" class="btn">Open Admin Workbench</a>
           
           <div class="footer">
             Digital Rakshak Automated Orchestration System
@@ -214,7 +215,7 @@ async def send_password_reset_otp_email(to_email: str, otp: str):
             <h2>Password Reset Request</h2>
             <p>We received a request to reset the password for your Digital Rakshak account.</p>
             <p>Your One-Time Password (OTP) for resetting your password is: <strong>{otp}</strong></p>
-            <p>This OTP is valid for 5 minutes. If you did not request a password reset, please ignore this email and your password will remain unchanged.</p>
+            <p>This OTP is valid for 10 minutes. If you did not request a password reset, please ignore this email and your password will remain unchanged.</p>
         </body>
     </html>
     """

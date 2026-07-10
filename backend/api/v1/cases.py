@@ -277,11 +277,11 @@ async def submit_case(
             
             if user and user.email:
                 # Notify citizen
-                asyncio.create_task(send_case_confirmation_email(user.email, new_case.case_number, ai_decision))
+                await send_case_confirmation_email(user.email, new_case.case_number, ai_decision)
                 
             # Notify Admin
             if settings.ADMIN_EMAIL:
-                asyncio.create_task(send_admin_case_notification_email(settings.ADMIN_EMAIL, new_case.case_number, threat_level))
+                await send_admin_case_notification_email(settings.ADMIN_EMAIL, new_case.case_number, threat_level)
                 
     except Exception as e:
         print(f"Failed to send confirmation emails: {e}")
@@ -304,8 +304,8 @@ async def get_spatial_cases(db: AsyncSession = Depends(get_db), user: User = Dep
     """
     Returns all cases with coordinates as a GeoJSON FeatureCollection.
     """
-    # Security: Strict access control to prevent data scraping
-    # For Hackathon: Allow all authenticated users to see the spatial map
+    # Note for Hackathon: Strict role-based access control was removed.
+    # We now allow all authenticated users (including citizens) to see the spatial map.
     role = user.role
         
     # Fetch ALL cases to prevent dropping unknown locations
@@ -664,10 +664,10 @@ async def assign_case(
         submitter_res = await db.execute(select(User).where(User.id == case.submitted_by))
         submitter = submitter_res.scalar_one_or_none()
         if submitter and submitter.email:
-            asyncio.create_task(send_case_assigned_victim_email(submitter.email, case.case_number))
+            await send_case_assigned_victim_email(submitter.email, case.case_number)
             
     if investigator.email:
-        asyncio.create_task(send_case_assigned_investigator_email(investigator.email, case.case_number))
+        await send_case_assigned_investigator_email(investigator.email, case.case_number)
     
     return {"message": f"Case {case_number} assigned to {investigator.full_name}"}
 
@@ -700,7 +700,7 @@ async def accept_case(
         investigator_res = await db.execute(select(User).where(User.id == str(user.id)))
         investigator = investigator_res.scalar_one_or_none()
         inv_name = investigator.full_name if investigator else "Unknown"
-        asyncio.create_task(send_case_accepted_admin_email(settings.ADMIN_EMAIL, case.case_number, inv_name))
+        await send_case_accepted_admin_email(settings.ADMIN_EMAIL, case.case_number, inv_name)
     
     return {"message": f"Case {case_number} accepted and is now INVESTIGATING"}
 
@@ -815,11 +815,12 @@ async def process_case_background(
             await db.commit()
             
             # Phase 4: Data Persistence via IntelligenceAgent
+            entities = c_res.get("entities", {}) if report_type != "counterfeit" else {}
             from domain.agents.intelligence_agent import IntelligenceAgent
             intelligence_payload = {
                 "decision": fused_decision,
                 "case_number": case.case_number,
-                "entities": c_res.get("entities", {})
+                "entities": entities
             }
             await IntelligenceAgent().execute(intelligence_payload, case.case_number)
             return fused_decision
@@ -831,8 +832,7 @@ async def process_case_background(
             ai_decision = {
                 "decision": "Manual Review Required (AI Offline).",
                 "score": 0.5,
-                "phone_numbers": phones,
-                "error_trace": str(e)[:200]
+                "phone_numbers": phones
             }
             case.threat_confidence_score = 0.5
             case.ai_decision = ai_decision
