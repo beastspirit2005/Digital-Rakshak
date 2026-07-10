@@ -62,14 +62,23 @@ export function useSessionTimeout() {
       window.addEventListener(event, updateActivity);
     });
 
-    // Check timeout periodically when the window becomes visible or at intervals
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
         checkTimeout();
       }
     };
 
+    // Cross-tab synchronization
+    const handleStorageChange = (e: StorageEvent) => {
+      // If token is removed in another tab, sync the logout here
+      if (e.key === "token" && !e.newValue) {
+        performLogout();
+      }
+      // If another tab updates activity, we can sync it (implicitly handled by checking localStorage later)
+    };
+
     window.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("storage", handleStorageChange);
     const interval = setInterval(checkTimeout, 10000); // Check every 10 seconds
 
     return () => {
@@ -77,6 +86,7 @@ export function useSessionTimeout() {
         window.removeEventListener(event, updateActivity);
       });
       window.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("storage", handleStorageChange);
       clearInterval(interval);
     };
   }, [isAuthenticated]);

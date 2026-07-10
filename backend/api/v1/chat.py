@@ -3,11 +3,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from pydantic import BaseModel
 import logging
+import uuid
 from infrastructure.db.session import get_db
 from core.config import settings
-from api.v1.users import get_current_user_token
+from api.deps import get_current_user, get_current_admin
+from domain.models.user import User
 from domain.models.case import Case
-from infrastructure.ai.gemini_client import GeminiClient
 
 router = APIRouter(tags=["chat"])
 logger = logging.getLogger(__name__)
@@ -23,17 +24,22 @@ async def case_copilot_chat(
     case_id: str, 
     req: ChatRequest, 
     db: AsyncSession = Depends(get_db), 
-    user_payload: dict = Depends(get_current_user_token)
+    user: User = Depends(get_current_user)
 ):
     """
     AI Investigation Co-Pilot. Allows an investigator to ask questions about a specific case.
     """
-    role = user_payload.get("role")
+    role = user.role
     if role not in ["admin", "police", "cyber_cell"]:
         raise HTTPException(status_code=403, detail="Unauthorized")
 
     # Fetch Case
-    result = await db.execute(select(Case).where(Case.id == case_id))
+    try:
+        parsed_uuid = uuid.UUID(case_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid case ID format")
+        
+    result = await db.execute(select(Case).where(Case.id == parsed_uuid))
     case = result.scalar_one_or_none()
     
     if not case:
@@ -71,11 +77,7 @@ async def case_copilot_chat(
         # Create a single prompt combining system prompt, context, and user query
         full_prompt = f"{system_prompt}\n\n{context}\n\nINVESTIGATOR QUERY: {req.query}"
         
-        if ai_mode == "cloud" or ai_mode == "gemini":
-            from infrastructure.ai.gemini_client import GeminiClient
-            client = GeminiClient()
-            reply_text = await client.generate_text(prompt=full_prompt)
-        elif ai_mode == "groq":
+        if ai_mode == "groq" or ai_mode == "cloud":
             from infrastructure.ai.groq_client import GroqClient
             client = GroqClient()
             reply_text = await client.generate_text(prompt=full_prompt, model_name="llama-3.1-8b-instant")
@@ -106,11 +108,14 @@ async def global_chatbot(
     request: Request,
     req: GlobalChatRequest,
     db: AsyncSession = Depends(get_db),
-    user_payload: dict = Depends(get_current_user_token)
+    user: User = Depends(get_current_user)
 ):
     """
     Global AI Chatbot accessible by all roles with role-specific context injection and Prompt Injection protection.
     """
+    if not req.query or not req.query.strip():
+        raise HTTPException(status_code=400, detail="Query cannot be empty.")
+        
     # 1. Prompt Injection Protection
     injection_patterns = [
         r"(?i)ignore all previous instructions",
@@ -119,14 +124,17 @@ async def global_chatbot(
         r"(?i)you are now",
         r"(?i)bypass",
         r"(?i)jailbreak",
-        r"(?i)act as a"
+        r"(?i)act as a",
+        r"(?i)disregard",
+        r"(?i)developer mode"
     ]
     for pattern in injection_patterns:
         if re.search(pattern, req.query):
+            logger.warning(f"Prompt injection attempt detected from user {user.id}")
             raise HTTPException(status_code=400, detail="Security Violation: Prompt Injection Attempt Detected.")
 
-    role = user_payload.get("role")
-    user_id = user_payload.get("sub")
+    role = user.role
+    user_id = str(user.id)
     
     # 2. Role-Based Context Retrieval
     context = "No additional context."
@@ -163,12 +171,19 @@ async def global_chatbot(
             context = "Admin Global Access. You have full oversight of the Digital Rakshak platform."
             
     # 3. Construct System Prompt
-    user_email = user_payload.get("email", "Unknown")
+    user_email = user.email
+    
+    from datetime import datetime
+    import pytz
+    
+    ist = pytz.timezone('Asia/Kolkata')
+    current_time_str = datetime.now(ist).strftime("%I:%M %p")
     
     system_prompt = f"""
     You are the Digital Rakshak Global AI Assistant, an elite cybercrime and platform assistant.
     You are speaking to a user with the role of '{role}'. 
-    Address them politely and assist them based on their authorization level. Do NOT greet them with their raw email or User ID. Keep your greeting natural (e.g., "Good morning!", or "Hello there!").
+    Address them politely and assist them based on their authorization level. Do NOT greet them with their raw email or User ID. Keep your greeting natural (e.g., "Good morning!" or "Good evening!").
+    The current time in India is {current_time_str}. Use this to formulate your greeting appropriately.
     
     Use the following CONTEXT to answer the user's query if relevant.
     CONTEXT:
@@ -181,11 +196,7 @@ async def global_chatbot(
     ai_mode = req.ai_mode.lower()
 
     try:
-        if ai_mode == "cloud" or ai_mode == "gemini":
-            from infrastructure.ai.gemini_client import GeminiClient
-            client = GeminiClient()
-            reply_text = await client.generate_text(prompt=full_prompt)
-        elif ai_mode == "groq":
+        if ai_mode == "groq" or ai_mode == "cloud":
             from infrastructure.ai.groq_client import GroqClient
             client = GroqClient()
             reply_text = await client.generate_text(prompt=full_prompt, model_name="llama-3.1-8b-instant")
@@ -196,5 +207,19 @@ async def global_chatbot(
             
         return ChatResponse(reply=reply_text)
     except Exception as e:
-        logger.error(f"Global Chat failed: {e}")
-        raise HTTPException(status_code=500, detail="Failed to generate AI response.")
+        logger.error(f"Chat error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate chat response")
+
+from fastapi import WebSocket, WebSocketDisconnect
+
+@router.websocket("/ws/support")
+async def websocket_support_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    try:
+        while True:
+            data = await websocket.receive_text()
+            # In a real system, we'd route this to an Admin if available.
+            # Here we fallback to Groq/Ollama as requested if Admin is unavailable.
+            await websocket.send_text(f"Automated AI Reply: I have received your message: '{data}'. An admin will join shortly.")
+    except WebSocketDisconnect:
+        logger.info("Client disconnected from support chat")

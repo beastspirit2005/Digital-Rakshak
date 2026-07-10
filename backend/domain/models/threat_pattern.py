@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone, timezone
 from sqlalchemy import Column, String, Boolean, DateTime, Text, Float
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from infrastructure.db.session import Base
@@ -18,11 +18,10 @@ class ThreatPattern(Base):
     code = Column(String, unique=True, nullable=False, index=True)
     
     # Human-readable name and description
-    name = Column(String, nullable=False)
-    description = Column(Text, nullable=True)
-    
-    # Category hierarchy
-    category = Column(String, nullable=False)  # e.g. "Financial", "Social Engineering"
+    pattern_signature = Column(String, unique=True, index=True, nullable=False)
+    description = Column(Text, nullable=False)
+    severity_score = Column(Float, nullable=False)
+    effective_date = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))  # e.g. "Financial", "Social Engineering"
     subcategory = Column(String, nullable=True)  # e.g. "Payment Fraud", "Impersonation"
     
     # Ontology versioning
@@ -35,8 +34,8 @@ class ThreatPattern(Base):
     # Lifecycle
     is_active = Column(Boolean, default=True)
     deprecated_flag = Column(Boolean, default=False)
-    effective_date = Column(DateTime, default=datetime.utcnow)
+    effective_date = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
     
     # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None), onupdate=lambda: datetime.now(timezone.utc).replace(tzinfo=None))

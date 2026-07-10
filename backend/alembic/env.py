@@ -6,7 +6,7 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
-from core.config import settings
+from core.config import settings as app_settings
 from infrastructure.db.session import Base
 from domain.models import *  # Import all models to register with Base.metadata
 
@@ -20,7 +20,7 @@ if config.config_file_name:
     fileConfig(config.config_file_name)
 
 # Inject database URL from settings
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+config.set_main_option("sqlalchemy.url", app_settings.DATABASE_URL)
 
 # add your model's MetaData object here
 # for 'autogenerate' support

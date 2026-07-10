@@ -179,6 +179,7 @@ class RakshakVisionClient:
         self.version = model_version
         self.reader = None
         self.classifier = None
+        self.model_loaded = False
         
     def load_model(self):
         try:
@@ -189,9 +190,21 @@ class RakshakVisionClient:
             # Load PyTorch Fake Currency classifier (MobileNet/ResNet)
             if ML_AVAILABLE:
                 import torchvision.models as models
+                import torch.nn as nn
+                import os, torch
                 self.classifier = models.mobilenet_v3_small(pretrained=False)
-                # In production, we load custom weights trained on RBI dataset
-                # self.classifier.load_state_dict(torch.load("counterfeit_model.pt"))
+                
+                # Setup classification layer for 2 classes as defined in training script
+                num_ftrs = self.classifier.classifier[3].in_features
+                self.classifier.classifier[3] = nn.Linear(num_ftrs, 2)
+                
+                model_path = os.path.join(os.path.dirname(__file__), "..", "..", "models", "rakshak-vision", "counterfeit_model.pt")
+                if os.path.exists(model_path):
+                    self.classifier.load_state_dict(torch.load(model_path, map_location="cpu"))
+                    self.classifier.eval()
+                    self.model_loaded = True
+                else:
+                    self.model_loaded = False
                 
             return True
         except Exception as e:
@@ -205,25 +218,38 @@ class RakshakVisionClient:
         return text
 
     def detect_counterfeit(self, image_path: str):
-        """
-        Offline PyTorch inference for counterfeit currency detection.
-        Returns a mock classification if the actual weights aren't loaded.
-        """
-        # In a real environment, we would transform the image and run self.classifier(img)
-        # For this prototype, we'll return a deterministic mock based on file size or name
-        import random
+        if not self.model_loaded:
+            raise Exception("Counterfeit ML Model Not Loaded. Please train the model with your dataset first.")
+            
+        import torch
+        from torchvision import transforms
+        from PIL import Image
         
-        # Simulate local AI processing delay
-        import time
-        time.sleep(1)
+        transform = transforms.Compose([
+            transforms.Resize((224, 224)),
+            transforms.ToTensor(),
+            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+        ])
         
-        confidence = 0.85 + random.uniform(0.01, 0.14)
-        decision = "Counterfeit Currency Detected" if random.random() > 0.3 else "Genuine Currency"
-        
-        return {
-            "decision": decision,
-            "confidence": confidence,
-            "threat_class": "Counterfeit Note",
-            "evidence": ["Security thread anomalies detected", "Intaglio print patterns missing"],
-            "models_used": ["Rakshak-Vision-MobileNetV3"]
-        }
+        try:
+            img = Image.open(image_path).convert('RGB')
+            img_t = transform(img).unsqueeze(0)
+            
+            with torch.no_grad():
+                outputs = self.classifier(img_t)
+                probs = torch.nn.functional.softmax(outputs, dim=1)[0]
+                confidence, predicted = torch.max(probs, 0)
+                
+            # Class 0: fake, Class 1: real (alphabetical ordering of folders)
+            is_fake = (predicted.item() == 0)
+            decision = "Counterfeit Currency Detected" if is_fake else "Genuine Currency"
+            
+            return {
+                "decision": decision,
+                "confidence": confidence.item(),
+                "threat_class": "Counterfeit Note" if is_fake else "None",
+                "evidence": ["AI Vision Analysis"] if is_fake else [],
+                "models_used": ["Rakshak-Vision-MobileNetV3"]
+            }
+        except Exception as e:
+            raise Exception(f"Vision inference failed: {e}")

@@ -4,7 +4,7 @@ from typing import Optional
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Digital Rakshak"
-    API_V1_STR: str = "/v1"
+    API_V1_STR: str = "/api/v1"
     
     # Database
     DATABASE_URL: str
@@ -18,8 +18,6 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
     
     # AI
-    GEMINI_API_KEY: str
-    GOOGLE_API_KEY: str = ""  # Will be set from GEMINI_API_KEY if not provided
     GROQ_API_KEY: Optional[str] = None
     OLLAMA_HOST: str
     FORCE_LOCAL_INFERENCE: bool = False
@@ -34,6 +32,11 @@ class Settings(BaseSettings):
     SMTP_FROM_EMAIL: str
     SMTP_FROM_NAME: str
     ADMIN_EMAIL: str
+
+    # Supabase / Hybrid Storage
+    SUPABASE_URL: Optional[str] = None
+    SUPABASE_KEY: Optional[str] = None
+    LOCAL_FILE_ENCRYPTION_KEY: Optional[str] = None
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=True)
 

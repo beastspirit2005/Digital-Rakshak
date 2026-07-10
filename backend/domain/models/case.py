@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, String, Boolean, DateTime, Float, Text, ForeignKey, Enum as SAEnum
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
@@ -7,21 +7,24 @@ from infrastructure.db.session import Base
 import enum
 
 
-class CaseStatus(str, enum.Enum):
-    SUBMITTED = "submitted"
-    UNDER_REVIEW = "under_review"
-    INVESTIGATING = "investigating"
-    ESCALATED = "escalated"
-    RESOLVED = "resolved"
-    CLOSED = "closed"
+from sqlalchemy_utils import StringEncryptedType
+from sqlalchemy_utils.types.encrypted.encrypted_type import AesEngine
+import os
 
+class CaseStatus(str, enum.Enum):
+    submitted = "submitted"
+    assigned = "assigned"
+    under_review = "under_review"
+    investigating = "investigating"
+    escalated = "escalated"
+    resolved = "resolved"
+    closed = "closed"
 
 class CasePriority(str, enum.Enum):
-    LOW = "low"
-    MEDIUM = "medium"
-    HIGH = "high"
-    CRITICAL = "critical"
-
+    low = "low"
+    medium = "medium"
+    high = "high"
+    critical = "critical"
 
 class Case(Base):
     __tablename__ = "cases"
@@ -31,6 +34,13 @@ class Case(Base):
     
     # Submitter info
     submitted_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    
+    # Assignment Info
+    assigned_phone = Column(String, nullable=True)
+    
+    # Encrypted Victim Contact Info
+    victim_phone = Column(StringEncryptedType(String, lambda: os.getenv('LOCAL_FILE_ENCRYPTION_KEY', 'default_fallback_key_that_is_long_enough_32_bytes_min'), AesEngine, 'pkcs5'), nullable=True)
+    victim_address = Column(StringEncryptedType(String, lambda: os.getenv('LOCAL_FILE_ENCRYPTION_KEY', 'default_fallback_key_that_is_long_enough_32_bytes_min'), AesEngine, 'pkcs5'), nullable=True)
     
     # Core content
     scam_text = Column(Text, nullable=False)
@@ -52,8 +62,8 @@ class Case(Base):
     # Note: semantic_embedding vector column and postgis geometry are handled in DB directly
     
     # Status tracking
-    status = Column(String, default=CaseStatus.SUBMITTED.value, nullable=False)
-    priority = Column(String, default=CasePriority.MEDIUM.value, nullable=False)
+    status = Column(SAEnum(CaseStatus, values_callable=lambda obj: [e.value for e in obj], native_enum=False), default=CaseStatus.submitted, nullable=False)
+    priority = Column(SAEnum(CasePriority, values_callable=lambda obj: [e.value for e in obj], native_enum=False), default=CasePriority.medium, nullable=False)
     
     # Assignment
     assigned_to = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
@@ -62,8 +72,8 @@ class Case(Base):
     estimated_amount = Column(Float, nullable=True)
     
     # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None), onupdate=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
     
     # Relationships
     evidence = relationship("Evidence", back_populates="case", lazy="selectin")

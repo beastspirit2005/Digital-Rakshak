@@ -36,9 +36,8 @@ import {
   useDrawInOnce,
 } from "@/components/ui/chart";
 
-// Fixed categorical assignment; anything past the third slice folds to neutral.
-const sliceColor = (index: number) =>
-  index < chartSeries.length ? chartSeries[index] : "var(--ink-3)";
+// Dynamic categorical assignment; loops through available colors if we have many slice types.
+const sliceColor = (index: number) => chartSeries[index % chartSeries.length];
 
 export default function PolicyMakerDashboard() {
   const [data, setData] = useState<any>(null);
@@ -201,7 +200,7 @@ export default function PolicyMakerDashboard() {
                   </PieChart>
                 </ResponsiveContainer>
               </div>
-              <div className="space-y-2 pr-2 max-w-[45%]">
+              <div className="space-y-2 pr-2 max-w-[45%] overflow-y-auto max-h-60">
                 {data.scam_types.map((entry: any, index: number) => (
                   <div key={entry.name} className="flex items-center gap-2 text-sm min-w-0">
                     <span

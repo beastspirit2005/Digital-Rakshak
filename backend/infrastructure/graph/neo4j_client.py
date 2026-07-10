@@ -4,6 +4,8 @@ from core.config import settings
 
 logger = logging.getLogger(__name__)
 
+import threading
+
 class IntelligenceGraph:
     """
     Client for Neo4j. Acts as the Intelligence Graph Layer storing entities
@@ -11,15 +13,18 @@ class IntelligenceGraph:
     to Cases to detect coordinated campaigns.
     """
     _driver = None
+    _lock = threading.Lock()
 
     def __init__(self):
         if IntelligenceGraph._driver is None:
-            IntelligenceGraph._driver = AsyncGraphDatabase.driver(
-                settings.NEO4J_URI,
-                auth=(settings.NEO4J_USER, settings.NEO4J_PASSWORD),
-                max_connection_lifetime=3600,
-                max_connection_pool_size=50
-            )
+            with IntelligenceGraph._lock:
+                if IntelligenceGraph._driver is None:
+                    IntelligenceGraph._driver = AsyncGraphDatabase.driver(
+                        settings.NEO4J_URI,
+                        auth=(settings.NEO4J_USER, settings.NEO4J_PASSWORD),
+                        max_connection_lifetime=3600,
+                        max_connection_pool_size=50
+                    )
         self.driver = IntelligenceGraph._driver
 
     async def close(self):

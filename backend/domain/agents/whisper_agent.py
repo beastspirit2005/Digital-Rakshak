@@ -5,9 +5,8 @@ import logging
 logger = logging.getLogger(__name__)
 
 class WhisperAgent:
-    """
     Analyzes audio evidence (MP3, WAV) via local Whisper model.
-    Falls back to Gemini Audio if ffmpeg is not installed.
+    Falls back to Groq Audio if ffmpeg is not installed.
     """
     def __init__(self):
         self.model_name = "base"
@@ -45,33 +44,14 @@ class WhisperAgent:
             transcript = result["text"]
             return {"transcript": transcript, "source": "local_whisper"}
         except Exception as e:
-            logger.warning(f"Local Whisper failed (likely missing ffmpeg): {e}. Falling back to Gemini Audio.")
-            # Fallback to Gemini
-            return await self._gemini_fallback(audio_path)
+            logger.warning(f"Local Whisper failed (likely missing ffmpeg): {e}. Falling back to Groq Audio.")
+            # Fallback to Groq
+            return await self._groq_fallback(audio_path)
             
-    async def _gemini_fallback(self, audio_path: str) -> dict:
+    async def _groq_fallback(self, audio_path: str) -> dict:
         try:
-            from google import genai
-            from google.genai import types
-            from core.config import settings
-            
-            client = genai.Client(api_key=settings.GEMINI_API_KEY)
-            with open(audio_path, "rb") as f:
-                audio_bytes = f.read()
-                
-            ext = os.path.splitext(audio_path)[1].lower().replace('.', '')
-            mime_type = f"audio/{ext}" if ext in ["mp3", "wav", "m4a", "ogg", "flac", "webm"] else "audio/mp3"
-            
-            audio_part = types.Part.from_bytes(data=audio_bytes, mime_type=mime_type)
-            
-            prompt = "You are a transcription AI. Please transcribe exactly what is spoken in this audio file. Output nothing but the transcription."
-            
-            response = await client.aio.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=[prompt, audio_part],
-                config=types.GenerateContentConfig(temperature=0.1)
-            )
-            
-            return {"transcript": response.text, "source": "gemini_audio_fallback"}
+            from infrastructure.ai.groq_client import GroqClient
+            groq = GroqClient()
+            return await groq.transcribe_audio(audio_path)
         except Exception as e:
             return {"error": f"Audio transcription completely failed: {str(e)}"}

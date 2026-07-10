@@ -145,7 +145,7 @@ async def request_otp(data: LoginRequest, db: AsyncSession = Depends(get_db)):
         user.otp_locked_until = None
 
     otp = "".join([str(secrets.randbelow(10)) for _ in range(6)])
-    user.otp = otp
+    user.otp = get_password_hash(otp)
     user.otp_expires_at = datetime.now(timezone.utc) + timedelta(minutes=10)
     await db.commit()
     
@@ -186,7 +186,7 @@ async def verify_otp(data: VerifyOTPRequest, request: Request, db: AsyncSession 
         await db.commit()
         raise HTTPException(status_code=401, detail="OTP code expired. Please request a new one.")
 
-    if user.otp != data.otp:
+    if not verify_password(data.otp, user.otp):
         user.otp_failed_attempts += 1
         if user.otp_failed_attempts >= 3:
             user.otp_lockout_count += 1
@@ -205,8 +205,6 @@ async def verify_otp(data: VerifyOTPRequest, request: Request, db: AsyncSession 
             await db.commit()
             raise HTTPException(status_code=429, detail=detail_msg)
         
-        user.otp = None
-        user.otp_expires_at = None
         await db.commit()
         raise HTTPException(status_code=401, detail=f"Invalid OTP code. {3 - user.otp_failed_attempts} attempt(s) remaining.")
 
@@ -301,7 +299,7 @@ async def forgot_password(data: ForgotPasswordRequest, db: AsyncSession = Depend
         user.otp_locked_until = None
 
     otp = "".join([str(secrets.randbelow(10)) for _ in range(6)])
-    user.otp = otp
+    user.otp = get_password_hash(otp)
     user.otp_expires_at = datetime.now(timezone.utc) + timedelta(minutes=10)
     await db.commit()
     
@@ -340,7 +338,7 @@ async def reset_password(data: ResetPasswordRequest, db: AsyncSession = Depends(
         await db.commit()
         raise HTTPException(status_code=401, detail="OTP code expired. Please request a new one.")
 
-    if user.otp != data.otp:
+    if not verify_password(data.otp, user.otp):
         user.otp_failed_attempts += 1
         if user.otp_failed_attempts >= 3:
             user.otp_lockout_count += 1
@@ -359,8 +357,6 @@ async def reset_password(data: ResetPasswordRequest, db: AsyncSession = Depends(
             await db.commit()
             raise HTTPException(status_code=429, detail=detail_msg)
         
-        user.otp = None
-        user.otp_expires_at = None
         await db.commit()
         raise HTTPException(status_code=401, detail=f"Invalid OTP code. {3 - user.otp_failed_attempts} attempt(s) remaining.")
 

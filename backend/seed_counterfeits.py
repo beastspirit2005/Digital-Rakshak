@@ -3,7 +3,7 @@ import os
 import sys
 import uuid
 import random
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 
 # Ensure backend modules can be imported
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__))))
@@ -74,18 +74,18 @@ async def seed_counterfeits():
                 longitude=lng,
                 threat_confidence_score=ai_decision["confidence"],
                 ai_decision=ai_decision,
-                status=CaseStatus.UNDER_REVIEW.value,
+                status=CaseStatus.under_review.value,
                 priority="high",
                 scam_type_code="Counterfeit Note"
             )
             
             # Backdate them slightly to look realistic
-            new_case.created_at = datetime.utcnow() - timedelta(hours=random.randint(1, 72))
+            new_case.created_at = (datetime.now(timezone.utc) - timedelta(hours=random.randint(1, 72))).replace(tzinfo=None)
             
             db.add(new_case)
             
         await db.commit()
-        print(f"✅ Successfully seeded {num_cases} Counterfeit cases into the database!")
+        print(f"Successfully seeded {num_cases} Counterfeit cases into the database!")
         print("You can now refresh the Spatial Map on the frontend to see the new Counterfeit layer points.")
 
 if __name__ == "__main__":

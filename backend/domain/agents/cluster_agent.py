@@ -40,13 +40,13 @@ Focus on:
             
             return {"summary": response['message']['content'], "model": self.model}
         except Exception as e:
-            logger.warning(f"Ollama failed, falling back to Gemini: {e}")
+            logger.warning(f"Ollama failed, falling back to Groq: {e}")
             try:
-                from infrastructure.ai.gemini_client import GeminiClient
-                gemini = GeminiClient()
+                from infrastructure.ai.groq_client import GroqClient
+                groq = GroqClient()
                 fallback_prompt = f"{self.system_prompt}\n\nCLUSTER DATA:\n{json.dumps(payload, indent=2)}\n\nProvide the summary:"
-                reply = await gemini.generate_content(fallback_prompt)
-                return {"summary": reply, "model": "gemini-pro (fallback)"}
+                reply = await groq.generate_text(fallback_prompt)
+                return {"summary": reply, "model": "llama-3.3-70b-versatile (fallback)"}
             except Exception as e2:
-                logger.error(f"Fallback Gemini failed: {e2}")
+                logger.error(f"Fallback Groq failed: {e2}")
                 return {"error": f"Summarization failed: {str(e)}", "summary": "Failed to generate summary due to local AI error."}

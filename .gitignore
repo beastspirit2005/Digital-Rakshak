@@ -84,3 +84,6 @@ backend/models/
 backend/data/
 
 .vercel
+
+.env
+.env*.local

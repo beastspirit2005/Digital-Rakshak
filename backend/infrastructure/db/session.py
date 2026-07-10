@@ -3,9 +3,13 @@ from sqlalchemy.orm import declarative_base
 from core.config import settings
 
 import ssl
+from urllib.parse import urlparse, urlencode, parse_qsl, urlunparse
 
 # Safely strip ssl query parameters since asyncpg doesn't like them
-db_url = settings.DATABASE_URL.replace("?sslmode=require", "").replace("?ssl=require", "")
+parsed = urlparse(settings.DATABASE_URL)
+query_params = parse_qsl(parsed.query)
+query_params = [(k, v) for k, v in query_params if k not in ("ssl", "sslmode")]
+db_url = urlunparse(parsed._replace(query=urlencode(query_params)))
 
 # Neon requires SSL for external connections
 ssl_context = ssl.create_default_context()
@@ -14,9 +18,14 @@ ssl_context.verify_mode = ssl.CERT_NONE
 
 engine = create_async_engine(
     db_url, 
-    echo=True, 
+    echo=False, 
     future=True,
-    connect_args={"ssl": ssl_context}
+    pool_pre_ping=True,
+    connect_args={
+        "ssl": ssl_context,
+        "prepared_statement_cache_size": 0,  # Disable client-side prepared statement cache
+        "statement_cache_size": 0,  # Disable server-side prepared statement cache (required for Neon pooler)
+    }
 )
 
 # Create session factory

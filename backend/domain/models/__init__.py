@@ -4,3 +4,5 @@ from domain.models.evidence import Evidence
 from domain.models.threat_pattern import ThreatPattern
 from domain.models.takedown import TakedownPolicy
 from domain.models.scam_pattern import ScamPattern
+from domain.models.support import SupportTicket
+from domain.models.settings import PlatformSettings

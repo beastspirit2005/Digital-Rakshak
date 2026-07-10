@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone, timezone
 from sqlalchemy import Column, String, DateTime, Text, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
@@ -43,8 +43,8 @@ class Evidence(Base):
     # Source tracking
     source = Column(String, nullable=True)  # e.g. "citizen_upload", "api_ingest", "scrape"
     
-    # Timestamps (no updated_at — evidence is immutable)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    # Timestamps
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
     
     # Relationships
     case = relationship("Case", back_populates="evidence")

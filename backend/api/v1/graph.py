@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from infrastructure.graph.neo4j_client import IntelligenceGraph
-from api.v1.users import get_current_admin
+from api.deps import get_current_user, get_current_admin
+from domain.models.user import User
 from core.security import decode_access_token
 from fastapi.security import OAuth2PasswordBearer
 import logging

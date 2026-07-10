@@ -219,3 +219,49 @@ async def send_password_reset_otp_email(to_email: str, otp: str):
     </html>
     """
     return await send_email(to_email, subject, body, is_html=True)
+
+async def send_case_assigned_victim_email(to_email: str, case_number: str) -> bool:
+    subject = f"Digital Rakshak - Update on Case #{case_number}"
+    body = f"""
+    <html>
+      <body style="font-family: Arial, sans-serif; color: #333;">
+        <h2 style="color: #4f46e5;">Case Assigned</h2>
+        <p>Your cybercrime report (Case #{case_number}) has been assigned to a police station by the admin.</p>
+        <p>The concerned official will shortly contact you on the phone number you provided.</p>
+        <p>You can track the progress on your Citizen Dashboard.</p>
+        <hr />
+        <p style="font-size: 12px; color: #888;">This is an automated message. Please do not reply.</p>
+      </body>
+    </html>
+    """
+    return await send_email(to_email, subject, body, is_html=True)
+
+async def send_case_assigned_investigator_email(to_email: str, case_number: str) -> bool:
+    subject = f"ACTION REQUIRED: New Case Assigned #{case_number}"
+    body = f"""
+    <html>
+      <body style="font-family: Arial, sans-serif; color: #333;">
+        <h2 style="color: #f43f5e;">New Case Assignment</h2>
+        <p>You have been assigned a new cybercrime case (Case #{case_number}) by the platform administrator.</p>
+        <p>Please log in to your Investigator Dashboard to review the victim's details, analyze the evidence, and accept the case to begin the investigation.</p>
+        <hr />
+        <p style="font-size: 12px; color: #888;">This is an automated message. Please do not reply.</p>
+      </body>
+    </html>
+    """
+    return await send_email(to_email, subject, body, is_html=True)
+
+async def send_case_accepted_admin_email(to_email: str, case_number: str, investigator_name: str) -> bool:
+    subject = f"Case #{case_number} - Investigation Started"
+    body = f"""
+    <html>
+      <body style="font-family: Arial, sans-serif; color: #333;">
+        <h2>Case Accepted</h2>
+        <p>Case #{case_number} has been officially accepted by Investigator <strong>{investigator_name}</strong>.</p>
+        <p>The global case status has been updated to INVESTIGATING.</p>
+        <hr />
+        <p style="font-size: 12px; color: #888;">This is an automated message. Please do not reply.</p>
+      </body>
+    </html>
+    """
+    return await send_email(to_email, subject, body, is_html=True)

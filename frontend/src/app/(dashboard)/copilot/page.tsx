@@ -3,6 +3,7 @@
 import { api } from "@/lib/api";
 import { useState, useRef, useEffect } from "react";
 import { Mic, Square, Bot, Send, MapPin, Loader2 } from "lucide-react";
+import { TerminalOverlay } from "@/components/ui/terminal-overlay";
 import axios from "axios";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/lib/auth-store";
@@ -23,6 +24,8 @@ export default function CopilotPage() {
   const [draftReport, setDraftReport] = useState<any>(null);
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [isLocating, setIsLocating] = useState(false);
+  const [showBrain, setShowBrain] = useState(false);
+  const [brainLogs, setBrainLogs] = useState<string[]>([]);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
@@ -134,9 +137,30 @@ export default function CopilotPage() {
     }
   };
 
+  const simulateThoughtLogs = async () => {
+    const logs = [
+      "[SYSTEM] Initializing Rakshak Artificial Intelligence Core (RAIC)...",
+      "[ROUTER] Determining optimal inference engine based on payload...",
+      "[WHISPER] Correlating voice transcript with threat vectors...",
+      "[THREAT AGENT] Running heuristic NLP models on text...",
+      "[THREAT AGENT] Correlating entities against National TPR database...",
+      "[FUSION AGENT] Synthesizing multi-modal data...",
+      "[FUSION AGENT] Calculating final Threat Confidence Score...",
+    ];
+    for (const log of logs) {
+      setBrainLogs((prev) => [...prev, log]);
+      await new Promise((resolve) => setTimeout(resolve, 400 + Math.random() * 500));
+    }
+  };
+
   const submitReport = async () => {
     if (!transcript.trim()) return;
     setIsProcessing(true);
+    setShowBrain(true);
+    setBrainLogs([]);
+
+    const thoughtSimulation = simulateThoughtLogs();
+
     try {
       const formData = new FormData();
       formData.append("scam_text", transcript);
@@ -153,6 +177,11 @@ export default function CopilotPage() {
           Authorization: `Bearer ${token}`,
         },
       });
+
+      await thoughtSimulation;
+      setBrainLogs((prev) => [...prev, "[SUCCESS] Analysis complete. Case filed to national database."]);
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
       toast("success", "Case submitted to the national database.");
       setTranscript("");
       setDraftReport(null);
@@ -161,6 +190,7 @@ export default function CopilotPage() {
       toast("danger", "The report couldn't be submitted.");
     } finally {
       setIsProcessing(false);
+      setShowBrain(false);
     }
   };
 
@@ -328,6 +358,9 @@ export default function CopilotPage() {
           </Rise>
         </div>
       </div>
+
+      {/* RAIC execution log — shown while the co-pilot submits */}
+      <TerminalOverlay open={showBrain} logs={brainLogs} />
     </div>
   );
 }

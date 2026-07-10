@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from typing import List
@@ -11,8 +11,13 @@ import string
 from infrastructure.db.session import get_db
 from infrastructure.smtp.email_service import send_welcome_email, send_account_created_email, send_account_deleted_email
 from domain.models.user import User
-from fastapi.security import OAuth2PasswordBearer
 from core.security import decode_access_token, get_password_hash
+from api.deps import get_current_admin, get_current_user
+
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+
+limiter = Limiter(key_func=get_remote_address)
 
 class UserCreate(BaseModel):
     full_name: str
@@ -36,29 +41,13 @@ class UserUpdate(BaseModel):
         return v.lower() if v else v
 
 router = APIRouter()
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/login")
-
-async def get_current_admin(token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(get_db)):
-    payload = decode_access_token(token)
-    if not payload:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
-    
-    role = payload.get("role")
-    if role != "admin":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
-        
-    return payload
-
-async def get_current_user_token(token: str = Depends(oauth2_scheme)):
-    payload = decode_access_token(token)
-    if not payload:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
-    return payload
 
 @router.get("/")
-async def get_users(db: AsyncSession = Depends(get_db), admin: dict = Depends(get_current_admin)):
+@router.get("")
+@limiter.limit("60/minute")
+async def get_users(request: Request, skip: int = 0, limit: int = 50, db: AsyncSession = Depends(get_db), admin: User = Depends(get_current_admin)):
     """List all users (Admin only)"""
-    result = await db.execute(select(User))
+    result = await db.execute(select(User).offset(skip).limit(limit))
     users = result.scalars().all()
     return [
         {
@@ -73,19 +62,13 @@ async def get_users(db: AsyncSession = Depends(get_db), admin: dict = Depends(ge
     ]
 
 @router.get("/me")
-async def get_me(db: AsyncSession = Depends(get_db), user_payload: dict = Depends(get_current_user_token)):
+async def get_me(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     """Get the current logged-in user profile"""
-    user_id = user_payload.get("sub")
-    if not user_id:
-        raise HTTPException(status_code=401, detail="Invalid token")
-    result = await db.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
     return user
 
+
 @router.get("/pending")
-async def get_pending_users(db: AsyncSession = Depends(get_db), admin: dict = Depends(get_current_admin)):
+async def get_pending_users(db: AsyncSession = Depends(get_db), admin: User = Depends(get_current_admin)):
     """List unapproved users (Admin only)"""
     result = await db.execute(select(User).where(User.is_approved == False))
     users = result.scalars().all()
@@ -102,7 +85,7 @@ async def get_pending_users(db: AsyncSession = Depends(get_db), admin: dict = De
     ]
 
 @router.post("/{user_id}/approve")
-async def approve_user(user_id: str, admin_payload: dict = Depends(get_current_admin), db: AsyncSession = Depends(get_db)):
+async def approve_user(user_id: str, admin: User = Depends(get_current_admin), db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalars().first()
     
@@ -113,7 +96,10 @@ async def approve_user(user_id: str, admin_payload: dict = Depends(get_current_a
     await db.commit()
     
     # Send welcome email now that they are approved
-    await send_welcome_email(user.email, user.full_name, user.role)
+    try:
+        await send_welcome_email(user.email, user.full_name, user.role)
+    except Exception as e:
+        print(f"Failed to send welcome email to {user.email}: {e}")
     
     return {"message": f"User {user.email} has been approved and welcome email sent."}
 
@@ -140,8 +126,8 @@ def generate_secure_password(length=12):
     
     return ''.join(shuffled_pwd)
 
-@router.post("/")
-async def create_user(data: UserCreate, admin_payload: dict = Depends(get_current_admin), db: AsyncSession = Depends(get_db)):
+@router.post("")
+async def create_user(data: UserCreate, admin: User = Depends(get_current_admin), db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.email == data.email))
     if result.scalars().first():
         raise HTTPException(status_code=400, detail="User with this email already exists")
@@ -161,12 +147,15 @@ async def create_user(data: UserCreate, admin_payload: dict = Depends(get_curren
     await db.refresh(new_user)
 
     # Send email with temporary password
-    await send_account_created_email(data.email, data.full_name, data.role, temp_password)
+    try:
+        await send_account_created_email(data.email, data.full_name, data.role, temp_password)
+    except Exception as e:
+        print(f"Failed to send account created email to {data.email}: {e}")
     
     return {"message": "User created successfully", "user_id": str(new_user.id)}
 
 @router.put("/{user_id}")
-async def update_user(user_id: str, data: UserUpdate, admin_payload: dict = Depends(get_current_admin), db: AsyncSession = Depends(get_db)):
+async def update_user(user_id: str, data: UserUpdate, admin: User = Depends(get_current_admin), db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalars().first()
     
@@ -191,9 +180,9 @@ async def update_user(user_id: str, data: UserUpdate, admin_payload: dict = Depe
     return {"message": "User updated successfully"}
 
 @router.delete("/{user_id}")
-async def delete_user(user_id: str, admin_payload: dict = Depends(get_current_admin), db: AsyncSession = Depends(get_db)):
+async def delete_user(user_id: str, admin: User = Depends(get_current_admin), db: AsyncSession = Depends(get_db)):
     # Prevent admin from deleting themselves
-    if user_id == admin_payload.get("sub"):
+    if user_id == str(admin.id):
         raise HTTPException(status_code=400, detail="You cannot delete your own account")
 
     result = await db.execute(select(User).where(User.id == user_id))
@@ -209,6 +198,9 @@ async def delete_user(user_id: str, admin_payload: dict = Depends(get_current_ad
     await db.commit()
 
     # Send deletion notification
-    await send_account_deleted_email(email, full_name)
+    try:
+        await send_account_deleted_email(email, full_name)
+    except Exception as e:
+        print(f"Failed to send account deleted email to {email}: {e}")
     
     return {"message": "User deleted successfully"}

@@ -6,7 +6,12 @@ import { useEffect, useState } from "react";
  * Chart color contract: series colors come from the validated --chart-* tokens,
  * structure (grid/axis/tooltip) from the surface tokens. Never hex in a chart.
  */
-export const chartSeries = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)"];
+export const chartSeries = [
+  "var(--chart-1)", "var(--chart-2)", "var(--chart-3)",
+  "var(--chart-4)", "var(--chart-5)", "var(--chart-6)",
+  "var(--chart-7)", "var(--chart-8)", "var(--chart-9)",
+  "var(--chart-10)", "var(--chart-11)", "var(--chart-12)"
+];
 
 export const axisTick = { fontSize: 12, fill: "var(--ink-3)" };
 

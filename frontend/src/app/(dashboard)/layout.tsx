@@ -21,6 +21,7 @@ import {
   Siren,
   UserCircle,
   Bot,
+  LifeBuoy,
   MoreHorizontal,
   X,
 } from "lucide-react";
@@ -43,6 +44,7 @@ const adminSections = [
       { name: "National analytics", short: "Analytics", href: "/admin/intelligence", icon: Network },
       { name: "AI health", short: "AI health", href: "/admin/ai-health", icon: Bot },
       { name: "Platform settings", short: "Settings", href: "/admin/settings", icon: Settings },
+      { name: "Support tickets", short: "Support", href: "/admin/support", icon: LifeBuoy },
     ],
   },
   {
@@ -53,6 +55,7 @@ const adminSections = [
       { name: "Spatial map", short: "Map", href: "/workbench/map", icon: Map },
       { name: "Graph explorer", short: "Graph", href: "/workbench/graph", icon: Network },
       { name: "AI co-pilot", short: "Co-pilot", href: "/copilot", icon: Bot },
+      { name: "Help & support", short: "Help", href: "/help", icon: LifeBuoy },
     ],
   },
   {
@@ -62,6 +65,7 @@ const adminSections = [
       { name: "Report a scam", short: "Report", href: "/report", icon: ShieldAlert },
       { name: "Prevention", short: "Prevent", href: "/prevention", icon: ShieldCheck },
       { name: "Spatial map", short: "Map", href: "/workbench/map", icon: Map },
+      { name: "Help & support", short: "Help", href: "/help", icon: LifeBuoy },
     ],
   },
   {
@@ -71,6 +75,7 @@ const adminSections = [
       { name: "Report a scam", short: "Report", href: "/report", icon: ShieldAlert },
       { name: "Prevention", short: "Prevent", href: "/prevention", icon: ShieldCheck },
       { name: "Spatial map", short: "Map", href: "/workbench/map", icon: Map },
+      { name: "Help & support", short: "Help", href: "/help", icon: LifeBuoy },
     ],
   },
 ];
@@ -140,6 +145,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     allowedRoles = ["admin", "citizen", "police", "cyber_cell", "bank_employee", "banker"];
   } else if (pathname.startsWith("/copilot")) {
     allowedRoles = ["admin", "police", "cyber_cell"];
+  } else if (pathname.startsWith("/help")) {
+    allowedRoles = ["admin", "citizen", "police", "cyber_cell", "bank_employee", "banker"];
   }
 
   let sections: typeof adminSections = [];

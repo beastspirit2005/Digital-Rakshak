@@ -21,6 +21,13 @@ limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+from fastapi import Request, HTTPException
+from fastapi.responses import JSONResponse
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    print(f'HTTP Exception: {exc.status_code} - {exc.detail} on {request.url} | Headers: {request.headers}')
+    return JSONResponse(status_code=exc.status_code, content={'detail': exc.detail})
+
 # OpenTelemetry Setup
 try:
     from opentelemetry import trace
@@ -44,13 +51,17 @@ _cors_origins_env = os.getenv("CORS_ORIGINS", "")
 _cors_origins = [o.strip() for o in _cors_origins_env.split(",") if o.strip()] if _cors_origins_env else []
 _cors_origins += ["http://localhost:3000", "http://localhost:3001", "http://127.0.0.1:3000", "http://127.0.0.1:3001"]
 
+# Build origin regex: strictly match allowed Vercel preview domains if needed
+_origin_patterns = [r"^https://[a-zA-Z0-9-]+\.vercel\.app$"]
+# DO NOT blindly allow all http:// origins even in development to prevent local CSRF/SSRF style pivoting
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
-    allow_origin_regex=r"https://.*\.vercel\.app",
+    allow_origin_regex="|".join(f"({p})" for p in _origin_patterns),
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allow_headers=["Authorization", "Content-Type", "Accept"],
 )
 
 from infrastructure.db.session import engine, Base
@@ -69,6 +80,8 @@ from api.v1.chat import router as chat_router
 from api.v1.scan import router as scan_router
 from api.v1.settings import router as settings_router
 from api.v1.osint import router as osint_router
+from api.v1.support import router as support_router
+from api.v1.help_chat import router as help_chat_router
 
 app.include_router(auth_router, prefix=f"{settings.API_V1_STR}/auth", tags=["auth"])
 app.include_router(users_router, prefix=f"{settings.API_V1_STR}/users", tags=["users"])
@@ -82,9 +95,15 @@ app.include_router(chat_router, prefix=f"{settings.API_V1_STR}/cases")
 app.include_router(scan_router, prefix=f"{settings.API_V1_STR}")
 app.include_router(settings_router, prefix=f"{settings.API_V1_STR}/admin", tags=["admin"])
 app.include_router(osint_router, prefix=f"{settings.API_V1_STR}/admin/osint", tags=["osint"])
+app.include_router(support_router, prefix=f"{settings.API_V1_STR}")
+app.include_router(help_chat_router, prefix=f"{settings.API_V1_STR}/help")
 
 @app.on_event("startup")
 def run_migrations():
+    if os.getenv("RUN_MIGRATIONS", "false").lower() != "true":
+        logger.info("Skipping migrations. Set RUN_MIGRATIONS=true to run them.")
+        return
+        
     try:
         from alembic.config import Config
         from alembic import command

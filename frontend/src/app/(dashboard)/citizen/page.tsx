@@ -4,15 +4,14 @@ import { api } from "@/lib/api";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import axios from "axios";
-import { FileText, Plus, AlertTriangle } from "lucide-react";
+import { FileText, Plus, AlertTriangle, PhoneCall, CheckCircle2 } from "lucide-react";
 import { useAuthStore } from "@/lib/auth-store";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatBlock } from "@/components/ui/stat";
 import { StatusBadge, PriorityBadge } from "@/components/ui/badge";
-import { DataTable, type Column } from "@/components/ui/data-table";
-import { TableSkeleton, StatSkeleton } from "@/components/ui/skeleton";
+import { StatSkeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Rise } from "@/components/ui/motion";
 
@@ -24,49 +23,35 @@ interface Case {
   scam_type_code?: string;
   priority: string;
   status: string;
+  assigned_phone?: string;
 }
 
 const normalizeStatus = (status: string) => (status || "").toLowerCase().replace(/_/g, " ");
 
-const columns: Column<Case>[] = [
-  {
-    key: "case_number",
-    header: "Case",
-    mobile: "title",
-    render: (c) => <span className="font-medium text-ink tabular">{c.case_number}</span>,
-  },
-  {
-    key: "created_at",
-    header: "Filed",
-    render: (c) =>
-      new Date(c.created_at).toLocaleDateString("en-IN", {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      }),
-  },
-  {
-    key: "scam_type",
-    header: "Type",
-    render: (c) => (
-      <span className="capitalize">
-        {(c.scam_type_code || c.scam_type || "Unknown").replace(/_/g, " ")}
-      </span>
-    ),
-  },
-  {
-    key: "priority",
-    header: "Priority",
-    render: (c) => <PriorityBadge priority={c.priority} />,
-  },
-  {
-    key: "status",
-    header: "Status",
-    align: "right",
-    mobile: "trailing",
-    render: (c) => <StatusBadge status={c.status} />,
-  },
-];
+function CaseStepper({ status }: { status: string }) {
+  const s = normalizeStatus(status);
+  const steps = ["submitted", "assigned", "investigating", "resolved"];
+  const currentIndex = steps.indexOf(s);
+  
+  return (
+    <div className="flex items-center gap-2 mt-4 text-xs font-medium">
+      {steps.map((step, idx) => {
+        const isActive = idx <= currentIndex;
+        return (
+          <div key={step} className="flex items-center gap-2 flex-1">
+            <div className={`flex items-center gap-1.5 ${isActive ? 'text-ink' : 'text-ink-3'}`}>
+              <div className={`w-4 h-4 rounded-full flex items-center justify-center border ${isActive ? 'border-success bg-success/20 text-success' : 'border-line bg-surface-2'}`}>
+                {isActive && <div className="w-1.5 h-1.5 rounded-full bg-success" />}
+              </div>
+              <span className="capitalize">{step}</span>
+            </div>
+            {idx < steps.length - 1 && <div className={`h-px flex-1 ${isActive ? 'bg-success' : 'bg-line'}`} />}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 export default function CitizenDashboard() {
   const { token, user } = useAuthStore();
@@ -74,31 +59,44 @@ export default function CitizenDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const fetchCases = async () => {
+    if (!token) {
+      setLoading(false);
+      return;
+    }
+    try {
+      setLoading(true);
+      const response = await axios.get(api("/cases/my"), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setCases(response.data.cases || []);
+    } catch (err) {
+      console.error("Failed to fetch cases:", err);
+      setError("We couldn't load your reports. Try again in a moment.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchCases = async () => {
-      if (!token) {
-        setLoading(false);
-        return;
-      }
-      try {
-        setLoading(true);
-        const response = await axios.get(api("/cases/my"), {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setCases(response.data.cases || []);
-      } catch (err) {
-        console.error("Failed to fetch cases:", err);
-        setError("We couldn't load your reports. Try again in a moment.");
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchCases();
   }, [token]);
 
+  const handleResolve = async (caseNumber: string) => {
+    try {
+      await axios.post(api(`/cases/${caseNumber}/resolve`), {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      fetchCases();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to mark as resolved.");
+    }
+  };
+
   const totalReports = cases.length;
   const underReview = cases.filter((c) =>
-    ["under review", "pending", "submitted", "analyzing"].includes(normalizeStatus(c.status))
+    ["under review", "pending", "submitted", "analyzing", "assigned", "investigating"].includes(normalizeStatus(c.status))
   ).length;
   const resolved = cases.filter((c) =>
     ["resolved", "closed", "completed"].includes(normalizeStatus(c.status))
@@ -107,7 +105,7 @@ export default function CitizenDashboard() {
   const firstName = (user?.full_name || "").split(" ")[0];
 
   return (
-    <div className="space-y-6 pt-2">
+    <div className="space-y-6 pt-2 max-w-4xl mx-auto">
       <Rise>
         <PageHeader
           title={firstName ? `Hello, ${firstName}` : "Your reports"}
@@ -136,7 +134,7 @@ export default function CitizenDashboard() {
               <StatBlock label="Reports filed" value={totalReports} />
             </Rise>
             <Rise index={2}>
-              <StatBlock label="Being reviewed" value={underReview} />
+              <StatBlock label="Ongoing Cases" value={underReview} />
             </Rise>
             <Rise index={3}>
               <StatBlock label="Resolved" value={resolved} />
@@ -146,31 +144,83 @@ export default function CitizenDashboard() {
       </div>
 
       <Rise index={4}>
-        <Card>
-          <CardHeader title="My reports" sub={!loading && cases.length > 0 ? `${cases.length} total` : undefined} />
-          {loading ? (
-            <TableSkeleton rows={4} />
-          ) : error ? (
-            <EmptyState
-              icon={AlertTriangle}
-              title="Something went wrong"
-              body={error}
-            />
-          ) : cases.length === 0 ? (
-            <EmptyState
-              icon={FileText}
-              title="No reports yet"
-              body="If you've been targeted by a scam or spotted something suspicious, filing a report takes about two minutes."
-              action={
-                <Link href="/report">
-                  <Button variant="secondary">File your first report</Button>
-                </Link>
-              }
-            />
-          ) : (
-            <DataTable columns={columns} rows={cases} rowKey={(c) => c.id} />
-          )}
-        </Card>
+        <h2 className="font-display font-semibold text-lg tracking-tight text-ink mb-4 mt-8">My Cases</h2>
+        {loading ? (
+          <div className="space-y-4">
+            <StatSkeleton />
+            <StatSkeleton />
+          </div>
+        ) : error ? (
+          <EmptyState
+            icon={AlertTriangle}
+            title="Something went wrong"
+            body={error}
+          />
+        ) : cases.length === 0 ? (
+          <EmptyState
+            icon={FileText}
+            title="No reports yet"
+            body="If you've been targeted by a scam or spotted something suspicious, filing a report takes about two minutes."
+            action={
+              <Link href="/report">
+                <Button variant="secondary">File your first report</Button>
+              </Link>
+            }
+          />
+        ) : (
+          <div className="space-y-6">
+            {cases.map((c) => {
+              const isResolved = normalizeStatus(c.status) === "resolved";
+              const isInvestigating = normalizeStatus(c.status) === "investigating";
+              
+              return (
+                <Card key={c.id} className="p-6 transition-all hover:border-ink-3 hover:shadow-card">
+                  <div className="flex flex-col sm:flex-row justify-between gap-4">
+                    <div>
+                      <div className="flex items-center gap-3 mb-2">
+                        <span className="font-medium text-ink tabular">{c.case_number}</span>
+                        <StatusBadge status={c.status} />
+                        <PriorityBadge priority={c.priority} />
+                      </div>
+                      <p className="text-sm text-ink-2 capitalize">
+                        {(c.scam_type_code || c.scam_type || "Unknown").replace(/_/g, " ")} • Filed on {new Date(c.created_at).toLocaleDateString("en-IN", {
+                          year: "numeric", month: "short", day: "numeric"
+                        })}
+                      </p>
+                    </div>
+                    
+                    <div className="flex items-center gap-3 self-start">
+                      {!isResolved && (
+                        <Button variant="secondary" size="sm" onClick={() => handleResolve(c.case_number)}>
+                          <CheckCircle2 className="w-4 h-4 mr-1.5" />
+                          Mark as Resolved
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <CaseStepper status={c.status} />
+                  
+                  {isInvestigating && c.assigned_phone && (
+                    <div className="mt-6 p-4 rounded-card bg-surface-2 border border-line flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-ink flex items-center gap-2">
+                          <PhoneCall className="w-4 h-4 text-ink-3" /> Police Contact
+                        </p>
+                        <p className="text-xs text-ink-2 mt-1">
+                          You can reach out to the assigned police station for updates regarding your case.
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-medium text-ink">{c.assigned_phone}</p>
+                      </div>
+                    </div>
+                  )}
+                </Card>
+              );
+            })}
+          </div>
+        )}
       </Rise>
     </div>
   );

@@ -42,6 +42,7 @@ const statusTone: Record<string, Tone> = {
   under_review: "warning",
   pending: "warning",
   analyzing: "warning",
+  assigned: "lilac",
   investigating: "lilac",
   submitted: "neutral",
 };

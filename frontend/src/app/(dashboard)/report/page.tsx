@@ -2,7 +2,8 @@
 
 import { api } from "@/lib/api";
 import { useState, useEffect } from "react";
-import { Loader2, CheckCircle2, UploadCloud, MapPin, Terminal } from "lucide-react";
+import { Loader2, CheckCircle2, UploadCloud, MapPin } from "lucide-react";
+import { TerminalOverlay } from "@/components/ui/terminal-overlay";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import axios from "axios";
 import { useAuthStore } from "@/lib/auth-store";
@@ -26,6 +27,8 @@ export default function ReportPage() {
   const [scamText, setScamText] = useState("");
   const [city, setCity] = useState("");
   const [state, setState] = useState("");
+  const [victimPhone, setVictimPhone] = useState("");
+  const [victimAddress, setVictimAddress] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [successData, setSuccessData] = useState<any>(null);
@@ -50,7 +53,7 @@ export default function ReportPage() {
   useEffect(() => {
     const fetchModels = async () => {
       try {
-        const res = await axios.get(api("/agents/models"));
+        const res = await axios.get(api("/agents/models"), { headers: { Authorization: `Bearer ${token}` } });
         setModels(res.data.models);
         const recommended = res.data.models.find((m: any) => m.is_recommended);
         if (recommended) {
@@ -145,6 +148,8 @@ export default function ReportPage() {
       if (state) formData.append("state", state);
       if (latitude) formData.append("latitude", latitude.toString());
       if (longitude) formData.append("longitude", longitude.toString());
+      if (victimPhone) formData.append("victim_phone", victimPhone);
+      if (victimAddress) formData.append("victim_address", victimAddress);
       formData.append("ai_mode", aiMode);
       formData.append("report_type", reportType);
       if (file) formData.append("file", file);
@@ -257,6 +262,25 @@ export default function ReportPage() {
                   GPS captured: {latitude?.toFixed(4)}, {longitude?.toFixed(4)}
                 </p>
               )}
+              
+              <div className="mt-4 pt-4 border-t border-line space-y-3">
+                <Label>Contact Details (Optional but Recommended)</Label>
+                <Input
+                  type="tel"
+                  value={victimPhone}
+                  onChange={(e) => setVictimPhone(e.target.value)}
+                  placeholder="Phone Number (e.g. +91 9876543210)"
+                  aria-label="Phone Number"
+                />
+                <Textarea
+                  value={victimAddress}
+                  onChange={(e) => setVictimAddress(e.target.value)}
+                  placeholder="Full Address"
+                  aria-label="Address"
+                  rows={2}
+                />
+                <p className="text-[10px] text-ink-3">Your contact details are encrypted before being saved.</p>
+              </div>
             </Card>
 
             <label className="relative block rounded-card border border-dashed border-line bg-surface p-8 text-center cursor-pointer transition-colors duration-150 hover:border-ink-3">
@@ -394,41 +418,7 @@ export default function ReportPage() {
       </AnimatePresence>
 
       {/* RAIC execution log — shown while the swarm analyzes */}
-      <AnimatePresence>
-        {showBrain && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-ink/50 flex items-center justify-center p-4"
-          >
-            <Card className="max-w-xl w-full overflow-hidden">
-              <div className="bg-surface-2 px-5 py-3 flex items-center gap-2.5">
-                <Terminal className="w-4 h-4 text-accent-text" />
-                <span className="text-sm font-medium text-ink">Rakshak AI core</span>
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-ink-3 ml-auto" />
-              </div>
-              <div className="p-5 h-72 overflow-y-auto font-mono text-xs space-y-2">
-                {brainLogs.map((log, index) => (
-                  <motion.p
-                    key={index}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className={
-                      log.includes("[SUCCESS]")
-                        ? "text-success font-semibold"
-                        : "text-ink-2"
-                    }
-                  >
-                    {log}
-                  </motion.p>
-                ))}
-                <p className="text-ink-3 animate-pulse">▋</p>
-              </div>
-            </Card>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <TerminalOverlay open={showBrain} logs={brainLogs} />
     </div>
   );
 }

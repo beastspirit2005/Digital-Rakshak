@@ -21,16 +21,17 @@ class RAICDecisionCore:
         if not agent_results:
             return 0.0
             
-        # Simplified probability fusion (1 - product of (1 - p_i))
-        # Ignoring TrustValidationAgent in threat probability calculation
-        combined_safe_prob = 1.0
+        valid_probs = []
         for result in agent_results:
             if result.get("agent") == "TrustValidationAgent":
                 continue
             prob = result.get('confidence', 0.0)
-            combined_safe_prob *= (1.0 - prob)
+            valid_probs.append(prob)
             
-        fused_confidence = 1.0 - combined_safe_prob
+        if not valid_probs:
+            return 0.0
+            
+        fused_confidence = sum(valid_probs) / len(valid_probs)
         return min(max(fused_confidence, 0.0), 0.99)
 
     def _build_rule_based_explanation(self, fused_data: Dict[str, Any]) -> str:
@@ -157,3 +158,6 @@ class RAICDecisionCore:
             "ztivf_metrics": fused_data["trust_metrics"],
             "six_dim_score": six_dim_score
         }
+
+# Backward-compat alias — several agent modules still import this name.
+AIRouter = RAICDecisionCore

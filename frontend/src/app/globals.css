@@ -44,6 +44,15 @@
   --chart-1: #4e7a0e;
   --chart-2: #66589a;
   --chart-3: #a4522f;
+  --chart-4: #0088FE;
+  --chart-5: #00C49F;
+  --chart-6: #FFBB28;
+  --chart-7: #FF8042;
+  --chart-8: #d63c5a;
+  --chart-9: #1dbfb7;
+  --chart-10: #d94b8e;
+  --chart-11: #7c449c;
+  --chart-12: #a2913e;
 
   /* elevation */
   --shadow-card: 0 1px 2px rgb(30 42 35 / 0.06), 0 8px 24px rgb(30 42 35 / 0.05);
@@ -84,6 +93,15 @@
   --chart-1: #7fa31e;
   --chart-2: #7d63c4;
   --chart-3: #c15f33;
+  --chart-4: #4eb0ff;
+  --chart-5: #2edebc;
+  --chart-6: #ffc954;
+  --chart-7: #ff9d6b;
+  --chart-8: #e65c79;
+  --chart-9: #45d4cd;
+  --chart-10: #f06ca8;
+  --chart-11: #9865b6;
+  --chart-12: #bead5c;
 
   --shadow-card: 0 1px 2px rgb(0 0 0 / 0.2);
 }
@@ -115,6 +133,15 @@
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-chart-6: var(--chart-6);
+  --color-chart-7: var(--chart-7);
+  --color-chart-8: var(--chart-8);
+  --color-chart-9: var(--chart-9);
+  --color-chart-10: var(--chart-10);
+  --color-chart-11: var(--chart-11);
+  --color-chart-12: var(--chart-12);
 
   /* legacy aliases so not-yet-migrated pages keep rendering during the revamp */
   --color-background: var(--bg);

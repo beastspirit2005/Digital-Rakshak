@@ -29,7 +29,7 @@ class TrustValidationAgent(BaseAgent):
         from domain.models.user import User
         from domain.models.evidence import Evidence
         from sqlalchemy import select
-        from datetime import datetime, timedelta
+        from datetime import datetime, timezone, timedelta
         
         context = {
             "user_role": "citizen",
@@ -55,7 +55,7 @@ class TrustValidationAgent(BaseAgent):
                         context["file_path"] = evidence.file_path
                         
                     # Spam burst check (more than 5 reports from the same user in last 10 minutes)
-                    ten_mins_ago = datetime.utcnow() - timedelta(minutes=10)
+                    ten_mins_ago = (datetime.now(timezone.utc) - timedelta(minutes=10)).replace(tzinfo=None)
                     burst_result = await db.execute(
                         select(Case)
                         .where(Case.submitted_by == case.submitted_by)

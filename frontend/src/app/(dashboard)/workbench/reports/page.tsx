@@ -22,6 +22,11 @@ function CaseDetail({
   chatHistory,
   chatLoading,
   onChatSubmit,
+  userRole,
+  investigators,
+  onAssign,
+  onAccept,
+  token,
 }: {
   c: any;
   chatQuery: string;
@@ -29,7 +34,37 @@ function CaseDetail({
   chatHistory: { role: string; text: string }[];
   chatLoading: boolean;
   onChatSubmit: (e: React.FormEvent) => void;
+  userRole: string;
+  investigators: any[];
+  onAssign: (caseId: string, invId: string) => void;
+  onAccept: (caseId: string) => void;
+  token: string | null;
 }) {
+  const [selectedInv, setSelectedInv] = useState("");
+  const [evidenceUrl, setEvidenceUrl] = useState<string | null>(null);
+  
+  const loadEvidence = async () => {
+    try {
+      const res = await axios.get(api(`/cases/${c.case_number}/evidence`), {
+        headers: { Authorization: `Bearer ${token}` },
+        responseType: 'blob'
+      });
+      // Check if the response is JSON (contains a signed URL) or a raw blob
+      const contentType = String(res.headers['content-type'] || '');
+      if (contentType.includes('application/json')) {
+        const text = await res.data.text();
+        const json = JSON.parse(text);
+        if (json.url) {
+          setEvidenceUrl(json.url);
+          return;
+        }
+      }
+      const url = window.URL.createObjectURL(res.data);
+      setEvidenceUrl(url);
+    } catch (err) {
+      alert("No evidence found or failed to load.");
+    }
+  };
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 p-4 sm:p-6">
       <div className="lg:col-span-2 space-y-4">
@@ -57,6 +92,15 @@ function CaseDetail({
             <p className="text-sm text-ink-2 leading-relaxed">{c.ai_decision.raw_explanation}</p>
           </div>
         )}
+        
+        <div className="pt-2">
+           <Button variant="secondary" size="sm" onClick={loadEvidence}>View Attached Evidence</Button>
+           {evidenceUrl && (
+             <div className="mt-4">
+               <a href={evidenceUrl} target="_blank" rel="noreferrer" className="text-accent-text text-sm underline">Open Evidence File</a>
+             </div>
+           )}
+        </div>
       </div>
 
       <div className="space-y-4">
@@ -92,6 +136,36 @@ function CaseDetail({
             <ZtivfMeters metrics={c.ai_decision.ztivf_metrics} className="grid-cols-1 sm:grid-cols-1" />
           </Inset>
         )}
+        
+        {/* Actions based on Role */}
+        <Inset className="p-4">
+          <p className="text-xs text-ink-3 mb-3">Case Actions</p>
+          {userRole === "admin" && c.status === "submitted" && (
+            <div className="space-y-3">
+               <select 
+                 className="w-full text-sm p-2 rounded-control bg-surface-2 border-transparent text-ink"
+                 value={selectedInv}
+                 onChange={(e) => setSelectedInv(e.target.value)}
+               >
+                 <option value="">Select Investigator...</option>
+                 {investigators.map((inv) => (
+                    <option key={inv.id} value={inv.id}>{inv.full_name} ({inv.role})</option>
+                 ))}
+               </select>
+               <Button size="sm" variant="primary" className="w-full" disabled={!selectedInv} onClick={() => onAssign(c.case_number, selectedInv)}>
+                  Assign Case
+               </Button>
+            </div>
+          )}
+          {(userRole === "police" || userRole === "cyber_cell") && c.status === "assigned" && (
+             <Button size="sm" variant="primary" className="w-full" onClick={() => onAccept(c.case_number)}>
+                Accept Case for Investigation
+             </Button>
+          )}
+          {userRole !== "admin" && userRole !== "police" && userRole !== "cyber_cell" && (
+             <p className="text-xs text-ink-3">No actions available.</p>
+          )}
+        </Inset>
 
         {/* per-case co-pilot */}
         <Inset className="p-4 flex flex-col h-72">
@@ -145,24 +219,57 @@ export default function ReportsRegisterPage() {
   const [chatQuery, setChatQuery] = useState("");
   const [chatHistory, setChatHistory] = useState<{ role: string; text: string }[]>([]);
   const [chatLoading, setChatLoading] = useState(false);
-  const { token } = useAuthStore();
+  const [investigators, setInvestigators] = useState<any[]>([]);
+  const { token, user } = useAuthStore();
   const reduced = useReducedMotion();
+  
+  const fetchAllCases = async () => {
+    try {
+      const res = await axios.get(api("/cases/?limit=500&t=1"), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setCases(res.data.cases);
+    } catch (err) {
+      console.error("Failed to load cases", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchAllCases = async () => {
-      try {
-        const res = await axios.get(api("/cases/?limit=500"), {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setCases(res.data.cases);
-      } catch (err) {
-        console.error("Failed to load cases", err);
-      } finally {
-        setLoading(false);
-      }
-    };
     if (token) fetchAllCases();
-  }, [token]);
+    if (token && user?.role === "admin") {
+       axios.get(api("/users/"), { headers: { Authorization: `Bearer ${token}` }})
+         .then(res => setInvestigators(res.data.filter((u: any) => u.role === "police" || u.role === "cyber_cell")))
+         .catch(err => console.error("Failed to fetch investigators"));
+    }
+  }, [token, user]);
+  
+  const handleAssign = async (caseNumber: string, invId: string) => {
+    try {
+      const formData = new FormData();
+      formData.append("investigator_id", invId);
+      await axios.post(api(`/cases/${caseNumber}/assign`), formData, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      alert("Case Assigned!");
+      fetchAllCases();
+    } catch (err) {
+      alert("Failed to assign case.");
+    }
+  };
+  
+  const handleAccept = async (caseNumber: string) => {
+    try {
+      await axios.post(api(`/cases/${caseNumber}/accept`), {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      alert("Case Accepted!");
+      fetchAllCases();
+    } catch (err) {
+      alert("Failed to accept case.");
+    }
+  };
 
   const visibleCases = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -315,6 +422,11 @@ export default function ReportsRegisterPage() {
                                   chatHistory={chatHistory}
                                   chatLoading={chatLoading}
                                   onChatSubmit={(e) => handleChatSubmit(e, c.id)}
+                                  userRole={user?.role || ""}
+                                  investigators={investigators}
+                                  onAssign={handleAssign}
+                                  onAccept={handleAccept}
+                                  token={token}
                                 />
                               </motion.div>
                             </td>
@@ -365,6 +477,11 @@ export default function ReportsRegisterPage() {
                           chatHistory={chatHistory}
                           chatLoading={chatLoading}
                           onChatSubmit={(e) => handleChatSubmit(e, c.id)}
+                          userRole={user?.role || ""}
+                          investigators={investigators}
+                          onAssign={handleAssign}
+                          onAccept={handleAccept}
+                          token={token}
                         />
                       </motion.div>
                     )}

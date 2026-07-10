@@ -1,6 +1,8 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from core.config import settings
+from api.deps import get_current_user, get_current_admin
+from domain.models.user import User
 import logging
 
 logger = logging.getLogger(__name__)
@@ -26,7 +28,9 @@ class SettingsResponse(BaseModel):
     gemini_configured: bool
 
 @router.get("/settings")
-async def get_platform_settings(db: AsyncSession = Depends(get_db)):
+async def get_platform_settings(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
     """Returns current platform settings for admin UI."""
     res = await db.execute(select(PlatformSettings).where(PlatformSettings.id == 1))
     db_settings = res.scalar_one_or_none()
@@ -38,11 +42,13 @@ async def get_platform_settings(db: AsyncSession = Depends(get_db)):
         smtp_port=settings.SMTP_PORT,
         smtp_user=settings.SMTP_USER,
         ollama_host=settings.OLLAMA_HOST,
-        gemini_configured=bool(settings.GEMINI_API_KEY),
+        gemini_configured=bool(settings.GROQ_API_KEY),
     )
 
 @router.put("/settings")
-async def update_platform_settings(payload: SettingsUpdate, db: AsyncSession = Depends(get_db)):
+async def update_platform_settings(payload: SettingsUpdate, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
     """Updates runtime platform settings (admin only)."""
     res = await db.execute(select(PlatformSettings).where(PlatformSettings.id == 1))
     db_settings = res.scalar_one_or_none()
@@ -57,8 +63,8 @@ async def update_platform_settings(payload: SettingsUpdate, db: AsyncSession = D
         logger.info(f"FORCE_LOCAL_INFERENCE set to {payload.force_local_inference}")
     
     if payload.default_ai_mode is not None:
-        if payload.default_ai_mode not in ("auto", "gemini", "ollama", "both"):
-            return {"error": "Invalid ai_mode. Must be auto, gemini, ollama, or both."}
+        if payload.default_ai_mode not in ("auto", "groq", "ollama", "both"):
+            raise HTTPException(status_code=400, detail="Invalid ai_mode. Must be auto, groq, ollama, or both.")
         db_settings.default_ai_mode = payload.default_ai_mode
         logger.info(f"Default AI mode set to {payload.default_ai_mode}")
 

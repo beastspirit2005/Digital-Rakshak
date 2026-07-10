@@ -1,4 +1,6 @@
 from fastapi import APIRouter, Depends, UploadFile, File
+from api.deps import get_current_user, get_current_admin
+from domain.models.user import User
 import ollama
 import logging
 
@@ -7,14 +9,14 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 @router.get("/models")
-async def list_models():
+async def list_models(user: User = Depends(get_current_user)):
     """
     Returns a dynamic list of available AI models for the frontend dropdown.
-    Includes Cloud (Gemini) models and fetches installed Local (Ollama) models.
+    Includes Cloud (Groq) models and fetches installed Local (Ollama) models.
     """
     models = []
     
-    # 1. Add Cloud Models (Hardcoded Gemini)
+    # 1. Add Cloud Models (Hardcoded Groq)
     models.append({
         "id": "groq:llama-3.3-70b-versatile",
         "name": "Llama 3.3 (70B) Intelligence",
@@ -78,18 +80,30 @@ async def list_models():
     return {"models": models}
 
 @router.post("/transcribe")
-async def transcribe_audio(file: UploadFile = File(...)):
+async def transcribe_audio(file: UploadFile = File(...), user: User = Depends(get_current_user)):
     """
     Accepts an audio file and transcribes it using Whisper or Gemini fallback.
     Returns just the raw text so the user can review/edit it before AI processing.
     """
     import os, uuid, shutil
     
+    # Security: File extension and MIME type validation
+    allowed_extensions = {".webm", ".mp3", ".wav", ".ogg", ".m4a"}
+    file_ext = os.path.splitext(file.filename or "audio.webm")[1].lower()
+    
+    if file_ext not in allowed_extensions:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="Invalid file type. Only audio files are allowed.")
+        
+    # Security: Size limit (max 10MB)
+    if file.size is not None and file.size > 10 * 1024 * 1024:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=413, detail="File too large. Maximum size is 10MB.")
+        
     upload_dir = os.path.join(os.getcwd(), "uploads", "audio")
     os.makedirs(upload_dir, exist_ok=True)
     
-    file_ext = os.path.splitext(file.filename or "audio.webm")[1] or ".webm"
-    safe_name = f"copilot_{uuid.uuid4().hex[:8]}{file_ext}"
+    safe_name = f"copilot_{str(user.id)}_{uuid.uuid4().hex[:8]}{file_ext}"
     file_path = os.path.join(upload_dir, safe_name)
     
     with open(file_path, "wb") as buffer:
@@ -112,13 +126,11 @@ class TranscriptPayload(BaseModel):
     transcript: str
 
 @router.post("/analyze-transcript")
-async def analyze_transcript_draft(payload: TranscriptPayload):
+async def analyze_transcript_draft(payload: TranscriptPayload, user: User = Depends(get_current_user)):
     """
     Runs AI analysis on the verified transcript to extract entities and generate a case draft.
     """
-    from core.config import settings
-    from google import genai
-    from google.genai import types
+    from infrastructure.ai.groq_client import GroqClient
     import json
     
     analysis_prompt = f"""Analyze this transcribed scam report from a victim/investigator and extract structured data.
@@ -140,16 +152,16 @@ Respond ONLY with a JSON object:
 }}"""
     
     try:
-        client = genai.Client(api_key=settings.GEMINI_API_KEY)
-        response = await client.aio.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=analysis_prompt,
-            config=types.GenerateContentConfig(
-                temperature=0.2, 
-                response_mime_type="application/json"
-            )
-        )
-        ai_result = json.loads(response.text)
+        client = GroqClient()
+        response_text = await client.generate_text(analysis_prompt, model_name="llama-3.3-70b-versatile")
+        
+        import re
+        json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+        if json_match:
+            ai_result = json.loads(json_match.group(0))
+        else:
+            ai_result = json.loads(response_text)
+            
         return {"draft": ai_result}
     except Exception as e:
         return {"error": f"AI analysis failed: {str(e)}"}

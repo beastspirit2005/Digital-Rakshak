@@ -2,17 +2,18 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from infrastructure.db.session import get_db
-from api.v1.users import get_current_user_token
+from api.deps import get_current_user, get_current_admin
+from domain.models.user import User
 from domain.models.case import Case, CaseStatus
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
 @router.get("/dashboard")
-async def get_dashboard_analytics(db: AsyncSession = Depends(get_db), user_payload: dict = Depends(get_current_user_token)):
+async def get_dashboard_analytics(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     """
     Returns aggregated analytics for the National Intelligence Dashboard.
     """
-    role = user_payload.get("role")
+    role = user.role
     if role not in ["admin", "police"]:
         raise HTTPException(status_code=403, detail="Unauthorized")
 
@@ -20,7 +21,7 @@ async def get_dashboard_analytics(db: AsyncSession = Depends(get_db), user_paylo
     total_cases = await db.execute(select(func.count(Case.id)))
     total_cases_count = total_cases.scalar() or 0
 
-    resolved_cases = await db.execute(select(func.count(Case.id)).where(Case.status == CaseStatus.RESOLVED.value))
+    resolved_cases = await db.execute(select(func.count(Case.id)).where(Case.status == CaseStatus.resolved.value))
     resolved_cases_count = resolved_cases.scalar() or 0
     
     high_priority = await db.execute(select(func.count(Case.id)).where(Case.priority == "High"))

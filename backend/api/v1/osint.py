@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from infrastructure.db.session import get_db
 from infrastructure.osint.connector import OSINTConnector
-from api.v1.users import get_current_admin
+from api.deps import get_current_user, get_current_admin
+from domain.models.user import User
 import logging
 
 router = APIRouter()
