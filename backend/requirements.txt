@@ -20,3 +20,7 @@ aiosmtplib>=3.0.1
 slowapi>=0.1.9
 ollama>=0.4.0
 pytz>=2023.3
+
+sqlalchemy_utils>=0.41.0
+cryptography>=41.0.0
+supabase>=2.3.0
