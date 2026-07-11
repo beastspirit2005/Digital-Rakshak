@@ -49,6 +49,10 @@ def upgrade() -> None:
                existing_type=postgresql.TIMESTAMP(),
                type_=sa.DateTime(timezone=True),
                existing_nullable=True)
+    
+    # Supabase Realtime Enablers
+    op.execute("ALTER TABLE help_messages REPLICA IDENTITY FULL;")
+    op.execute("ALTER PUBLICATION supabase_realtime ADD TABLE help_messages;")
     # ### end Alembic commands ###
 
 

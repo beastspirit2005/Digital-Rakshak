@@ -23,7 +23,7 @@ export default function HelpPage() {
   const [selectedModel, setSelectedModel] = useState<string>("mistral");
 
   // --- Chat State ---
-  const [ws, setWs] = useState<WebSocket | null>(null);
+
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputMsg, setInputMsg] = useState("");
   const [isAiTyping, setIsAiTyping] = useState(false);
