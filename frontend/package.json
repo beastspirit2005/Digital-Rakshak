@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
+    "@supabase/supabase-js": "^2.110.2",
     "@types/cytoscape": "^3.21.9",
     "axios": "^1.18.1",
     "clsx": "^2.1.1",

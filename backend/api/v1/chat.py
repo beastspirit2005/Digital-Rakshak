@@ -19,78 +19,6 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     reply: str
 
-@router.post("/{case_id}/chat", response_model=ChatResponse)
-async def case_copilot_chat(
-    case_id: str, 
-    req: ChatRequest, 
-    db: AsyncSession = Depends(get_db), 
-    user: User = Depends(get_current_user)
-):
-    """
-    AI Investigation Co-Pilot. Allows an investigator to ask questions about a specific case.
-    """
-    role = user.role
-    if role not in ["admin", "police", "cyber_cell"]:
-        raise HTTPException(status_code=403, detail="Unauthorized")
-
-    # Fetch Case
-    try:
-        parsed_uuid = uuid.UUID(case_id)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid case ID format")
-        
-    result = await db.execute(select(Case).where(Case.id == parsed_uuid))
-    case = result.scalar_one_or_none()
-    
-    if not case:
-        raise HTTPException(status_code=404, detail="Case not found")
-
-    # Build Context
-    context = f"""
-    CASE FACT SHEET
-    ---------------
-    Case Number: {case.case_number}
-    Status: {case.status}
-    Threat Level: {case.priority} (Score: {case.threat_confidence_score})
-    Scam Type: {case.scam_type_code}
-    
-    RAW REPORT TEXT:
-    {case.scam_text}
-    
-    AI INTELLIGENCE DATA:
-    {case.ai_decision}
-    """
-
-    system_prompt = """
-    You are the Digital Rakshak Investigation Co-Pilot, an elite cybercrime assistant.
-    The user is a police investigator asking about a specific case.
-    I have provided you with the CASE FACT SHEET.
-    Answer the investigator's query directly, accurately, and concisely based ONLY on the facts provided in the sheet.
-    If the fact sheet does not contain the answer, say "I don't have that information in the case file."
-    Do not hallucinate external details. Maintain a highly professional, law-enforcement tone.
-    """
-
-    try:
-        # Respect global AI mode setting
-        ai_mode = settings.DEFAULT_AI_MODE.lower()
-        
-        # Create a single prompt combining system prompt, context, and user query
-        full_prompt = f"{system_prompt}\n\n{context}\n\nINVESTIGATOR QUERY: {req.query}"
-        
-        if ai_mode == "groq" or ai_mode == "cloud":
-            from infrastructure.ai.groq_client import GroqClient
-            client = GroqClient()
-            reply_text = await client.generate_text(prompt=full_prompt, model_name="llama-3.1-8b-instant")
-        else:
-            from infrastructure.ai.ollama_client import OllamaClient
-            client = OllamaClient()
-            reply_text = await client.generate_text(prompt=full_prompt, model_name="mistral")
-        
-        return ChatResponse(reply=reply_text)
-    except Exception as e:
-        logger.error(f"Chat Co-Pilot failed: {e}")
-        raise HTTPException(status_code=500, detail="Failed to generate AI response.")
-
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 limiter = Limiter(key_func=get_remote_address)
@@ -171,8 +99,6 @@ async def global_chatbot(
             context = "Admin Global Access. You have full oversight of the Digital Rakshak platform."
             
     # 3. Construct System Prompt
-    user_email = user.email
-    
     from datetime import datetime
     import pytz
     
@@ -209,6 +135,80 @@ async def global_chatbot(
     except Exception as e:
         logger.error(f"Chat error: {e}")
         raise HTTPException(status_code=500, detail="Failed to generate chat response")
+
+@router.post("/{case_id}/chat", response_model=ChatResponse)
+async def case_copilot_chat(
+    case_id: str, 
+    req: ChatRequest, 
+    db: AsyncSession = Depends(get_db), 
+    user: User = Depends(get_current_user)
+):
+    """
+    AI Investigation Co-Pilot. Allows an investigator to ask questions about a specific case.
+    """
+    role = user.role
+    if role not in ["admin", "police", "cyber_cell"]:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+
+    # Fetch Case
+    try:
+        parsed_uuid = uuid.UUID(case_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid case ID format")
+        
+    result = await db.execute(select(Case).where(Case.id == parsed_uuid))
+    case = result.scalar_one_or_none()
+    
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+
+    # Build Context
+    context = f"""
+    CASE FACT SHEET
+    ---------------
+    Case Number: {case.case_number}
+    Status: {case.status}
+    Threat Level: {case.priority} (Score: {case.threat_confidence_score})
+    Scam Type: {case.scam_type_code}
+    
+    RAW REPORT TEXT:
+    {case.scam_text}
+    
+    AI INTELLIGENCE DATA:
+    {case.ai_decision}
+    """
+
+    system_prompt = """
+    You are the Digital Rakshak Investigation Co-Pilot, an elite cybercrime assistant.
+    The user is a police investigator asking about a specific case.
+    I have provided you with the CASE FACT SHEET.
+    Answer the investigator's query directly, accurately, and concisely based ONLY on the facts provided in the sheet.
+    If the fact sheet does not contain the answer, say "I don't have that information in the case file."
+    Do not hallucinate external details. Maintain a highly professional, law-enforcement tone.
+    """
+
+    try:
+        # Respect global AI mode setting
+        ai_mode = settings.DEFAULT_AI_MODE.lower()
+        
+        # Create a single prompt combining system prompt, context, and user query
+        full_prompt = f"{system_prompt}\n\n{context}\n\nINVESTIGATOR QUERY: {req.query}"
+        
+        if ai_mode == "groq" or ai_mode == "cloud":
+            from infrastructure.ai.groq_client import GroqClient
+            client = GroqClient()
+            reply_text = await client.generate_text(prompt=full_prompt, model_name="llama-3.1-8b-instant")
+        else:
+            from infrastructure.ai.ollama_client import OllamaClient
+            client = OllamaClient()
+            reply_text = await client.generate_text(prompt=full_prompt, model_name="mistral")
+        
+        return ChatResponse(reply=reply_text)
+    except Exception as e:
+        logger.error(f"Chat Co-Pilot failed: {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate AI response.")
+
+
 
 from fastapi import WebSocket, WebSocketDisconnect
 

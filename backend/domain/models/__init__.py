@@ -6,3 +6,4 @@ from domain.models.takedown import TakedownPolicy
 from domain.models.scam_pattern import ScamPattern
 from domain.models.support import SupportTicket
 from domain.models.settings import PlatformSettings
+from domain.models.help_message import HelpMessage

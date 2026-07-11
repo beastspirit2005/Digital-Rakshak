@@ -1,8 +1,9 @@
 "use client";
 
-import { api, API_BASE_URL } from "@/lib/api";
+import { api } from "@/lib/api";
 import { useEffect, useState, useRef } from "react";
 import axios from "axios";
+import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/lib/auth-store";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
@@ -66,7 +67,7 @@ export default function HelpPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isAiTyping]);
 
-  // Connect WebSocket
+  // Connect Supabase Realtime
   useEffect(() => {
     if (!user) return;
     
@@ -75,106 +76,72 @@ export default function HelpPage() {
       { id: "msg-0", type: "ai", content: `Hello ${user?.full_name?.split(' ')[0] || "Citizen"}! I'm the Digital Rakshak AI Support Agent. How can I assist you today?`, timestamp: new Date() }
     ]);
 
-    // Use actual user role, mapping cyber_cell to police and bank_employee to banker for consistency
-    const userRole = user.role === "cyber_cell" ? "police" : user.role === "bank_employee" ? "banker" : user.role;
-    
-    // Connect WebSocket directly to the backend.
-    // API_BASE_URL may be absolute (http://127.0.0.1:8000/api/v1) or relative (/api/v1).
-    // WebSocket MUST be an absolute URL pointing at the backend (port 8000), not the Next.js dev server.
-    let wsBase: string;
-    if (API_BASE_URL.startsWith("http")) {
-      wsBase = API_BASE_URL.replace(/^http/, "ws");
-    } else {
-      // Relative URL — construct absolute WS URL using current hostname + backend port
-      const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
-      wsBase = `${proto}//${window.location.hostname}:8000/api/v1`;
-    }
-    const wsUrl = `${wsBase}/help/ws/${userRole}/${user.id}`;
-    console.log("[HelpChat] Connecting WebSocket to:", wsUrl);
-    const socket = new WebSocket(wsUrl);
-    
-    // This flag is set true when the cleanup function intentionally closes the socket.
-    // This prevents React StrictMode's double-mount from showing error/disconnect
-    // messages to the user when the first mount's socket is torn down.
-    let destroyed = false;
-    
-    socket.onerror = () => {
-      if (destroyed) return; // Silently ignore — socket was intentionally closed by cleanup
-      setIsAiTyping(false);
-      setMessages(prev => [...prev, { id: crypto.randomUUID(), type: "system", content: "Connection error. Please try again later.", timestamp: new Date() }]);
-    };
-    
-    socket.onmessage = (event) => {
-      if (destroyed) return;
-      const data = JSON.parse(event.data);
-      setIsAiTyping(false);
-      
-      if (data.type === "ai_chat") {
-        setMessages(prev => [...prev, { id: crypto.randomUUID(), type: "ai", content: data.content, timestamp: new Date() }]);
-      } else if (data.type === "ai_chat_chunk") {
-        setMessages(prev => {
-          const newMessages = [...prev];
-          const lastMsg = newMessages[newMessages.length - 1];
-          if (lastMsg && lastMsg.type === "ai") {
-            newMessages[newMessages.length - 1] = { ...lastMsg, content: lastMsg.content + data.content };
-            return newMessages;
-          } else {
-            return [...newMessages, { id: crypto.randomUUID(), type: "ai", content: data.content, timestamp: new Date() }];
-          }
-        });
-      } else if (data.type === "ai_chat_done") {
-        setIsAiTyping(false);
-      } else if (data.type === "system") {
-        setMessages(prev => [...prev, { id: crypto.randomUUID(), type: "system", content: data.content, timestamp: new Date() }]);
-      } else if (data.type === "human_chat") {
-        setMessages(prev => [...prev, { id: crypto.randomUUID(), type: "admin", content: data.content, timestamp: new Date() }]);
-      } else if (data.type === "fallback_ticket") {
-        setMessages(prev => [...prev, { id: crypto.randomUUID(), type: "system", content: data.content, timestamp: new Date() }]);
-        setTimeout(() => setView("tickets"), 3000);
-      }
-    };
-    
-    socket.onclose = () => {
-      if (destroyed) return; // Intentional cleanup — don't show disconnect message
-      setMessages(prev => [...prev, { id: crypto.randomUUID(), type: "system", content: "Chat disconnected.", timestamp: new Date() }]);
-    };
-    
-    setWs(socket);
-    
+    console.log("[HelpChat] Subscribing to Supabase Realtime for session:", user.id);
+    const channel = supabase
+      .channel(`help_chat_${user.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'help_messages', filter: `session_id=eq.${user.id}` },
+        (payload) => {
+          const msg = payload.new as any;
+          setIsAiTyping(false);
+          
+          // We optimistically render user messages, so ignore them here
+          if (msg.role === "user") return;
+          
+          let type: any = "ai";
+          if (msg.role === "system") type = "system";
+          if (msg.role === "admin") type = "admin";
+          
+          setMessages(prev => [...prev, { id: msg.id, type, content: msg.content, timestamp: new Date(msg.created_at) }]);
+        }
+      )
+      .subscribe();
+
     return () => {
-      destroyed = true; // Mark as intentionally destroyed before closing
-      socket.close();
+      supabase.removeChannel(channel);
     };
   }, [user]);
 
 
-  const sendChatMessage = (e: React.FormEvent) => {
+  const sendChatMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputMsg.trim() || !ws) return;
+    if (!inputMsg.trim() || !user) return;
     
-    const newUserMsg = { id: crypto.randomUUID(), type: "user" as const, content: inputMsg, timestamp: new Date() };
-    setMessages(prev => [...prev, newUserMsg]);
-    
-    const payload = {
-       type: "chat",
-       content: inputMsg,
-       model: forceLocal ? selectedModel : undefined
-    };
-    
-    ws.send(JSON.stringify(payload));
+    const content = inputMsg;
     setInputMsg("");
     setIsAiTyping(true);
+    
+    const newUserMsg = { id: crypto.randomUUID(), type: "user" as const, content, timestamp: new Date() };
+    setMessages(prev => [...prev, newUserMsg]);
+    
+    try {
+      await axios.post(api("/help/chat"), {
+         session_id: user.id,
+         message: content,
+         role: user.role,
+         model: forceLocal ? selectedModel : undefined
+      }, { headers: { Authorization: `Bearer ${token}` } });
+    } catch (e) {
+      console.error(e);
+      setIsAiTyping(false);
+      setMessages(prev => [...prev, { id: crypto.randomUUID(), type: "system", content: "Failed to send message.", timestamp: new Date() }]);
+    }
   };
 
-  const requestHuman = () => {
-    if (!ws) return;
+  const requestHuman = async () => {
+    if (!user) return;
     setMessages(prev => [...prev, { id: Date.now().toString(), type: "user", content: "I need to talk to a human.", timestamp: new Date() }]);
-    ws.send(JSON.stringify({ type: "escalate" }));
+    try {
+      await axios.post(api("/help/escalate"), { session_id: user.id, client_id: user.id }, { headers: { Authorization: `Bearer ${token}` } });
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const stopChat = () => {
-    if (!ws) return;
-    ws.send(JSON.stringify({ type: "stop_chat" }));
+    // Streaming not natively supported via simple Realtime fallback without abort controllers on backend,
+    // so just hide typing indicator and let background task finish.
     setIsAiTyping(false);
   };
 
