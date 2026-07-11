@@ -50,9 +50,8 @@ def upgrade() -> None:
                type_=sa.DateTime(timezone=True),
                existing_nullable=True)
     
-    # Supabase Realtime Enablers
+    # Supabase Realtime Enablers (Removed ALTER PUBLICATION because this is Neon DB)
     op.execute("ALTER TABLE help_messages REPLICA IDENTITY FULL;")
-    op.execute("ALTER PUBLICATION supabase_realtime ADD TABLE help_messages;")
     # ### end Alembic commands ###
 
 

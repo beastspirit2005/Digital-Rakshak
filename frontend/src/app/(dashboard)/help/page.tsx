@@ -117,12 +117,16 @@ export default function HelpPage() {
     setMessages(prev => [...prev, newUserMsg]);
     
     try {
-      await axios.post(api("/help/chat"), {
+      const res = await axios.post(api("/help/chat"), {
          session_id: user.id,
          message: content,
          role: user.role,
          model: forceLocal ? selectedModel : undefined
       }, { headers: { Authorization: `Bearer ${token}` } });
+      
+      const reply = res.data.reply;
+      setIsAiTyping(false);
+      setMessages(prev => [...prev, { id: crypto.randomUUID(), type: "ai", content: reply, timestamp: new Date() }]);
     } catch (e) {
       console.error(e);
       setIsAiTyping(false);
