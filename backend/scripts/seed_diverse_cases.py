@@ -100,6 +100,7 @@ async def seed_cases():
                 case_number=case_id,
                 submitted_by=mock_user_id,
                 scam_text=c["text"],
+                scam_type_code=c["scam"],
                 city=c["city"],
                 state=c["state"],
                 latitude=c["lat"],
