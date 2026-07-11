@@ -106,7 +106,7 @@ async def seed_cases():
                 longitude=c["lng"],
                 threat_confidence_score=0.98,
                 ai_decision=ai_decision,
-                status="UNDER_REVIEW"
+                status="under_review"
             )
             db.add(new_case)
             
