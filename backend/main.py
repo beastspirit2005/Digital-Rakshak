@@ -25,7 +25,7 @@ from fastapi import Request, HTTPException
 from fastapi.responses import JSONResponse
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
-    print(f'HTTP Exception: {exc.status_code} - {exc.detail} on {request.url} | Headers: {request.headers}')
+    print(f'HTTP Exception: {exc.status_code} - {exc.detail} on {request.url}')
     return JSONResponse(status_code=exc.status_code, content={'detail': exc.detail})
 
 # OpenTelemetry Setup
@@ -98,8 +98,7 @@ app.include_router(osint_router, prefix=f"{settings.API_V1_STR}/admin/osint", ta
 app.include_router(support_router, prefix=f"{settings.API_V1_STR}")
 app.include_router(help_chat_router, prefix=f"{settings.API_V1_STR}/help")
 
-@app.on_event("startup")
-def run_migrations():
+def _run_migrations_sync():
     if os.getenv("RUN_MIGRATIONS", "true").lower() != "true":
         logger.info("Skipping migrations. Set RUN_MIGRATIONS=true to run them.")
         return
@@ -120,5 +119,11 @@ def run_migrations():
         logger.info("Migrations successfully applied!")
     except Exception as e:
         logger.error(f"Failed to run programmatic migrations: {e}")
+
+@app.on_event("startup")
+async def run_migrations():
+    import asyncio
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, _run_migrations_sync)
 
 

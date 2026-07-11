@@ -25,7 +25,7 @@ class SettingsResponse(BaseModel):
     smtp_port: int
     smtp_user: str
     ollama_host: str
-    gemini_configured: bool
+    groq_configured: bool
 
 @router.get("/settings")
 async def get_platform_settings(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
@@ -42,7 +42,7 @@ async def get_platform_settings(db: AsyncSession = Depends(get_db), user: User =
         smtp_port=settings.SMTP_PORT,
         smtp_user=settings.SMTP_USER,
         ollama_host=settings.OLLAMA_HOST,
-        gemini_configured=bool(settings.GROQ_API_KEY),
+        groq_configured=bool(settings.GROQ_API_KEY),
     )
 
 @router.put("/settings")

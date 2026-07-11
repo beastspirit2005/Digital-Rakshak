@@ -4,23 +4,18 @@ from sqlalchemy import select
 
 from infrastructure.db.session import get_db
 from domain.models.takedown import TakedownPolicy
-from core.security import decode_access_token
-from fastapi.security import OAuth2PasswordBearer
+from api.deps import get_current_user
+from domain.models.user import User
 
 router = APIRouter()
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/login")
 
-async def get_current_banker_or_admin(token: str = Depends(oauth2_scheme)):
-    payload = decode_access_token(token)
-    if not payload:
-        raise HTTPException(status_code=401, detail="Invalid token")
-    role = payload.get("role")
-    if role not in ["admin", "banker", "police"]:
+async def get_current_banker_or_admin(user: User = Depends(get_current_user)):
+    if user.role not in ["admin", "banker", "police", "bank_employee"]:
         raise HTTPException(status_code=403, detail="Unauthorized. Required role: banker or admin.")
-    return payload
+    return user
 
 @router.get("/pending")
-async def get_pending_takedowns(db: AsyncSession = Depends(get_db), user: dict = Depends(get_current_banker_or_admin)):
+async def get_pending_takedowns(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_banker_or_admin)):
     """Fetch all takedown policies awaiting Banker/Nodal Officer approval."""
     result = await db.execute(select(TakedownPolicy).where(TakedownPolicy.is_approved == False))
     policies = result.scalars().all()
@@ -38,7 +33,7 @@ async def get_pending_takedowns(db: AsyncSession = Depends(get_db), user: dict =
     ]
 
 @router.post("/{policy_id}/approve")
-async def approve_takedown(policy_id: int, db: AsyncSession = Depends(get_db), user: dict = Depends(get_current_banker_or_admin)):
+async def approve_takedown(policy_id: int, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_banker_or_admin)):
     """Approve a policy and simulate the API call to NPCI/Telecom to freeze/block the asset."""
     result = await db.execute(select(TakedownPolicy).where(TakedownPolicy.id == policy_id))
     policy = result.scalars().first()
@@ -50,7 +45,7 @@ async def approve_takedown(policy_id: int, db: AsyncSession = Depends(get_db), u
         raise HTTPException(status_code=400, detail="Policy already approved")
         
     policy.is_approved = True
-    policy.approved_by = user.get("sub")
+    policy.approved_by = str(user.id)
     
     await db.commit()
     

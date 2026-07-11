@@ -9,21 +9,14 @@ import logging
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/login")
 
-async def get_current_official(token: str = Depends(oauth2_scheme)):
-    payload = decode_access_token(token)
-    if not payload:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
-    
-    role = payload.get("role")
-    if role not in ["admin", "police", "cyber_cell", "bank_employee"]:
+async def get_current_official(user: User = Depends(get_current_user)):
+    if user.role not in ["admin", "police", "cyber_cell", "bank_employee"]:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Official access required")
-        
-    return payload
+    return user
 
 @router.get("/network")
-async def get_network(official_payload: dict = Depends(get_current_official)):
+async def get_network(user: User = Depends(get_current_official)):
     """
     Returns the CTI graph nodes and links.
     Only accessible by officials and admins.

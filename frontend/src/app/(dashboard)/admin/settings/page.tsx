@@ -57,7 +57,7 @@ export default function AdminSettingsPage() {
   const [smtpPort, setSmtpPort] = useState(0);
   const [smtpUser, setSmtpUser] = useState("");
   const [ollamaHost, setOllamaHost] = useState("");
-  const [geminiConfigured, setGeminiConfigured] = useState(false);
+  const [groqConfigured, setGroqConfigured] = useState(false);
   const { token } = useAuthStore();
 
   useEffect(() => {
@@ -72,7 +72,7 @@ export default function AdminSettingsPage() {
         setSmtpPort(res.data.smtp_port);
         setSmtpUser(res.data.smtp_user);
         setOllamaHost(res.data.ollama_host);
-        setGeminiConfigured(res.data.gemini_configured);
+        setGroqConfigured(res.data.groq_configured);
       } catch (err) {
         console.error("Failed to load settings", err);
       } finally {
@@ -142,7 +142,7 @@ export default function AdminSettingsPage() {
           <div className="px-6 pb-6 space-y-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Inset className="flex items-center gap-3 p-4">
-                {geminiConfigured ? (
+                {groqConfigured ? (
                   <Wifi className="w-4 h-4 text-success shrink-0" />
                 ) : (
                   <WifiOff className="w-4 h-4 text-danger shrink-0" />
@@ -150,7 +150,7 @@ export default function AdminSettingsPage() {
                 <div>
                   <p className="text-sm font-medium text-ink">Groq LPU (cloud)</p>
                   <p className="text-xs text-ink-2">
-                    {geminiConfigured ? "API key configured" : "Not configured"}
+                    {groqConfigured ? "API key configured" : "Not configured"}
                   </p>
                 </div>
               </Inset>

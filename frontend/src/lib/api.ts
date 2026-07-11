@@ -3,7 +3,7 @@
  * 
  * In development: reads from NEXT_PUBLIC_API_URL in .env.local (defaults to localhost)
  * In production (Vercel): set NEXT_PUBLIC_API_URL in Vercel Environment Variables
- *   e.g. https://your-backend.railway.app/api/v1
+ *   e.g. https://your-backend.railway.app/v1
  */
 
 const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');

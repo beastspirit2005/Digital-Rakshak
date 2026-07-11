@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timezone, timezone
+from datetime import datetime, timezone
 from sqlalchemy import Column, String, DateTime, Text, ForeignKey, Enum as SAEnum
 from sqlalchemy.dialects.postgresql import UUID
 from infrastructure.db.session import Base

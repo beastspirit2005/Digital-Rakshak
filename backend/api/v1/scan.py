@@ -5,6 +5,8 @@ from infrastructure.graph.neo4j_client import IntelligenceGraph
 from pydantic import BaseModel
 
 from infrastructure.ai.ml_client import RakshakCoreClient
+from api.deps import get_current_user
+from domain.models.user import User
 
 router = APIRouter(prefix="/scan", tags=["scan"])
 
@@ -22,7 +24,8 @@ async def live_prevention_scan(
     text: Optional[str] = None,
     url: Optional[str] = None, 
     phone: Optional[str] = None,
-    upi: Optional[str] = None
+    upi: Optional[str] = None,
+    user: User = Depends(get_current_user)
 ):
     """
     Live Prevention Shield API.
@@ -130,7 +133,10 @@ async def live_prevention_scan(
 from fastapi import UploadFile, File
 
 @router.post("/qr", response_model=ScanResponse)
-async def live_prevention_scan_qr(file: UploadFile = File(...)):
+async def live_prevention_scan_qr(
+    file: UploadFile = File(...),
+    user: User = Depends(get_current_user)
+):
     """
     Decodes an uploaded QR code and pipes its hidden payload (URL/UPI) directly into the Prevention Suite.
     """
@@ -145,4 +151,4 @@ async def live_prevention_scan_qr(file: UploadFile = File(...)):
         
     # Pipe the hidden payload into the existing AI and OSINT pipeline
     # We will pass it as `text` so the native AI model parses the full intent
-    return await live_prevention_scan(text=payload)
+    return await live_prevention_scan(text=payload, user=user)

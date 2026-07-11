@@ -37,7 +37,7 @@ async def health_check(db: AsyncSession = Depends(get_db)):
 
 
 
-    # 3. Check Neo4j
+    # 2. Check Neo4j
     try:
         start_time = time.time()
         graph = IntelligenceGraph()
@@ -53,7 +53,7 @@ async def health_check(db: AsyncSession = Depends(get_db)):
         health_status["status"] = "degraded"
         health_status["services"]["neo4j"] = {"status": "down", "error": str(e)}
 
-    # 4. Check AI Provider
+    # 3. Check AI Provider
     ai_mode = settings.DEFAULT_AI_MODE
     health_status["ai_mode"] = ai_mode
     health_status["services"]["ai"] = {"status": "up"}

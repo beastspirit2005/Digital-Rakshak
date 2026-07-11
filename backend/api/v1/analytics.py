@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, cast, Date
 from infrastructure.db.session import get_db
 from api.deps import get_current_user, get_current_admin
 from domain.models.user import User
@@ -43,18 +43,22 @@ async def get_dashboard_analytics(db: AsyncSession = Depends(get_db), user: User
     )
     state_distribution = [{"state": row[0], "cases": row[1]} for row in state_query.all()]
 
-    # 4. Mocked Timeline (last 7 days for the MVP)
-    import datetime
-    timeline = []
-    today = datetime.datetime.now()
-    for i in range(6, -1, -1):
-        d = today - datetime.timedelta(days=i)
-        # Mock some varied data for a nice chart based on the total case count
-        # In production this would group by func.date(Case.created_at)
-        timeline.append({
-            "date": d.strftime("%b %d"),
-            "reports": max(1, (total_cases_count // 7) + (i % 3)) 
-        })
+    # 4. Actual Timeline from DB
+    result = await db.execute(
+        select(cast(Case.created_at, Date), func.count(Case.id))
+        .group_by(cast(Case.created_at, Date))
+        .order_by(cast(Case.created_at, Date).desc())
+        .limit(7)
+    )
+    
+    timeline_rows = result.all()
+    # Reverse to show chronological order
+    timeline = [{"date": row[0].strftime("%b %d") if row[0] else "Unknown", "reports": row[1]} for row in reversed(timeline_rows)]
+    
+    # Fallback if DB has no cases yet
+    if not timeline:
+        import datetime
+        timeline = [{"date": datetime.datetime.now().strftime("%b %d"), "reports": 0}]
 
     return {
         "stats": {
