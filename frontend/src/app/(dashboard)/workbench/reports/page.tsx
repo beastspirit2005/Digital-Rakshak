@@ -14,6 +14,7 @@ import { TableSkeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
 import { ZtivfMeters } from "@/components/ztivf-meters";
+import { useToast } from "@/components/ui/toast";
 
 function CaseDetail({
   c,
@@ -42,6 +43,7 @@ function CaseDetail({
 }) {
   const [selectedInv, setSelectedInv] = useState("");
   const [evidenceUrl, setEvidenceUrl] = useState<string | null>(null);
+  const pushToast = useToast();
   
   const loadEvidence = async () => {
     try {
@@ -62,7 +64,7 @@ function CaseDetail({
       const url = window.URL.createObjectURL(res.data);
       setEvidenceUrl(url);
     } catch (err) {
-      alert("No evidence found or failed to load.");
+      pushToast("danger", "No evidence found or failed to load.");
     }
   };
   return (
@@ -221,6 +223,7 @@ export default function ReportsRegisterPage() {
   const [chatLoading, setChatLoading] = useState(false);
   const [investigators, setInvestigators] = useState<any[]>([]);
   const { token, user } = useAuthStore();
+  const pushToast = useToast();
   const reduced = useReducedMotion();
   
   const fetchAllCases = async () => {
@@ -252,10 +255,10 @@ export default function ReportsRegisterPage() {
       await axios.post(api(`/cases/${caseNumber}/assign`), formData, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      alert("Case Assigned!");
+      pushToast("success", "Case Assigned!");
       fetchAllCases();
     } catch (err) {
-      alert("Failed to assign case.");
+      pushToast("danger", "Failed to assign case.");
     }
   };
   
@@ -264,10 +267,10 @@ export default function ReportsRegisterPage() {
       await axios.post(api(`/cases/${caseNumber}/accept`), {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      alert("Case Accepted!");
+      pushToast("success", "Case Accepted!");
       fetchAllCases();
     } catch (err) {
-      alert("Failed to accept case.");
+      pushToast("danger", "Failed to accept case.");
     }
   };
 

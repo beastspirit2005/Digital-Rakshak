@@ -28,6 +28,7 @@ const ROLE_OPTIONS = [
   { value: "citizen", label: "Citizen" },
   { value: "police", label: "Police officer" },
   { value: "banker", label: "Banker" },
+  { value: "cyber_cell", label: "Cyber cell" },
   { value: "admin", label: "Administrator" },
 ];
 

@@ -36,28 +36,14 @@ import {
   useDrawInOnce,
 } from "@/components/ui/chart";
 
-const stats = [
-  { name: "High priority", value: 156, delta: "-8.3%", positive: true },
-  { name: "Under review", value: 342, delta: "+4.1%", positive: false },
-  { name: "Resolved", value: 750, delta: "+15.2%", positive: true },
-];
-
-const trendData = [
-  { name: "22 May", upi: 120, digital: 80 },
-  { name: "23 May", upi: 132, digital: 90 },
-  { name: "24 May", upi: 101, digital: 70 },
-  { name: "25 May", upi: 145, digital: 110 },
-  { name: "26 May", upi: 190, digital: 130 },
-  { name: "27 May", upi: 150, digital: 100 },
-  { name: "28 May", upi: 165, digital: 115 },
-];
-
-// Fixed categorical order; long tail folds into "Other" (neutral by convention).
-const categoryData = [
-  { name: "UPI fraud", value: 35, color: chartSeries[0] },
-  { name: "Digital arrest", value: 22, color: chartSeries[1] },
-  { name: "Phishing", value: 18, color: chartSeries[2] },
-  { name: "Other", value: 25, color: "var(--ink-3)" },
+// Hardcoded definitions removed. Data will be fetched from API.
+const chartColors = [
+  chartSeries[0],
+  chartSeries[1],
+  chartSeries[2],
+  "var(--ink-3)",
+  "var(--chart-3)",
+  "var(--chart-4)"
 ];
 
 interface CaseRow {
@@ -111,25 +97,50 @@ const caseColumns: Column<CaseRow>[] = [
 
 export default function WorkbenchDashboard() {
   const [recentCases, setRecentCases] = useState<CaseRow[]>([]);
+  const [statsData, setStatsData] = useState<any>({ total_cases: 0, resolved_cases: 0, high_priority: 0, under_review: 0 });
+  const [trendData, setTrendData] = useState<any[]>([]);
+  const [categoryData, setCategoryData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const { token } = useAuthStore();
   const reduced = useReducedMotion();
   const drawIn = useDrawInOnce();
 
   useEffect(() => {
-    const fetchCases = async () => {
+    const fetchData = async () => {
       try {
-        const res = await axios.get(api("/cases/?limit=10"), {
-          headers: { Authorization: `Bearer ${token}` },
+        const [casesRes, analyticsRes] = await Promise.all([
+          axios.get(api("/cases/?limit=10"), { headers: { Authorization: `Bearer ${token}` } }),
+          axios.get(api("/analytics/dashboard"), { headers: { Authorization: `Bearer ${token}` } })
+        ]);
+        
+        setRecentCases(casesRes.data.cases);
+        
+        const analytics = analyticsRes.data;
+        setStatsData({
+          ...analytics.stats,
+          under_review: analytics.stats.total_cases - analytics.stats.resolved_cases
         });
-        setRecentCases(res.data.cases);
+        
+        // Map timeline. We just map 'reports' as the total volume for the trendline
+        setTrendData(analytics.timeline || []);
+        
+        // Map scam types
+        const types = analytics.scam_types || [];
+        const totalCases = analytics.stats.total_cases || 1; // avoid division by zero
+        setCategoryData(types.map((t: any, idx: number) => ({
+          name: (t.name || "Unknown").replace(/_/g, " "),
+          value: Math.round((t.value / totalCases) * 100),
+          count: t.value,
+          color: chartColors[idx % chartColors.length]
+        })));
+        
       } catch (err) {
-        console.error("Failed to fetch recent cases", err);
+        console.error("Failed to fetch dashboard data", err);
       } finally {
         setLoading(false);
       }
     };
-    if (token) fetchCases();
+    if (token) fetchData();
   }, [token]);
 
   return (
@@ -144,27 +155,26 @@ export default function WorkbenchDashboard() {
       {/* hero + secondary stats */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
         <Rise index={1} className="lg:col-span-1">
-          <Card className="px-6 py-5 h-full flex flex-col justify-between bg-accent text-accent-ink">
-            <p className="text-sm opacity-80">Total cases</p>
-            <div>
-              <p className="font-display font-semibold text-2xl tracking-tight tabular">
-                <CountUp value={1248} />
-              </p>
-              <p className="text-xs opacity-70 mt-1">+12.5% vs last week</p>
-            </div>
-          </Card>
-        </Rise>
-        {stats.map((stat, i) => (
-          <Rise key={stat.name} index={i + 2}>
-            <StatBlock
-              label={stat.name}
-              value={stat.value}
-              delta={stat.delta}
-              deltaPositive={stat.positive}
-              hint="vs last 7 days"
-            />
+            <Card className="px-6 py-5 h-full flex flex-col justify-between bg-accent text-accent-ink">
+              <p className="text-sm opacity-80">Total cases</p>
+              <div>
+                <p className="font-display font-semibold text-2xl tracking-tight tabular">
+                  <CountUp value={statsData.total_cases} />
+                </p>
+                <p className="text-xs opacity-70 mt-1">Real-time stats</p>
+              </div>
+            </Card>
           </Rise>
-        ))}
+          
+          <Rise index={2}>
+            <StatBlock label="High priority" value={statsData.high_priority} delta="-" deltaPositive={false} hint="Requires immediate action" />
+          </Rise>
+          <Rise index={3}>
+            <StatBlock label="Under review" value={statsData.under_review} delta="-" deltaPositive={false} hint="Pending investigation" />
+          </Rise>
+          <Rise index={4}>
+            <StatBlock label="Resolved" value={statsData.resolved_cases} delta="-" deltaPositive={true} hint="Successfully closed cases" />
+          </Rise>
       </div>
 
       {/* charts */}
@@ -200,20 +210,11 @@ export default function WorkbenchDashboard() {
                   />
                   <Area
                     type="monotone"
-                    dataKey="upi"
-                    name="UPI fraud"
+                    dataKey="reports"
+                    name="Daily Reports"
                     stroke="var(--chart-1)"
                     strokeWidth={2}
                     fill="url(#fillUpi)"
-                    isAnimationActive={drawIn && !reduced}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="digital"
-                    name="Digital arrest"
-                    stroke="var(--chart-2)"
-                    strokeWidth={2}
-                    fill="url(#fillDigital)"
                     isAnimationActive={drawIn && !reduced}
                   />
                 </AreaChart>
@@ -222,8 +223,7 @@ export default function WorkbenchDashboard() {
             <div className="px-6 pb-5">
               <ChartLegend
                 items={[
-                  { label: "UPI fraud", color: "var(--chart-1)" },
-                  { label: "Digital arrest", color: "var(--chart-2)" },
+                  { label: "Daily Reports", color: "var(--chart-1)" }
                 ]}
               />
             </div>
@@ -260,7 +260,7 @@ export default function WorkbenchDashboard() {
                 </PieChart>
               </ResponsiveContainer>
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <span className="font-display font-semibold text-xl text-ink tabular">1,248</span>
+                <span className="font-display font-semibold text-xl text-ink tabular">{statsData.total_cases}</span>
                 <span className="text-xs text-ink-3 mt-0.5">total</span>
               </div>
             </div>

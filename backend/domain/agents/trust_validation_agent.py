@@ -86,9 +86,6 @@ class TrustValidationAgent(BaseAgent):
         if user_role in ["admin", "police"]:
             identity_score = 0.99
             identity_evidence = "Verified official submitter (Trusted Source)."
-        elif user_id != "anonymous":
-            identity_score = 0.85
-            identity_evidence = "Registered citizen account with mobile verification."
 
         # 2. Evidence Integrity Check
         file_path = context.get("file_path")

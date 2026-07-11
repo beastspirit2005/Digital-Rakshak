@@ -14,6 +14,7 @@ import { StatusBadge, PriorityBadge } from "@/components/ui/badge";
 import { StatSkeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Rise } from "@/components/ui/motion";
+import { useToast } from "@/components/ui/toast";
 
 interface Case {
   id: string | number;
@@ -58,6 +59,7 @@ export default function CitizenDashboard() {
   const [cases, setCases] = useState<Case[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const pushToast = useToast();
 
   const fetchCases = async () => {
     if (!token) {
@@ -90,7 +92,7 @@ export default function CitizenDashboard() {
       fetchCases();
     } catch (err) {
       console.error(err);
-      alert("Failed to mark as resolved.");
+      pushToast("danger", "Failed to mark as resolved.");
     }
   };
 

@@ -12,6 +12,7 @@ import { Input, Textarea, Label } from "@/components/ui/field";
 import { LifeBuoy, CheckCircle2, MessageSquare, Send, ArrowLeft, Settings2, StopCircle } from "lucide-react";
 import { Rise } from "@/components/ui/motion";
 import { ChatBubble, ChatMessage, TypingIndicator } from "@/components/ui/chat-bubble";
+import { useToast } from "@/components/ui/toast";
 
 export default function HelpPage() {
   const [view, setView] = useState<"chat" | "tickets">("chat");
@@ -35,6 +36,7 @@ export default function HelpPage() {
   const [tickets, setTickets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const pushToast = useToast();
 
   // Fetch Chat Settings & Models
   useEffect(() => {
@@ -76,7 +78,6 @@ export default function HelpPage() {
       { id: "msg-0", type: "ai", content: `Hello ${user?.full_name?.split(' ')[0] || "Citizen"}! I'm the Digital Rakshak AI Support Agent. How can I assist you today?`, timestamp: new Date() }
     ]);
 
-    console.log("[HelpChat] Subscribing to Supabase Realtime for session:", user.id);
     const channel = supabase
       .channel(`help_chat_${user.id}`)
       .on(
@@ -171,11 +172,11 @@ export default function HelpPage() {
       await axios.post(api("/support/ticket"), formData, { headers: { Authorization: `Bearer ${token}` } });
       setSubject("");
       setMessage("");
-      alert("Ticket submitted successfully!");
+      pushToast("success", "Ticket submitted successfully!");
       fetchTickets();
     } catch (err) {
       console.error(err);
-      alert("Failed to submit ticket.");
+      pushToast("danger", "Failed to submit ticket.");
     } finally {
       setSubmitting(false);
     }

@@ -38,7 +38,7 @@ export function useSessionTimeout() {
       }
 
       const elapsed = Date.now() - parseInt(lastActivity, 10);
-      if (elapsed > TIMEOUT_DURATION) {
+      if (elapsed > (TIMEOUT_DURATION - 5000)) {
         performLogout();
       }
     };

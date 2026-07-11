@@ -31,7 +31,11 @@ class RAICDecisionCore:
         if not valid_probs:
             return 0.0
             
-        fused_confidence = sum(valid_probs) / len(valid_probs)
+        inv_prod = 1.0
+        for p in valid_probs:
+            inv_prod *= (1.0 - p)
+            
+        fused_confidence = 1.0 - inv_prod
         return min(max(fused_confidence, 0.0), 0.99)
 
     def _build_rule_based_explanation(self, fused_data: Dict[str, Any]) -> str:
