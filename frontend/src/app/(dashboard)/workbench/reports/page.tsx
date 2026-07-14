@@ -38,7 +38,7 @@ function CaseDetail({
   chatHistory: { role: string; text: string }[];
   chatLoading: boolean;
   onChatSubmit: (e: React.FormEvent) => void;
-  userRole: string;
+  userRole?: string;
   investigators: any[];
   onAssign: (caseId: string, invId: string) => void;
   onAccept: (caseId: string) => void;

@@ -214,7 +214,7 @@ export default function CitizenDashboard() {
                     <div className="flex items-center gap-3 self-start">
                       {isCompleted && (
                         <>
-                          <Button variant="outline" size="sm" onClick={() => handleReopen(c.case_number)}>
+                          <Button variant="secondary" size="sm" onClick={() => handleReopen(c.case_number)}>
                             Request Follow-up
                           </Button>
                           <Button variant="primary" size="sm" className="bg-success hover:bg-success/90 text-white" onClick={() => handleResolve(c.case_number)}>

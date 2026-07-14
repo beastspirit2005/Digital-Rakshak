@@ -35,8 +35,10 @@ function CaseDetail({
   chatHistory: { role: string; text: string }[];
   chatLoading: boolean;
   onChatSubmit: (e: React.FormEvent) => void;
+  userRole?: string;
   investigators: any[];
   onAssign: (caseId: string, invId: string) => void;
+  onAccept?: (caseId: string) => void;
   token: string | null;
 }) {
   const [selectedInv, setSelectedInv] = useState("");
