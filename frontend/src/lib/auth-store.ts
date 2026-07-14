@@ -5,6 +5,7 @@ interface User {
   email: string;
   role: string;
   full_name?: string;
+  station_phone_number?: string;
 }
 
 interface AuthState {
