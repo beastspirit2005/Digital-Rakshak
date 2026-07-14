@@ -7,9 +7,9 @@ const nextConfig: NextConfig = {
   output: "standalone",
   async rewrites() {
     const isVercel = process.env.VERCEL === "1" || !!process.env.VERCEL_URL || !!process.env.VERCEL_ENV;
-    if (isVercel && !externalBackend && !process.env.API_PROXY_TARGET) {
-      return [];
-    }
+    // On Vercel, NEVER rewrite — experimental services handle /api routing
+    if (isVercel) return [];
+    // Local dev only
     return [
       {
         source: "/api/v1/:path*",

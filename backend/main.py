@@ -49,19 +49,24 @@ except ImportError:
 import os
 _cors_origins_env = os.getenv("CORS_ORIGINS", "")
 _cors_origins = [o.strip() for o in _cors_origins_env.split(",") if o.strip()] if _cors_origins_env else []
-_cors_origins += ["http://localhost:3000", "http://localhost:3001", "http://127.0.0.1:3000", "http://127.0.0.1:3001"]
+_cors_origins += [
+    "http://localhost:3000", 
+    "http://localhost:3001", 
+    "http://127.0.0.1:3000", 
+    "http://127.0.0.1:3001",
+    os.getenv("FRONTEND_URL", "http://localhost:3000")
+]
 
 # Build origin regex: strictly match allowed Vercel preview domains if needed
 _origin_patterns = [r"^https://[a-zA-Z0-9-]+\.vercel\.app$"]
-# DO NOT blindly allow all http:// origins even in development to prevent local CSRF/SSRF style pivoting
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
     allow_origin_regex="|".join(f"({p})" for p in _origin_patterns),
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-    allow_headers=["Authorization", "Content-Type", "Accept"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 from infrastructure.db.session import engine, Base
