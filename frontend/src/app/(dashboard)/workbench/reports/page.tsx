@@ -41,9 +41,9 @@ function CaseDetail({
   userRole?: string;
   investigators: any[];
   onAssign: (caseId: string, invId: string) => void;
-  onAccept: (caseId: string) => void;
-  onUndertake: (caseId: string) => void;
-  onCompleteInvestigation: (caseId: string, formData: FormData) => void;
+  onAccept?: (caseId: string) => void;
+  onUndertake?: (caseId: string) => void;
+  onCompleteInvestigation?: (caseId: string, formData: FormData) => void;
   token: string | null;
 }) {
   const [selectedInv, setSelectedInv] = useState("");
@@ -215,12 +215,12 @@ function CaseDetail({
             </div>
           )}
           {(userRole === "police" || userRole === "cyber_cell") && c.status === "assigned" && (
-             <Button size="sm" variant="primary" className="w-full" onClick={() => onAccept(c.case_number)}>
+             <Button variant="primary" className="w-full" onClick={() => onAccept?.(c.case_number)}>
                 Accept Case for Investigation
              </Button>
           )}
           {(userRole === "police" || userRole === "cyber_cell") && (c.status === "submitted" || c.status === "under_review" || c.status === "escalated") && (
-             <Button size="sm" variant="primary" className="w-full" onClick={() => onUndertake(c.case_number)}>
+             <Button variant="primary" className="w-full" onClick={() => onUndertake?.(c.case_number)}>
                 Undertake Case
              </Button>
           )}
@@ -246,7 +246,7 @@ function CaseDetail({
                    const fd = new FormData();
                    fd.append("remark", remark);
                    if (attachment) fd.append("file", attachment);
-                   onCompleteInvestigation(c.case_number, fd);
+                   onCompleteInvestigation?.(c.case_number, fd);
                  }}
                >
                   Complete Investigation

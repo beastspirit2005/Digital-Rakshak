@@ -30,7 +30,7 @@ export function CaseActivityTimeline({ events }: { events: any[] }) {
               <div className="flex justify-between items-start mb-2">
                 <div className="flex items-center gap-2">
                   <span className="font-medium text-ink">{event.author}</span>
-                  <Badge variant="outline" className={cn(
+                  <Badge tone="neutral" className={cn(
                     "text-[10px] uppercase",
                     event.action === "Resolved" ? "text-success border-success/30 bg-success/10" : 
                     event.action === "Reopened" ? "text-accent-text border-accent-text/30 bg-accent/10" : ""
