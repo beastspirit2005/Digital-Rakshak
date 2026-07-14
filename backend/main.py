@@ -106,7 +106,7 @@ app.include_router(help_chat_router, prefix=f"{settings.API_V1_STR}/help")
 app.include_router(mock_apis_router, prefix=f"{settings.API_V1_STR}/mock-apis", tags=["mock_apis"])
 
 def _run_migrations_sync():
-    if os.getenv("RUN_MIGRATIONS", "true").lower() != "true":
+    if os.getenv("RUN_MIGRATIONS", "false").lower() != "true":
         logger.info("Skipping migrations. Set RUN_MIGRATIONS=true to run them.")
         return
         
