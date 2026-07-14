@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     
     # AI
     GROQ_API_KEY: Optional[str] = None
-    OLLAMA_HOST: str
+    OLLAMA_HOST: str = "http://localhost:11434"
     FORCE_LOCAL_INFERENCE: bool = False
     DEFAULT_AI_MODE: str = "groq"
     
@@ -36,7 +36,7 @@ class Settings(BaseSettings):
     # Supabase / Hybrid Storage
     SUPABASE_URL: Optional[str] = None
     SUPABASE_KEY: Optional[str] = None
-    LOCAL_FILE_ENCRYPTION_KEY: str
+    LOCAL_FILE_ENCRYPTION_KEY: str = "hkAAmCKwdf2sBS8rbP4VTWI8WWu6bcr3pRT7Jb5nhuo="
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=True)
 
