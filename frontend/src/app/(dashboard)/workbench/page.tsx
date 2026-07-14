@@ -196,7 +196,7 @@ export default function WorkbenchDashboard() {
                     </linearGradient>
                   </defs>
                   <XAxis
-                    dataKey="name"
+                    dataKey="date"
                     axisLine={false}
                     tickLine={false}
                     tick={axisTick}

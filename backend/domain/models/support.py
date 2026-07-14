@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, DateTime, Text, ForeignKey, Enum as SAEnum
+from sqlalchemy import Column, String, DateTime, Text, ForeignKey, Enum as SAEnum, JSON
 from sqlalchemy.dialects.postgresql import UUID
 from infrastructure.db.session import Base
 import enum
@@ -21,6 +21,8 @@ class SupportTicket(Base):
     subject = Column(String, nullable=False)
     message = Column(Text, nullable=False)
     status = Column(String, default=TicketStatus.OPEN.value, nullable=False)
+    chat_session_ref = Column(String, nullable=True)
+    history = Column(JSON, default=list, nullable=False)
     
     # Timestamps
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))

@@ -36,7 +36,7 @@ class Settings(BaseSettings):
     # Supabase / Hybrid Storage
     SUPABASE_URL: Optional[str] = None
     SUPABASE_KEY: Optional[str] = None
-    LOCAL_FILE_ENCRYPTION_KEY: Optional[str] = None
+    LOCAL_FILE_ENCRYPTION_KEY: str
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=True)
 

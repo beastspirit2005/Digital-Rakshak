@@ -24,3 +24,4 @@ pytz>=2023.3
 sqlalchemy_utils>=0.41.0
 cryptography>=41.0.0
 supabase>=2.3.0
+androguard

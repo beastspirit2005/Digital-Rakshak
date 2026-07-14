@@ -16,8 +16,11 @@ interface Message {
   timestamp: number;
 }
 
+import { usePathname } from "next/navigation";
+
 export function GlobalChatWidget() {
   const { user, token } = useAuthStore();
+  const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -70,17 +73,19 @@ export function GlobalChatWidget() {
       timestamp: Date.now(),
     };
 
+    if (!user) return;
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setIsLoading(true);
 
     try {
       const response = await axios.post(
-        api("/cases/global"),
+        api("/help/chat"),
         {
-          query: userMsg.content,
-          ai_mode: aiMode,
-          case_id: caseId || undefined,
+          session_id: user.id,
+          message: userMsg.content,
+          role: user.role,
+          model: aiMode,
         },
         {
           headers: { Authorization: `Bearer ${token}` },
@@ -111,6 +116,9 @@ export function GlobalChatWidget() {
   };
 
   if (!user) return null;
+  
+  // Hide widget on dedicated help/support pages to avoid confusion
+  if (pathname === "/help" || pathname === "/admin/support") return null;
 
   return (
     <div className="fixed bottom-20 md:bottom-6 right-4 md:right-6 z-50 flex flex-col items-end">

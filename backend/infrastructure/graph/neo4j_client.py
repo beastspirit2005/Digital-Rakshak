@@ -73,6 +73,24 @@ class IntelligenceGraph:
                 logger.error(f"Neo4j Error querying related cases: {e}")
                 return []
 
+    async def get_entities_for_case(self, case_id: str):
+        """
+        Finds all entities connected to a specific case.
+        Returns a list of entity values.
+        """
+        query = """
+        MATCH (c:Case {id: $case_id})-[]->(e)
+        RETURN e.value as entity_value
+        """
+        async with self.driver.session() as session:
+            try:
+                result = await session.run(query, case_id=case_id)
+                records = await result.data()
+                return [r["entity_value"] for r in records]
+            except Exception as e:
+                logger.error(f"Neo4j Error querying entities for case {case_id}: {e}")
+                return []
+
     async def get_connected_clusters(self):
         """
         Finds all cases that share the same PhoneNumber, UPI_ID, or URL.

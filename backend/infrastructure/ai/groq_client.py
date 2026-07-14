@@ -114,6 +114,7 @@ class GroqClient:
         Sends an audio file to Groq's Whisper API for transcription.
         """
         import os
+        import mimetypes
         url = "https://api.groq.com/openai/v1/audio/transcriptions"
         headers = {
             "Authorization": f"Bearer {self.api_key}"
@@ -123,10 +124,14 @@ class GroqClient:
             return {"error": "Audio file not found."}
             
         try:
+            mime_type, _ = mimetypes.guess_type(audio_file_path)
+            if not mime_type:
+                mime_type = "audio/webm" if audio_file_path.endswith(".webm") else "audio/mpeg"
+                
             async with httpx.AsyncClient() as client:
                 with open(audio_file_path, "rb") as f:
                     files = {
-                        "file": (os.path.basename(audio_file_path), f, "audio/mpeg")
+                        "file": (os.path.basename(audio_file_path), f, mime_type)
                     }
                     data = {
                         "model": "whisper-large-v3"

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, UploadFile, File
-from api.deps import get_current_user, get_current_admin
+from api.deps import get_current_user, get_current_admin, get_current_user_allow_unapproved
 from domain.models.user import User
 import ollama
 import logging
@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 @router.get("/models")
-async def list_models(user: User = Depends(get_current_user)):
+async def list_models(user: User = Depends(get_current_user_allow_unapproved)):
     """
     Returns a dynamic list of available AI models for the frontend dropdown.
     Includes Cloud (Groq) models and fetches installed Local (Ollama) models.
@@ -109,16 +109,17 @@ async def transcribe_audio(file: UploadFile = File(...), user: User = Depends(ge
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
     
-    from domain.agents.whisper_agent import WhisperAgent
-    whisper = WhisperAgent()
-    transcription = await whisper.execute(file_path)
-    
     try:
-        os.remove(file_path)
-    except:
-        pass
-        
-    return transcription
+        from domain.agents.whisper_agent import WhisperAgent
+        whisper = WhisperAgent()
+        transcription = await whisper.execute(file_path)
+        return transcription
+    finally:
+        try:
+            if os.path.exists(file_path):
+                os.remove(file_path)
+        except:
+            pass
 
 from pydantic import BaseModel
 

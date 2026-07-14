@@ -5,6 +5,7 @@ from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 from infrastructure.db.session import Base
 import enum
+from core.config import settings
 
 
 from sqlalchemy_utils import StringEncryptedType
@@ -16,6 +17,7 @@ class CaseStatus(str, enum.Enum):
     assigned = "assigned"
     under_review = "under_review"
     investigating = "investigating"
+    investigation_completed = "investigation_completed"
     escalated = "escalated"
     resolved = "resolved"
     closed = "closed"
@@ -39,8 +41,8 @@ class Case(Base):
     assigned_phone = Column(String, nullable=True)
     
     # Encrypted Victim Contact Info
-    victim_phone = Column(StringEncryptedType(String, lambda: os.getenv('LOCAL_FILE_ENCRYPTION_KEY', 'default_fallback_key_that_is_long_enough_32_bytes_min'), AesEngine, 'pkcs5'), nullable=True)
-    victim_address = Column(StringEncryptedType(String, lambda: os.getenv('LOCAL_FILE_ENCRYPTION_KEY', 'default_fallback_key_that_is_long_enough_32_bytes_min'), AesEngine, 'pkcs5'), nullable=True)
+    victim_phone = Column(StringEncryptedType(String, lambda: settings.LOCAL_FILE_ENCRYPTION_KEY, AesEngine, 'pkcs5'), nullable=True)
+    victim_address = Column(StringEncryptedType(String, lambda: settings.LOCAL_FILE_ENCRYPTION_KEY, AesEngine, 'pkcs5'), nullable=True)
     
     # Core content
     scam_text = Column(Text, nullable=False)

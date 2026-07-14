@@ -8,6 +8,8 @@ import shutil
 import uuid
 
 from infrastructure.db.session import get_db
+from domain.models.takedown import TakedownPolicy
+import filetype
 from domain.models.case import Case, CaseStatus
 from domain.agents.threat_agent import ThreatAnalysisAgent
 from api.deps import get_current_user, get_current_admin
@@ -39,9 +41,43 @@ async def get_cases(request: Request, db: AsyncSession = Depends(get_db), skip: 
         raise HTTPException(status_code=403, detail="Citizens must use /my endpoint")
         
     from sqlalchemy import desc
+    from domain.models.user import User
+    
     result = await db.execute(select(Case).order_by(desc(Case.created_at)).offset(skip).limit(limit))
     cases = result.scalars().all()
-    return {"cases": cases}
+    
+    # Enrich with submitter details
+    enriched_cases = []
+    for c in cases:
+        c_dict = {
+            "id": c.id,
+            "case_number": c.case_number,
+            "created_at": c.created_at,
+            "status": c.status,
+            "priority": c.priority,
+            "scam_type_code": c.scam_type_code,
+            "scam_type_code": c.scam_type_code,
+            "scam_text": c.scam_text,
+            "assigned_phone": c.assigned_phone,
+            "city": c.city,
+            "state": c.state,
+            "victim_phone": c.victim_phone,
+            "victim_address": c.victim_address,
+            "ai_decision": c.ai_decision,
+            "threat_confidence_score": c.threat_confidence_score,
+            "assigned_to": c.assigned_to,
+            "timeline_events": c.timeline_events
+        }
+        if c.submitted_by:
+            sub_res = await db.execute(select(User).where(User.id == c.submitted_by))
+            submitter = sub_res.scalar_one_or_none()
+            if submitter:
+                c_dict["submitter_name"] = submitter.full_name
+                c_dict["submitter_email"] = submitter.email
+                c_dict["submitter_phone"] = submitter.station_phone_number # Just in case they stored phone here
+        enriched_cases.append(c_dict)
+        
+    return {"cases": enriched_cases}
 
 @router.get("/my")
 @limiter.limit("60/minute")
@@ -130,6 +166,22 @@ async def submit_case(
         allowed_extensions = {".jpg", ".jpeg", ".png", ".pdf", ".apk"}
         if file_ext not in allowed_extensions:
             raise HTTPException(status_code=400, detail="Invalid file type. Only JPG, PNG, PDF, and APK are allowed.")
+            
+        kind = filetype.guess(file_bytes)
+        if kind is None:
+            raise HTTPException(status_code=400, detail="Cannot determine file type.")
+            
+        mime_type = kind.mime
+        allowed_mimes = {
+            "image/jpeg", 
+            "image/png", 
+            "application/pdf", 
+            "application/vnd.android.package-archive",
+            "application/zip", # some APKs appear as zip
+            "application/java-archive" 
+        }
+        if mime_type not in allowed_mimes:
+            raise HTTPException(status_code=400, detail=f"Disallowed file signature detected: {mime_type}")
 
     db.add(new_case)
     await db.commit()
@@ -295,6 +347,7 @@ async def submit_case(
     
     return {
         "message": "Case submitted successfully and analyzed by AI",
+        "id": new_case.id,
         "case_number": new_case.case_number,
         "ai_analysis": ai_decision
     }
@@ -651,6 +704,7 @@ async def assign_case(
         raise HTTPException(status_code=400, detail="Invalid investigator ID")
         
     case.status = CaseStatus.assigned.value
+    case.assigned_to = investigator.id
     case.assigned_phone = investigator.station_phone_number
     
     await db.commit()
@@ -704,6 +758,43 @@ async def accept_case(
     
     return {"message": f"Case {case_number} accepted and is now INVESTIGATING"}
 
+@router.post("/{case_number}/undertake")
+async def undertake_case(
+    case_number: str,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Investigator self-assigns an unassigned case."""
+    if user.role not in ["police", "cyber_cell"]:
+        raise HTTPException(status_code=403, detail="Only investigators can undertake cases")
+        
+    result = await db.execute(select(Case).where(Case.case_number == case_number))
+    case = result.scalar_one_or_none()
+    
+    if not case or case.status not in [CaseStatus.submitted.value, CaseStatus.under_review.value, CaseStatus.escalated.value]:
+        raise HTTPException(status_code=404, detail="Case not found or not available to undertake")
+        
+    # Fetch investigator details to get station_phone_number
+    from domain.models.user import User
+    investigator_res = await db.execute(select(User).where(User.id == str(user.id)))
+    investigator = investigator_res.scalar_one_or_none()
+    
+    case.status = CaseStatus.investigating.value
+    case.assigned_to = user.id
+    case.assigned_phone = investigator.station_phone_number if investigator else None
+    await db.commit()
+    
+    from infrastructure.smtp.email_service import send_case_accepted_admin_email
+    from core.config import settings
+    
+    # Notify Admin
+    if settings.ADMIN_EMAIL:
+        inv_name = investigator.full_name if investigator else "Unknown"
+        await send_case_accepted_admin_email(settings.ADMIN_EMAIL, case.case_number, inv_name)
+    
+    return {"message": f"Case {case_number} undertaken and is now INVESTIGATING"}
+from datetime import datetime, timezone
+
 @router.post("/{case_number}/resolve")
 async def resolve_case(
     case_number: str,
@@ -711,19 +802,111 @@ async def resolve_case(
     db: AsyncSession = Depends(get_db)
 ):
     """Citizen marks a case as resolved."""
-    if user.role != "citizen":
-        raise HTTPException(status_code=403, detail="Only the victim can resolve their case")
+    result = await db.execute(select(Case).where(Case.case_number == case_number))
+    case = result.scalar_one_or_none()
+    
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+        
+    if str(case.submitted_by) != str(user.id):
+        raise HTTPException(status_code=403, detail="Only the citizen who filed the report can resolve it")
+        
+    case.status = CaseStatus.resolved.value
+    
+    events = case.timeline_events or []
+    events.append({
+        "action": "Resolved",
+        "author": "Citizen",
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    })
+    case.timeline_events = events
+    
+    await db.commit()
+    return {"message": f"Case {case_number} marked as RESOLVED"}
+
+from fastapi import Form, File, UploadFile
+from typing import Optional
+
+@router.post("/{case_number}/complete_investigation")
+async def complete_investigation(
+    case_number: str,
+    remark: Optional[str] = Form(None),
+    file: Optional[UploadFile] = File(None),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Investigator marks investigation as completed and provides remarks/attachment."""
+    if user.role not in ["police", "cyber_cell"]:
+        raise HTTPException(status_code=403, detail="Only investigators can complete investigations")
         
     result = await db.execute(select(Case).where(Case.case_number == case_number))
     case = result.scalar_one_or_none()
     
-    if not case or str(case.submitted_by) != str(user.id):
-        raise HTTPException(status_code=404, detail="Case not found or not yours")
+    if not case or case.status != CaseStatus.investigating.value:
+        raise HTTPException(status_code=404, detail="Case not found or not in investigating status")
         
-    case.status = CaseStatus.resolved.value
-    await db.commit()
+    attachment_url = None
+    if file:
+        from core.supabase import supabase
+        import uuid
+        file_ext = file.filename.split('.')[-1] if file.filename else 'bin'
+        file_name = f"{case_number}_{uuid.uuid4().hex[:8]}.{file_ext}"
+        try:
+            content = await file.read()
+            res = supabase.storage.from_("evidence").upload(file_name, content, {"content-type": file.content_type})
+            attachment_url = supabase.storage.from_("evidence").get_public_url(file_name)
+        except Exception as e:
+            pass # ignore upload error for now
+            
+    case.status = CaseStatus.investigation_completed.value
     
-    return {"message": f"Case {case_number} marked as RESOLVED"}
+    events = case.timeline_events or []
+    events.append({
+        "action": "Investigation Completed",
+        "author": "Investigator",
+        "remark": remark,
+        "attachment": attachment_url,
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    })
+    case.timeline_events = events
+    
+    await db.commit()
+    return {"message": "Investigation completed", "attachment_url": attachment_url}
+
+from pydantic import BaseModel
+class ReopenRequest(BaseModel):
+    reason: str
+
+@router.post("/{case_number}/reopen")
+async def reopen_case(
+    case_number: str,
+    req: ReopenRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Citizen reopens a case with a follow-up reason."""
+    result = await db.execute(select(Case).where(Case.case_number == case_number))
+    case = result.scalar_one_or_none()
+    
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+        
+    if str(case.submitted_by) != str(user.id):
+        raise HTTPException(status_code=403, detail="Only the citizen who filed the report can reopen it")
+        
+    case.status = CaseStatus.investigating.value
+    
+    events = case.timeline_events or []
+    events.append({
+        "action": "Reopened",
+        "author": "Citizen",
+        "remark": req.reason,
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    })
+    case.timeline_events = events
+    
+    await db.commit()
+    return {"message": f"Case {case_number} reopened"}
 
 async def process_case_background(
     case_number: str,

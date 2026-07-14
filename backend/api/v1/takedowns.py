@@ -4,6 +4,7 @@ from sqlalchemy import select
 
 from infrastructure.db.session import get_db
 from domain.models.takedown import TakedownPolicy
+from domain.agents.takedown_agent import TakedownAgent
 from api.deps import get_current_user
 from domain.models.user import User
 
@@ -47,9 +48,15 @@ async def approve_takedown(policy_id: int, db: AsyncSession = Depends(get_db), u
     policy.is_approved = True
     policy.approved_by = str(user.id)
     
+    agent = TakedownAgent()
+    receipt = await agent.execute_policy(policy)
+    await agent.close()
+    
+    # Store receipt or metadata back into the policy if possible, or just log it
+    # We will append the receipt to the reason to avoid db migration for now
+    if "error" not in receipt:
+        policy.reason += f" | Executed Ref: {receipt.get('npci_txn_ref') or receipt.get('service_request_id') or receipt.get('receipt')}"
+        
     await db.commit()
     
-    # In a real system, this would trigger an HTTP request to NPCI or Telecom Provider
-    # e.g., await httpx.post("https://npci.mock.in/freeze", json={"upi_id": policy.target})
-    
-    return {"message": f"Successfully executed action: {policy.action} on target: {policy.target}"}
+    return {"message": f"Successfully executed action: {policy.action} on target: {policy.target}", "receipt": receipt}

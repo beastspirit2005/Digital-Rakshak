@@ -5,6 +5,7 @@ from infrastructure.db.session import get_db
 from api.deps import get_current_user, get_current_admin
 from domain.models.user import User
 from domain.models.case import Case, CaseStatus
+from infrastructure.graph.neo4j_client import IntelligenceGraph
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
@@ -14,7 +15,9 @@ async def get_dashboard_analytics(db: AsyncSession = Depends(get_db), user: User
     Returns aggregated analytics for the National Intelligence Dashboard.
     """
     role = user.role
-    if role not in ["admin", "police"]:
+    print(f"DEBUG: analytics user.role is {repr(role)}")
+    if role not in ["admin", "police", "cyber_cell"]:
+        print(f"DEBUG: raising 403 in analytics because {repr(role)} not in allowed list")
         raise HTTPException(status_code=403, detail="Unauthorized")
 
     # 1. High-level stats
@@ -24,7 +27,8 @@ async def get_dashboard_analytics(db: AsyncSession = Depends(get_db), user: User
     resolved_cases = await db.execute(select(func.count(Case.id)).where(Case.status == CaseStatus.resolved.value))
     resolved_cases_count = resolved_cases.scalar() or 0
     
-    high_priority = await db.execute(select(func.count(Case.id)).where(Case.priority == "High"))
+    from domain.models.case import CasePriority
+    high_priority = await db.execute(select(func.count(Case.id)).where(Case.priority == CasePriority.high.value))
     high_priority_count = high_priority.scalar() or 0
 
     # 2. Scam Types Breakdown
@@ -60,12 +64,23 @@ async def get_dashboard_analytics(db: AsyncSession = Depends(get_db), user: User
         import datetime
         timeline = [{"date": datetime.datetime.now().strftime("%b %d"), "reports": 0}]
 
+    # 5. Graph Intelligence (Neo4j)
+    graph = IntelligenceGraph()
+    try:
+        clusters = await graph.get_connected_clusters()
+        clusters_count = len(clusters)
+    except Exception:
+        clusters_count = 0
+    finally:
+        await graph.close()
+
     return {
         "stats": {
             "total_cases": total_cases_count,
             "resolved_cases": resolved_cases_count,
             "high_priority": high_priority_count,
-            "threat_level": "CRITICAL" if high_priority_count > (total_cases_count * 0.3) else "ELEVATED"
+            "threat_level": "CRITICAL" if high_priority_count > (total_cases_count * 0.3) else "ELEVATED",
+            "scam_clusters": clusters_count
         },
         "scam_types": scam_types if scam_types else [{"name": "Phishing", "value": 1}],
         "state_distribution": state_distribution if state_distribution else [{"state": "Maharashtra", "cases": 1}],

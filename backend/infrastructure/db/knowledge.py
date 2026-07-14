@@ -1,10 +1,7 @@
 from sqlalchemy import Column, String, Integer, Text, select
-from sqlalchemy.orm import declarative_base
 from pgvector.sqlalchemy import Vector
-import ollama
 import logging
-
-Base = declarative_base()
+from infrastructure.db.session import Base
 logger = logging.getLogger(__name__)
 
 class RegulatoryGuideline(Base):

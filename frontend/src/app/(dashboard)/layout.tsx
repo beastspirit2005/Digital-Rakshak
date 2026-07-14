@@ -40,6 +40,7 @@ const adminSections = [
     items: [
       { name: "Admin dashboard", short: "Admin", href: "/admin", icon: Activity },
       { name: "Users", short: "Users", href: "/admin/users", icon: Users },
+      { name: "Reports", short: "Reports", href: "/admin/reports", icon: FileText },
       { name: "Approvals", short: "Approvals", href: "/admin/approvals", icon: CheckSquare },
       { name: "National analytics", short: "Analytics", href: "/admin/intelligence", icon: Network },
       { name: "AI health", short: "AI health", href: "/admin/ai-health", icon: Bot },

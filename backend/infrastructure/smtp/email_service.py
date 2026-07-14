@@ -26,6 +26,7 @@ async def send_email(to_email: str, subject: str, body: str, is_html: bool = Fal
             password=settings.SMTP_PASSWORD,
             use_tls=False,
             start_tls=True,
+            timeout=5
         )
         logger.info(f"Email sent successfully to {to_email}")
         return True

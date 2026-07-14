@@ -82,6 +82,7 @@ from api.v1.settings import router as settings_router
 from api.v1.osint import router as osint_router
 from api.v1.support import router as support_router
 from api.v1.help_chat import router as help_chat_router
+from api.v1.mock_apis import router as mock_apis_router
 
 app.include_router(auth_router, prefix=f"{settings.API_V1_STR}/auth", tags=["auth"])
 app.include_router(users_router, prefix=f"{settings.API_V1_STR}/users", tags=["users"])
@@ -97,6 +98,7 @@ app.include_router(settings_router, prefix=f"{settings.API_V1_STR}/admin", tags=
 app.include_router(osint_router, prefix=f"{settings.API_V1_STR}/admin/osint", tags=["osint"])
 app.include_router(support_router, prefix=f"{settings.API_V1_STR}")
 app.include_router(help_chat_router, prefix=f"{settings.API_V1_STR}/help")
+app.include_router(mock_apis_router, prefix=f"{settings.API_V1_STR}/mock-apis", tags=["mock_apis"])
 
 def _run_migrations_sync():
     if os.getenv("RUN_MIGRATIONS", "true").lower() != "true":

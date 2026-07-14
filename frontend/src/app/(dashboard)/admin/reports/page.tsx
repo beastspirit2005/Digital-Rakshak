@@ -15,7 +15,6 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
 import { ZtivfMeters } from "@/components/ztivf-meters";
 import { useToast } from "@/components/ui/toast";
-import { CaseActivityTimeline } from "@/components/case/CaseActivityTimeline";
 
 function CaseDetail({
   c,
@@ -28,8 +27,6 @@ function CaseDetail({
   investigators,
   onAssign,
   onAccept,
-  onUndertake,
-  onCompleteInvestigation,
   token,
 }: {
   c: any;
@@ -38,20 +35,14 @@ function CaseDetail({
   chatHistory: { role: string; text: string }[];
   chatLoading: boolean;
   onChatSubmit: (e: React.FormEvent) => void;
-  userRole: string;
   investigators: any[];
   onAssign: (caseId: string, invId: string) => void;
-  onAccept: (caseId: string) => void;
-  onUndertake: (caseId: string) => void;
-  onCompleteInvestigation: (caseId: string, formData: FormData) => void;
   token: string | null;
 }) {
   const [selectedInv, setSelectedInv] = useState("");
   const [evidenceUrl, setEvidenceUrl] = useState<string | null>(null);
   const [osintFlags, setOsintFlags] = useState<any[] | null>(null);
   const [scanningOsint, setScanningOsint] = useState(false);
-  const [remark, setRemark] = useState("");
-  const [attachment, setAttachment] = useState<File | null>(null);
   const pushToast = useToast();
   
   const loadEvidence = async () => {
@@ -162,6 +153,27 @@ function CaseDetail({
 
       <div className="space-y-4">
         <Inset className="p-4">
+          <p className="text-xs text-ink-3 mb-3">Citizen Profile (Submitter)</p>
+          <dl className="space-y-2 text-sm">
+            <div className="flex justify-between gap-3">
+              <dt className="text-ink-2">Name</dt>
+              <dd className="text-ink font-medium">{c.submitter_name || "Unknown"}</dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt className="text-ink-2">Email</dt>
+              <dd className="text-ink truncate">{c.submitter_email || "N/A"}</dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt className="text-ink-2">Phone</dt>
+              <dd className="text-ink">{c.victim_phone || c.submitter_phone || "Not provided"}</dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt className="text-ink-2">Address</dt>
+              <dd className="text-ink text-right">{c.victim_address || "Not provided"}</dd>
+            </div>
+          </dl>
+        </Inset>
+        <Inset className="p-4">
           <p className="text-xs text-ink-3 mb-3">Analysis summary</p>
           <dl className="space-y-2.5 text-sm">
             <div className="flex justify-between gap-3">
@@ -194,17 +206,16 @@ function CaseDetail({
           </Inset>
         )}
         
-        {/* Actions based on Role */}
         <Inset className="p-4">
           <p className="text-xs text-ink-3 mb-3">Case Actions</p>
-          {userRole === "admin" && (c.status === "submitted" || c.status === "under_review" || c.status === "escalated") && (
+          {userRole === "admin" && (c.status === "submitted" || c.status === "under_review" || c.status === "escalated") ? (
             <div className="space-y-3">
                <select 
                  className="w-full text-sm p-2 rounded-control bg-surface-2 border-transparent text-ink"
                  value={selectedInv}
                  onChange={(e) => setSelectedInv(e.target.value)}
                >
-                 <option value="">Select Investigator...</option>
+                 <option value="">Select Nearest Police Station...</option>
                  {investigators.map((inv) => (
                     <option key={inv.id} value={inv.id}>{inv.full_name} ({inv.role})</option>
                  ))}
@@ -213,59 +224,11 @@ function CaseDetail({
                   Assign Case
                </Button>
             </div>
-          )}
-          {(userRole === "police" || userRole === "cyber_cell") && c.status === "assigned" && (
-             <Button size="sm" variant="primary" className="w-full" onClick={() => onAccept(c.case_number)}>
-                Accept Case for Investigation
-             </Button>
-          )}
-          {(userRole === "police" || userRole === "cyber_cell") && (c.status === "submitted" || c.status === "under_review" || c.status === "escalated") && (
-             <Button size="sm" variant="primary" className="w-full" onClick={() => onUndertake(c.case_number)}>
-                Undertake Case
-             </Button>
-          )}
-          {(userRole === "police" || userRole === "cyber_cell") && c.status === "investigating" && (
-             <div className="space-y-3">
-               <textarea 
-                 placeholder="Investigation remarks (required)..." 
-                 value={remark} 
-                 onChange={(e) => setRemark(e.target.value)}
-                 className="w-full text-sm p-2 rounded-control bg-surface-2 border border-line text-ink resize-none h-20"
-               />
-               <input 
-                 type="file" 
-                 onChange={(e) => setAttachment(e.target.files?.[0] || null)}
-                 className="w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-medium file:bg-surface file:text-ink hover:file:bg-surface-2 text-ink-2"
-               />
-               <Button 
-                 size="sm" 
-                 variant="primary" 
-                 className="w-full bg-success hover:bg-success/90" 
-                 disabled={!remark.trim()}
-                 onClick={() => {
-                   const fd = new FormData();
-                   fd.append("remark", remark);
-                   if (attachment) fd.append("file", attachment);
-                   onCompleteInvestigation(c.case_number, fd);
-                 }}
-               >
-                  Complete Investigation
-               </Button>
-             </div>
-          )}
-          {userRole !== "admin" && userRole !== "police" && userRole !== "cyber_cell" && (
-             <p className="text-xs text-ink-3">No actions available.</p>
+          ) : (
+             <p className="text-xs text-ink-3">Case is already {c.status}.</p>
           )}
         </Inset>
 
-        {c.timeline_events && c.timeline_events.length > 0 && (
-          <Inset className="p-4">
-            <p className="text-xs text-ink-3 mb-3">Case activity timeline</p>
-            <CaseActivityTimeline events={c.timeline_events} />
-          </Inset>
-        )}
-
-        {/* per-case co-pilot */}
         <Inset className="p-4 flex flex-col h-72">
           <p className="text-xs text-ink-3 mb-3">Ask the co-pilot about this case</p>
           <div className="flex-1 overflow-y-auto mb-3 space-y-2 text-sm">
@@ -318,7 +281,6 @@ export default function ReportsRegisterPage() {
   const [chatHistory, setChatHistory] = useState<{ role: string; text: string }[]>([]);
   const [chatLoading, setChatLoading] = useState(false);
   const [investigators, setInvestigators] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<"unassigned" | "assigned">("unassigned");
   const { token, user } = useAuthStore();
   const pushToast = useToast();
   const reduced = useReducedMotion();
@@ -358,61 +320,17 @@ export default function ReportsRegisterPage() {
       pushToast("danger", "Failed to assign case.");
     }
   };
-  
-  const handleUndertake = async (caseNumber: string) => {
-    if (!token) return;
-    try {
-      await axios.post(api(`/cases/${caseNumber}/undertake`), {}, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      pushToast("success", "Case Undertaken!");
-      fetchAllCases();
-    } catch (err) {
-      pushToast("danger", "Failed to undertake case.");
-    }
-  };
-
-  const handleAccept = async (caseNumber: string) => {
-    try {
-      await axios.post(api(`/cases/${caseNumber}/accept`), {}, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      pushToast("success", "Case Accepted!");
-      fetchAllCases();
-    } catch (err) {
-      pushToast("danger", "Failed to accept case.");
-    }
-  };
-
-  const handleCompleteInvestigation = async (caseNumber: string, formData: FormData) => {
-    try {
-      await axios.post(api(`/cases/${caseNumber}/complete_investigation`), formData, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      pushToast("success", "Investigation Completed!");
-      fetchAllCases();
-    } catch (err) {
-      pushToast("danger", "Failed to complete investigation.");
-    }
-  };
 
   const visibleCases = useMemo(() => {
-    let result = cases;
-    if (activeTab === "assigned") {
-      result = result.filter((c) => c.assigned_to === user?.id || c.assigned_phone === user?.station_phone_number);
-    } else if (activeTab === "unassigned") {
-      result = result.filter((c) => !c.assigned_to && !c.assigned_phone);
-    }
     const q = search.trim().toLowerCase();
-    if (!q) return result;
-    return result.filter(
+    if (!q) return cases;
+    return cases.filter(
       (c) =>
         (c.case_number || "").toLowerCase().includes(q) ||
         (c.scam_type_code || "").toLowerCase().includes(q) ||
-        (c.city || "").toLowerCase().includes(q) ||
-        (c.scam_text || "").toLowerCase().includes(q)
+        (c.city || "").toLowerCase().includes(q)
     );
-  }, [cases, search, activeTab, user]);
+  }, [cases, search]);
 
   const toggleExpanded = (id: string) => {
     setExpandedId(expandedId === id ? null : id);
@@ -450,32 +368,10 @@ export default function ReportsRegisterPage() {
   return (
     <div className="space-y-6 pt-2">
       <PageHeader
-        title={user?.role === "admin" ? "Platform-wide Case Register" : "Case Register"}
-        sub={user?.role === "admin" ? "Browse, review, and assign cases to investigators." : "Review and manage cases in your jurisdiction."}
+        title="Registered Reports"
+        sub="Browse all citizen reports and assign them to the nearest police station."
         actions={
           <div className="flex flex-col sm:flex-row items-center gap-4">
-            {(user?.role === "police" || user?.role === "cyber_cell") && (
-              <div className="flex bg-surface-2 p-1 rounded-control">
-                <button
-                  onClick={() => setActiveTab("unassigned")}
-                  className={cn(
-                    "px-4 py-1.5 text-sm font-medium rounded-control transition-all",
-                    activeTab === "unassigned" ? "bg-surface shadow-sm text-ink" : "text-ink-3 hover:text-ink"
-                  )}
-                >
-                  Unassigned Cases
-                </button>
-                <button
-                  onClick={() => setActiveTab("assigned")}
-                  className={cn(
-                    "px-4 py-1.5 text-sm font-medium rounded-control transition-all",
-                    activeTab === "assigned" ? "bg-surface shadow-sm text-ink" : "text-ink-3 hover:text-ink"
-                  )}
-                >
-                  Assigned to Me
-                </button>
-              </div>
-            )}
             <div className="relative">
               <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-3" />
               <input
@@ -578,14 +474,11 @@ export default function ReportsRegisterPage() {
                                   chatHistory={chatHistory}
                                   chatLoading={chatLoading}
                                   onChatSubmit={(e) => handleChatSubmit(e, c.id)}
-                                  userRole={user?.role || ""}
+                                  userRole={user?.role}
                                   investigators={investigators}
                                   onAssign={handleAssign}
-                                  onAccept={handleAccept}
-                                  onUndertake={handleUndertake}
-                                  onCompleteInvestigation={handleCompleteInvestigation}
-                                  token={token}
-                                />
+                                  onAccept={() => {}}
+                                  token={token}/>
                               </motion.div>
                             </td>
                           </tr>
@@ -635,13 +528,9 @@ export default function ReportsRegisterPage() {
                           chatHistory={chatHistory}
                           chatLoading={chatLoading}
                           onChatSubmit={(e) => handleChatSubmit(e, c.id)}
-                          userRole={user?.role || ""}
                           investigators={investigators}
                           onAssign={handleAssign}
-                          onAccept={handleAccept}
-                          onUndertake={handleUndertake}
-                          token={token}
-                        />
+                          token={token}/>
                       </motion.div>
                     )}
                   </AnimatePresence>

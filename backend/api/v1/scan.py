@@ -141,9 +141,15 @@ async def live_prevention_scan_qr(
     Decodes an uploaded QR code and pipes its hidden payload (URL/UPI) directly into the Prevention Suite.
     """
     from infrastructure.osint.qr_decoder import QRDecoder
+    import filetype
     decoder = QRDecoder()
     
     contents = await file.read()
+    
+    kind = filetype.guess(contents)
+    if kind is None or kind.mime not in ["image/jpeg", "image/png"]:
+        raise HTTPException(status_code=400, detail=f"Invalid file signature for QR code. Expected image.")
+        
     payload = decoder.decode_image(contents)
     
     if not payload:
@@ -152,3 +158,71 @@ async def live_prevention_scan_qr(
     # Pipe the hidden payload into the existing AI and OSINT pipeline
     # We will pass it as `text` so the native AI model parses the full intent
     return await live_prevention_scan(text=payload, user=user)
+
+import os
+import tempfile
+
+@router.post("/apk", response_model=ScanResponse)
+async def live_prevention_scan_apk(
+    file: UploadFile = File(...),
+    user: User = Depends(get_current_user)
+):
+    """
+    Scans an uploaded APK file for dangerous permissions using Androguard.
+    """
+    if not file.filename.endswith(".apk"):
+        raise HTTPException(status_code=400, detail="Invalid file type. Please upload an APK.")
+        
+    contents = await file.read()
+    import filetype
+    kind = filetype.guess(contents)
+    if kind is None or kind.mime not in ["application/vnd.android.package-archive", "application/zip", "application/java-archive"]:
+        raise HTTPException(status_code=400, detail=f"Invalid file signature for APK.")
+        
+    # Androguard needs a file path, so we save it temporarily
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".apk") as temp_file:
+        temp_file.write(contents)
+        temp_path = temp_file.name
+
+    is_safe = True
+    risk_level = "LOW"
+    reasons = []
+
+    try:
+        from androguard.core.bytecodes.apk import APK
+        apk = APK(temp_path)
+        permissions = apk.get_permissions()
+        
+        # Check for dangerous permissions commonly used by malware
+        dangerous_perms = {
+            "android.permission.BIND_ACCESSIBILITY_SERVICE": "Can read everything on your screen and control your device (Often used by banking trojans).",
+            "android.permission.READ_SMS": "Can read your text messages, including OTPs.",
+            "android.permission.RECEIVE_SMS": "Can intercept incoming SMS messages.",
+            "android.permission.SYSTEM_ALERT_WINDOW": "Can draw overlays on top of other apps (Used for overlay attacks to steal credentials).",
+            "android.permission.READ_CALL_LOG": "Can access your call history.",
+            "android.permission.SEND_SMS": "Can send SMS messages without your knowledge (May incur charges).",
+            "android.permission.REQUEST_INSTALL_PACKAGES": "Can install other unknown apps without permission."
+        }
+        
+        found_dangerous = []
+        for perm in permissions:
+            if perm in dangerous_perms:
+                found_dangerous.append(f"{perm.split('.')[-1]}: {dangerous_perms[perm]}")
+                
+        if found_dangerous:
+            is_safe = False
+            risk_level = "CRITICAL"
+            reasons.append("Found dangerous permissions in this APK that are commonly abused by malware:")
+            reasons.extend(found_dangerous)
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to parse APK: {str(e)}")
+    finally:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+            
+    return ScanResponse(
+        is_safe=is_safe,
+        risk_level=risk_level,
+        reasons=reasons if not is_safe else ["No dangerous permissions found. Code looks safe."]
+    )
