@@ -38,7 +38,7 @@ Victims of financial fraud are often panicked. Instead of forcing them to naviga
 
 ## System Architecture
 
-Our platform is divided into a sleek Next.js frontend, a robust FastAPI orchestration layer, and a multi-database persistence layer.
+Our platform is divided into a sleek Next.js frontend, a robust FastAPI orchestration layer, and a multi-database persistence layer—fully optimized for serverless deployments on Vercel.
 
 ```mermaid
 graph TD
@@ -48,15 +48,15 @@ graph TD
     Admin((Police / Admin))
 
     %% Frontend UI
-    subgraph Frontend [Next.js Web Client]
-        UI[Role-Based Dashboards]
+    subgraph Frontend [Vercel Edge Network]
+        UI[Next.js App Router UI]
         Map[Spatial Map WebGL]
         Graph[Neo4j Visualizer]
     end
 
     %% API Gateway
-    subgraph Backend [FastAPI Backend]
-        Router[RAIC Decision Core & Router]
+    subgraph Backend [Vercel Serverless Functions]
+        Router[FastAPI RAIC Core & Router]
         
         %% Agents
         subgraph MAIF [Multi-Agent Swarm]
@@ -68,16 +68,17 @@ graph TD
         end
         
         %% External / Internal Models
-        subgraph DualMode [Inference Engines]
-            Cloud[Cloud Mode: Groq Llama/Whisper]
-            Local[Local Mode: PyTorch/Qwen/EasyOCR]
+        subgraph Inference [Inference Engines]
+            Cloud[Cloud: Groq Llama 3]
+            Local[Local: Ollama Qwen 2.5]
         end
     end
 
     %% Persistence
-    subgraph Databases [Persistence Layer]
-        PG[(PostgreSQL + pgvector)]
-        Neo[(Neo4j Graph DB)]
+    subgraph Databases [Cloud Persistence Layer]
+        PG[(Neon Serverless Postgres + pgvector)]
+        Neo[(Neo4j AuraDB)]
+        Storage[(Supabase Storage)]
     end
 
     %% Flow
@@ -87,9 +88,10 @@ graph TD
     
     UI -->|API Requests| Router
     Router -->|Orchestrates| MAIF
-    MAIF <--> DualMode
+    MAIF <--> Inference
     Router -->|Fuses Intelligence| PG
     Router -->|Extracts Entities| Neo
+    Router -->|Media/Evidence| Storage
     
     PG -->|Spatial/Tabular Data| UI
     Neo -->|Syndicate Networks| UI
@@ -101,10 +103,11 @@ graph TD
 
 We didn't just build an app; we built an enterprise intelligence engine using the best modern tools available:
 
-*   **Frontend Interface:** Next.js 14 (App Router), React, Tailwind CSS, MapLibre GL for dynamic spatial maps, and Recharts for 6D radar visualizations.
-*   **Backend Orchestration:** FastAPI (Python 3.12) running asynchronous workers.
-*   **Relational & Vector Data:** PostgreSQL powered by SQLAlchemy 2.0 and `pgvector` for semantic clustering.
-*   **Graph Intelligence:** Neo4j for mapping complex relationships between scammers, UPI IDs, and phone numbers.
+*   **Frontend Interface:** Next.js 14 (App Router), React, Tailwind CSS, MapLibre GL for dynamic spatial maps, and Recharts for 6D radar visualizations. Hosted on **Vercel**.
+*   **Backend Orchestration:** FastAPI (Python 3.12) deployed as **Vercel Serverless Functions** for infinitely scalable API routing.
+*   **Relational & Vector Data:** **Neon Serverless Postgres** powered by SQLAlchemy 2.0 and `pgvector` for semantic clustering and high-performance connection pooling (PgBouncer).
+*   **Graph Intelligence:** **Neo4j AuraDB** for mapping complex relationships between scammers, UPI IDs, and phone numbers.
+*   **File Storage:** **Supabase Storage** for secure evidence and media retention.
 *   **AI Models:** Groq (Llama 3), PyTorch (MobileNetV3 for vision, XLM-RoBERTa for text), and Local Ollama (Qwen 2.5).
 
 ---
