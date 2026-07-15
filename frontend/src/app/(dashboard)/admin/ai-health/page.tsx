@@ -57,66 +57,31 @@ export default function AIHealthGovernanceDashboard() {
   const toast = useToast();
   const [loading, setLoading] = useState(false);
 
-  const [models, setModels] = useState<ModelConfig[]>([
-    {
-      id: "groq-llama-3.3",
-      name: "Groq Llama-3.3-70B-Versatile",
-      version: "llama-3.3-70b-v",
-      role: "Primary RAIC 6-Factor Consensus & Deep Threat Synthesis",
-      status: "ONLINE",
-      latency_ms: 42,
-      drift_index: 0.03,
-      is_active: true
-    },
-    {
-      id: "qwen-2.5-vl",
-      name: "Qwen 2.5-VL-7B-Instruct (Vision Core)",
-      version: "qwen-vl-2.5-7b",
-      role: "Counterfeit Note & Phishing Document Optical Deconstruction",
-      status: "ONLINE",
-      latency_ms: 184,
-      drift_index: 0.04,
-      vram_usage: "18.4 / 24 GB (NVIDIA A10G)",
-      is_active: true
-    },
-    {
-      id: "whisper-v3",
-      name: "Whisper-large-v3 (Audio Forensics)",
-      version: "whisper-v3-large-hi-en",
-      role: "Voice Note & Deepfake Audio Acoustic Transcriber",
-      status: "ONLINE",
-      latency_ms: 142,
-      drift_index: 0.01,
-      is_active: true
-    }
-  ]);
+  const [models, setModels] = useState<ModelConfig[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
 
-  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([
-    {
-      id: "log-101",
-      timestamp: "2026-07-15 12:44:02 UTC",
-      officer: "nodal.delhi@cyberpolice.gov.in",
-      action: "RLHF Weight Tuning (CASE-2026-8419)",
-      impact: "+0.05 Qwen Vision Weight applied to 6-Factor Core",
-      verification_hash: "0x89f4b1a8c92b..."
-    },
-    {
-      id: "log-102",
-      timestamp: "2026-07-14 18:20:11 UTC",
-      officer: "admin@digitalrakshak.in",
-      action: "Primary Engine Switch",
-      impact: "Activated Gemini 3.1 Pro as primary 6-Factor reasoning tier",
-      verification_hash: "0x44a1e902df1c..."
-    },
-    {
-      id: "log-103",
-      timestamp: "2026-07-12 09:15:40 UTC",
-      officer: "rbi.currency@bankgrid.in",
-      action: "Counterfeit Signature Calibration",
-      impact: "Updated Grade B+ Super-note optical match threshold to 0.94",
-      verification_hash: "0x33b82c19fa0e..."
+  useEffect(() => {
+    const fetchTelemetry = async () => {
+      try {
+        setLoading(true);
+        const res = await axios.get(api("/health/ai-telemetry"), {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setModels(res.data.models);
+        setAuditLogs(res.data.auditLogs);
+      } catch (err) {
+        toast("danger", "Failed to load AI telemetry.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (token) {
+      fetchTelemetry();
+      const interval = setInterval(fetchTelemetry, 15000); // Live refresh every 15s
+      return () => clearInterval(interval);
     }
-  ]);
+  }, [token]);
 
 
 
