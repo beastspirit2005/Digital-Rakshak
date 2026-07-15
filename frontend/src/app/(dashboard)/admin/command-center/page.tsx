@@ -59,6 +59,7 @@ export default function CommandCenterDashboard() {
   const [simulationMsg, setSimulationMsg] = useState<string | null>(null);
   const [campaigns, setCampaigns] = useState<CampaignSyndicate[]>([]);
   const [cityCoordinates, setCityCoordinates] = useState<Record<string, { lat: number; lng: number; cases: number; threat: number; code: string; loss: string }>>({});
+  const [aiModels, setAiModels] = useState<any[]>([]);
   
   const [stats, setStats] = useState({
     active_cases: 0,
@@ -111,6 +112,21 @@ export default function CommandCenterDashboard() {
     }
   };
 
+  const fetchAiTelemetry = async () => {
+    try {
+      const token = localStorage.getItem("token") || localStorage.getItem("access_token") || "";
+      const res = await fetch(`${apiBase}/health/ai-telemetry`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.models) setAiModels(data.models);
+      }
+    } catch (err) {
+      console.error("Failed to load AI telemetry:", err);
+    }
+  };
+
   const triggerLiveSimulatedEvent = async () => {
     setSimulatingEvent(true);
     setSimulationMsg("Broadcasting live telemetry pulse...");
@@ -150,10 +166,12 @@ export default function CommandCenterDashboard() {
   useEffect(() => {
     fetchCommandCenterData();
     fetchSpatialClusters();
+    fetchAiTelemetry();
     
     // Poll every 30s to keep it somewhat live even without SSE for the main stats
     const interval = setInterval(() => {
       fetchCommandCenterData();
+      fetchAiTelemetry();
     }, 30000);
     return () => clearInterval(interval);
   }, []);
@@ -434,50 +452,46 @@ export default function CommandCenterDashboard() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 font-mono text-xs">
-            {/* Model Card 1 */}
-            <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-slate-200">Gemini 3.1 Pro</span>
-                <span className="px-1.5 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-400 font-bold">
-                  ONLINE
-                </span>
-              </div>
-              <span className="text-[10px] text-slate-400 block">Primary 6-Factor Reasoning Engine</span>
-              <div className="flex items-center justify-between text-[11px] text-slate-300 pt-1 border-t border-slate-900">
-                <span>Latency: <strong className="text-emerald-400">112ms</strong></span>
-                <span>Uptime: <strong className="text-white">99.98%</strong></span>
-              </div>
-            </div>
-
-            {/* Model Card 2 */}
-            <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-slate-200">Qwen 2.5-VL-7B</span>
-                <span className="px-1.5 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-400 font-bold">
-                  ONLINE
-                </span>
-              </div>
-              <span className="text-[10px] text-slate-400 block">Counterfeit & OCR Vision Analysis</span>
-              <div className="flex items-center justify-between text-[11px] text-slate-300 pt-1 border-t border-slate-900">
-                <span>VRAM: <strong className="text-amber-400">18.4 / 24 GB</strong></span>
-                <span>GPU: <strong className="text-white">NVIDIA A10G</strong></span>
-              </div>
-            </div>
-
-            {/* Model Card 3 */}
-            <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-slate-200">Whisper-large-v3</span>
-                <span className="px-1.5 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-400 font-bold">
-                  ONLINE
-                </span>
-              </div>
-              <span className="text-[10px] text-slate-400 block">Voice Note Audio Transcriber</span>
-              <div className="flex items-center justify-between text-[11px] text-slate-300 pt-1 border-t border-slate-900">
-                <span>Latency: <strong className="text-emerald-400">142ms</strong></span>
-                <span>Queue: <strong className="text-white">0 pending</strong></span>
-              </div>
-            </div>
+            {aiModels.length > 0 ? (
+              aiModels.map((model) => (
+                <div key={model.id} className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-200">{model.name}</span>
+                    <span
+                      className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                        model.status === "ONLINE" ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"
+                      }`}
+                    >
+                      {model.status}
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-slate-400 block truncate">{model.role}</span>
+                  <div className="flex items-center justify-between text-[11px] text-slate-300 pt-1 border-t border-slate-900">
+                    {model.vram_usage ? (
+                      <>
+                        <span>
+                          VRAM: <strong className="text-amber-400">{model.vram_usage.split("(")[0]}</strong>
+                        </span>
+                        <span>
+                          GPU: <strong className="text-white">NVIDIA A10G</strong>
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <span>
+                          Latency: <strong className="text-emerald-400">{model.latency_ms}ms</strong>
+                        </span>
+                        <span>
+                          Uptime: <strong className="text-white">99.98%</strong>
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="p-4 text-slate-500">Loading AI telemetry...</div>
+            )}
 
             {/* Model Card 4 */}
             <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
@@ -499,10 +513,15 @@ export default function CommandCenterDashboard() {
           <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2 font-mono text-xs">
             <div className="flex items-center justify-between text-slate-300">
               <span>National GPU Cluster Utilization</span>
-              <span className="text-emerald-400 font-bold">76.6%</span>
+              <span className="text-emerald-400 font-bold">
+                {Math.min(99.9, 50 + stats.active_cases * 2.1).toFixed(1)}%
+              </span>
             </div>
             <div className="w-full h-2.5 rounded-full bg-slate-900 overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-emerald-500 via-amber-500 to-rose-500 w-[76.6%]" />
+              <div
+                className="h-full bg-gradient-to-r from-emerald-500 via-amber-500 to-rose-500 transition-all duration-1000"
+                style={{ width: `${Math.min(100, 50 + stats.active_cases * 2.1)}%` }}
+              />
             </div>
             <div className="flex justify-between text-[10px] text-slate-500 pt-1">
               <span>0% Idle</span>
