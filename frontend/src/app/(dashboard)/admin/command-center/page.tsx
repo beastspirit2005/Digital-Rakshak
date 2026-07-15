@@ -57,70 +57,46 @@ export default function CommandCenterDashboard() {
   const [loadingClusters, setLoadingClusters] = useState<boolean>(true);
   const [simulatingEvent, setSimulatingEvent] = useState<boolean>(false);
   const [simulationMsg, setSimulationMsg] = useState<string | null>(null);
+  const [campaigns, setCampaigns] = useState<CampaignSyndicate[]>([]);
+  const [cityCoordinates, setCityCoordinates] = useState<Record<string, { lat: number; lng: number; cases: number; threat: number; code: string; loss: string }>>({});
+  
   const [stats, setStats] = useState({
-    active_cases: 142,
-    takedowns_executed: 38,
-    avg_latency_ms: 142,
-    syndicates_tracked: 14
+    active_cases: 0,
+    takedowns_executed: 0,
+    avg_latency_ms: 0,
+    syndicates_tracked: 0
   });
 
   const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/v1";
 
-  const campaigns: CampaignSyndicate[] = [
-    {
-      id: "synd-1",
-      code: "SYND-2026-IND-84",
-      name: "TRAI / Cyber Police Digital Arrest Ring",
-      hub: "Delhi - Jaipur Highway Hub",
-      linked_cases: 24,
-      financial_exposure: "₹1.42 Cr",
-      risk_level: "CRITICAL",
-      status: "ACTIVE"
-    },
-    {
-      id: "synd-2",
-      code: "SYND-2026-IND-21",
-      name: "Fake Institutional IPO Trading App Network",
-      hub: "Mumbai - Pune Financial Corridor",
-      linked_cases: 18,
-      financial_exposure: "₹84.5 Lakhs",
-      risk_level: "CRITICAL",
-      status: "ACTIVE"
-    },
-    {
-      id: "synd-3",
-      code: "SYND-2026-IND-55",
-      name: "Counterfeit ₹500 Currency Circulation Hub",
-      hub: "Kolkata - Border Transit Vector",
-      linked_cases: 9,
-      financial_exposure: "₹22.0 Lakhs",
-      risk_level: "HIGH",
-      status: "CONTAINED"
-    },
-    {
-      id: "synd-4",
-      code: "SYND-2026-IND-12",
-      name: "AI Deepfake Video Call Extortion Ring",
-      hub: "Bengaluru IT Corridor Node",
-      linked_cases: 15,
-      financial_exposure: "₹51.2 Lakhs",
-      risk_level: "HIGH",
-      status: "ACTIVE"
+  const fetchCommandCenterData = async () => {
+    try {
+      const token = localStorage.getItem("token") || localStorage.getItem("access_token") || "";
+      const res = await fetch(`${apiBase}/analytics/command-center`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.stats) setStats(data.stats);
+        if (data.campaigns) setCampaigns(data.campaigns);
+        if (data.cityCoordinates) {
+          setCityCoordinates(data.cityCoordinates);
+          // Set default selected city to the first one available
+          const cities = Object.keys(data.cityCoordinates);
+          if (cities.length > 0 && (!selectedCity || !cities.includes(selectedCity))) {
+            setSelectedCity(cities[0]);
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch command center data:", err);
     }
-  ];
-
-  const cityCoordinates: Record<string, { lat: number; lng: number; cases: number; threat: number; code: string; loss: string }> = {
-    "Delhi NCR": { lat: 28.7041, lng: 77.1025, cases: 42, threat: 0.94, code: "DIGITAL_ARREST", loss: "₹64.2 Lakhs" },
-    "Mumbai": { lat: 19.0760, lng: 72.8777, cases: 38, threat: 0.91, code: "INVESTMENT_SCAM", loss: "₹82.1 Lakhs" },
-    "Bengaluru": { lat: 12.9716, lng: 77.5946, cases: 29, threat: 0.88, code: "AI_DEEPFAKE", loss: "₹41.5 Lakhs" },
-    "Kolkata": { lat: 22.5726, lng: 88.3639, cases: 18, threat: 0.85, code: "COUNTERFEIT_NOTE", loss: "₹18.4 Lakhs" },
-    "Hyderabad": { lat: 17.3850, lng: 78.4867, cases: 15, threat: 0.82, code: "PHISHING_URL", loss: "₹24.0 Lakhs" }
   };
 
   const fetchSpatialClusters = async () => {
     setLoadingClusters(true);
     try {
-      const token = localStorage.getItem("token") || "";
+      const token = localStorage.getItem("token") || localStorage.getItem("access_token") || "";
       const res = await fetch(`${apiBase}/cases/clusters`, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -139,7 +115,7 @@ export default function CommandCenterDashboard() {
     setSimulatingEvent(true);
     setSimulationMsg("Broadcasting live telemetry pulse...");
     try {
-      const token = localStorage.getItem("token") || "";
+      const token = localStorage.getItem("token") || localStorage.getItem("access_token") || "";
       const agents = ["ThreatAnalysisAgent", "BehaviourAgent", "CampaignAgent", "DecisionCore", "VisionAgent"];
       const randomAgent = agents[Math.floor(Math.random() * agents.length)];
       const randomScore = Number((0.85 + Math.random() * 0.14).toFixed(2));
@@ -172,7 +148,14 @@ export default function CommandCenterDashboard() {
   };
 
   useEffect(() => {
+    fetchCommandCenterData();
     fetchSpatialClusters();
+    
+    // Poll every 30s to keep it somewhat live even without SSE for the main stats
+    const interval = setInterval(() => {
+      fetchCommandCenterData();
+    }, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   return (
