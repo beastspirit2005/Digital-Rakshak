@@ -58,7 +58,7 @@ _cors_origins += [
 ]
 
 # Build origin regex: strictly match allowed Vercel preview domains if needed
-_origin_patterns = [r"^https://[a-zA-Z0-9-]+\.vercel\.app$"]
+_origin_patterns = [r"^https://[a-zA-Z0-9-]+\.vercel\.app$", r"^http://.*:3000$", r"^http://.*:3001$"]
 
 app.add_middleware(
     CORSMiddleware,
@@ -88,6 +88,10 @@ from api.v1.osint import router as osint_router
 from api.v1.support import router as support_router
 from api.v1.help_chat import router as help_chat_router
 from api.v1.mock_apis import router as mock_apis_router
+from api.v1.evidence import router as evidence_router
+from api.v1.stream_router import router as stream_router
+from api.v1.entities import router as entities_router
+from api.v1.cache_router import router as cache_router
 
 app.include_router(auth_router, prefix=f"{settings.API_V1_STR}/auth", tags=["auth"])
 app.include_router(users_router, prefix=f"{settings.API_V1_STR}/users", tags=["users"])
@@ -104,6 +108,14 @@ app.include_router(osint_router, prefix=f"{settings.API_V1_STR}/admin/osint", ta
 app.include_router(support_router, prefix=f"{settings.API_V1_STR}")
 app.include_router(help_chat_router, prefix=f"{settings.API_V1_STR}/help")
 app.include_router(mock_apis_router, prefix=f"{settings.API_V1_STR}/mock-apis", tags=["mock_apis"])
+app.include_router(evidence_router, prefix=f"{settings.API_V1_STR}")
+app.include_router(stream_router, prefix=f"{settings.API_V1_STR}")
+app.include_router(entities_router, prefix=f"{settings.API_V1_STR}")
+app.include_router(cache_router, prefix=f"{settings.API_V1_STR}")
+
+
+
+
 
 def _run_migrations_sync():
     if os.getenv("RUN_MIGRATIONS", "false").lower() != "true":

@@ -8,6 +8,7 @@ import enum
 class TicketStatus(str, enum.Enum):
     OPEN = "open"
     IN_PROGRESS = "in_progress"
+    ANSWERED = "answered"
     LIVE_CHAT = "live_chat"
     CLOSED = "closed"
 
@@ -16,7 +17,7 @@ class SupportTicket(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
     ticket_number = Column(String, unique=True, nullable=False, index=True)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     
     subject = Column(String, nullable=False)
     message = Column(Text, nullable=False)

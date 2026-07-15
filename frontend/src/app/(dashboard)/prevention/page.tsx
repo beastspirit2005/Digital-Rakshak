@@ -86,12 +86,10 @@ export default function PreventionSuite() {
     setLoading(true);
     setResult(null);
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api/v1";
-
       if (activeTab === "qr" && selectedFile) {
         const formData = new FormData();
         formData.append("file", selectedFile);
-        const res = await axios.post(`${apiUrl}/scan/qr`, formData);
+        const res = await axios.post(api("/scan/qr"), formData);
         setResult({
           safe: res.data.is_safe,
           confidence: 0.95,
@@ -100,7 +98,7 @@ export default function PreventionSuite() {
       } else if (activeTab === "apk" && selectedFile) {
         const formData = new FormData();
         formData.append("file", selectedFile);
-        const res = await axios.post(`${apiUrl}/scan/apk`, formData, {
+        const res = await axios.post(api("/scan/apk"), formData, {
           headers: { "Content-Type": "multipart/form-data" }
         });
         setResult({

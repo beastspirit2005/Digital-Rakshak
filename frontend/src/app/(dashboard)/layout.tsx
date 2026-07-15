@@ -26,6 +26,7 @@ import {
   LifeBuoy,
   MoreHorizontal,
   X,
+  Eye,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -41,6 +42,7 @@ const adminSections = [
     label: "Admin",
     items: [
       { name: "Admin dashboard", short: "Admin", href: "/admin", icon: Activity },
+      { name: "Tactical command center", short: "Command", href: "/admin/command-center", icon: Siren },
       { name: "Users", short: "Users", href: "/admin/users", icon: Users },
       { name: "Reports", short: "Reports", href: "/admin/reports", icon: FileText },
       { name: "Approvals", short: "Approvals", href: "/admin/approvals", icon: CheckSquare },
@@ -57,6 +59,7 @@ const adminSections = [
       { name: "Case register", short: "Cases", href: "/workbench/reports", icon: FileText },
       { name: "Spatial map", short: "Map", href: "/workbench/map", icon: Map },
       { name: "Graph explorer", short: "Graph", href: "/workbench/graph", icon: Network },
+      { name: "Counterfeit hub", short: "Counterfeit", href: "/workbench/counterfeit", icon: Eye },
       { name: "AI co-pilot", short: "Co-pilot", href: "/copilot", icon: Bot },
       { name: "Help & support", short: "Help", href: "/help", icon: LifeBuoy },
     ],

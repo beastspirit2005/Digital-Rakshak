@@ -1,5 +1,6 @@
 from neo4j import AsyncGraphDatabase
 import logging
+import re
 from core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -38,21 +39,35 @@ class IntelligenceGraph:
             await cls._driver.close()
             cls._driver = None
 
+    @staticmethod
+    def _sanitize_label(label: str, default: str = "Entity") -> str:
+        if not label or not isinstance(label, str) or not re.match(r'^[A-Za-z][A-Za-z0-9_]*$', label):
+            return default
+        return label
+
+    @staticmethod
+    def _sanitize_relation(relation: str, default: str = "INVOLVES") -> str:
+        if not relation or not isinstance(relation, str) or not re.match(r'^[A-Z][A-Z0-9_]*$', relation):
+            return default
+        return relation
+
     async def add_case_entity_link(self, case_id: str, entity_type: str, entity_value: str, relation: str = "INVOLVES"):
         """
         Links a Case node to an Entity node (e.g. PhoneNumber).
         Creates nodes if they don't exist.
         """
+        safe_type = self._sanitize_label(entity_type)
+        safe_relation = self._sanitize_relation(relation)
         query = f"""
         MERGE (c:Case {{id: $case_id}})
-        MERGE (e:{entity_type} {{value: $entity_value}})
-        MERGE (c)-[:{relation}]->(e)
+        MERGE (e:{safe_type} {{value: $entity_value}})
+        MERGE (c)-[:{safe_relation}]->(e)
         RETURN c, e
         """
         async with self.driver.session() as session:
             try:
                 await session.run(query, case_id=case_id, entity_value=entity_value)
-                logger.info(f"Created link from Case {case_id} to {entity_type} {entity_value}")
+                logger.info(f"Created link from Case {case_id} to {safe_type} {entity_value}")
             except Exception as e:
                 logger.error(f"Neo4j Error creating link: {e}")
 
@@ -60,8 +75,9 @@ class IntelligenceGraph:
         """
         Finds all cases connected to a specific entity. Used for campaign correlation.
         """
+        safe_type = self._sanitize_label(entity_type)
         query = f"""
-        MATCH (c:Case)-[]->(e:{entity_type} {{value: $entity_value}})
+        MATCH (c:Case)-[]->(e:{safe_type} {{value: $entity_value}})
         RETURN c.id as case_id
         """
         async with self.driver.session() as session:
@@ -117,8 +133,9 @@ class IntelligenceGraph:
         Marks an entity as a known threat from an OSINT source.
         Adds the :ThreatIntel label to it.
         """
+        safe_type = self._sanitize_label(entity_type)
         query = f"""
-        MERGE (e:{entity_type} {{value: $entity_value}})
+        MERGE (e:{safe_type} {{value: $entity_value}})
         SET e:ThreatIntel
         SET e.osint_source = $source
         SET e.threat_type = $threat_type
@@ -127,7 +144,7 @@ class IntelligenceGraph:
         async with self.driver.session() as session:
             try:
                 await session.run(query, entity_value=entity_value, source=source, threat_type=threat_type)
-                logger.info(f"OSINT ThreatIntel added: {entity_type} {entity_value} ({threat_type})")
+                logger.info(f"OSINT ThreatIntel added: {safe_type} {entity_value} ({threat_type})")
             except Exception as e:
                 logger.error(f"Neo4j Error adding OSINT entity: {e}")
 

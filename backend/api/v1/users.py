@@ -47,11 +47,14 @@ router = APIRouter()
 @limiter.limit("60/minute")
 async def get_users(request: Request, skip: int = 0, limit: int = 50, full_name: Optional[str] = None, email: Optional[str] = None, role: Optional[str] = None, db: AsyncSession = Depends(get_db), admin: User = Depends(get_current_admin)):
     """List all users (Admin only)"""
+    limit = min(max(1, limit), 100)
     query = select(User)
     if full_name:
-        query = query.where(User.full_name.ilike(f"%{full_name}%"))
+        escaped_name = full_name.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        query = query.where(User.full_name.ilike(f"%{escaped_name}%"))
     if email:
-        query = query.where(User.email.ilike(f"%{email}%"))
+        escaped_email = email.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        query = query.where(User.email.ilike(f"%{escaped_email}%"))
     if role:
         query = query.where(User.role == role)
         
@@ -72,7 +75,15 @@ async def get_users(request: Request, skip: int = 0, limit: int = 50, full_name:
 @router.get("/me")
 async def get_me(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     """Get the current logged-in user profile"""
-    return user
+    return {
+        "id": str(user.id),
+        "email": user.email,
+        "full_name": user.full_name,
+        "role": user.role,
+        "is_active": user.is_active,
+        "is_approved": user.is_approved,
+        "created_at": user.created_at
+    }
 
 
 @router.get("/pending")

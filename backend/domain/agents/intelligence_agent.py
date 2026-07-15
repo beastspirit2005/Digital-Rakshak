@@ -36,16 +36,22 @@ class IntelligenceAgent(BaseAgent):
         
         try:
             from infrastructure.graph.neo4j_client import IntelligenceGraph
+            from infrastructure.repositories.entity_repository import EntityRepository
             graph = IntelligenceGraph()
+            repo = EntityRepository()
             
             for phone in entities.get("PHONE", []):
                 await graph.add_case_entity_link(case_number, "PhoneNumber", str(phone))
+                await repo.store_entity(case_number, "PHONE", str(phone))
             for url in entities.get("URLS", []):
                 await graph.add_case_entity_link(case_number, "URL", str(url))
+                await repo.store_entity(case_number, "URL", str(url))
             for upi in entities.get("UPI", []):
                 await graph.add_case_entity_link(case_number, "UPI_ID", str(upi))
+                await repo.store_entity(case_number, "UPI", str(upi))
             for ifsc in entities.get("IFSC", []):
                 await graph.add_case_entity_link(case_number, "BankAccount", str(ifsc)) # Basic mock for IFSC
+                await repo.store_entity(case_number, "BANK_ACCOUNT", str(ifsc))
                 
         except Exception as graph_err:
             print(f"Failed to link entities in Neo4j via IntelligenceAgent: {graph_err}")

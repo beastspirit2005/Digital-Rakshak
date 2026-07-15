@@ -115,11 +115,15 @@ async def transcribe_audio(file: UploadFile = File(...), user: User = Depends(ge
         transcription = await whisper.execute(file_path)
         return transcription
     finally:
-        try:
-            if os.path.exists(file_path):
-                os.remove(file_path)
-        except:
-            pass
+        for _ in range(3):
+            try:
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+                break
+            except PermissionError:
+                await asyncio.sleep(0.1)
+            except Exception:
+                break
 
 from pydantic import BaseModel
 

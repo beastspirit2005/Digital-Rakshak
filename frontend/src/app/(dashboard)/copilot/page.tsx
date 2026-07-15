@@ -43,13 +43,13 @@ export default function CopilotPage() {
           setIsLocating(false);
         },
         () => {
-  setLocation(null);
-  setIsLocating(false);
-  toast(
-    "danger",
-    "Location access is unavailable. The report will be submitted without GPS coordinates."
-  );
-},
+          setLocation(null);
+          setIsLocating(false);
+          toast(
+            "danger",
+            "Location access is unavailable. The report will be submitted without GPS coordinates."
+          );
+        },
         { enableHighAccuracy: true, timeout: 5000 }
       );
     } else {

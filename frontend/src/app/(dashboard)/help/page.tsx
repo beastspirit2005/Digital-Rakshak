@@ -26,6 +26,7 @@ export default function HelpPage() {
   const [inputMsg, setInputMsg] = useState("");
   const [isAiTyping, setIsAiTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const chatAbortControllerRef = useRef<AbortController | null>(null);
 
   // --- Ticket State ---
   const [subject, setSubject] = useState("");
@@ -139,23 +140,39 @@ export default function HelpPage() {
     const newUserMsg: ChatMessage = { id: `temp-${crypto.randomUUID()}`, type: "user", content, timestamp: new Date() };
     setMessages(prev => [...prev, newUserMsg]);
     
+    if (chatAbortControllerRef.current) {
+      chatAbortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    chatAbortControllerRef.current = controller;
+    
     try {
       const res = await axios.post(api("/help/chat"), {
          session_id: user.id,
          message: content,
          role: user.role,
          model: forceLocal ? selectedModel : undefined
-      }, { headers: { Authorization: `Bearer ${token}` } });
+      }, { 
+         headers: { Authorization: `Bearer ${token}` },
+         signal: controller.signal
+      });
       
       const reply = res.data.reply;
       setIsAiTyping(false);
+      chatAbortControllerRef.current = null;
       
       // We rely on polling to fetch the AI reply. However, we immediately fetch it to reduce latency.
       await fetchMessages();
       
-    } catch (e) {
+    } catch (e: any) {
+      if (axios.isCancel(e) || e?.name === "AbortError" || e?.message === "canceled") {
+        console.log("Chat generation stopped by user.");
+        setIsAiTyping(false);
+        return;
+      }
       console.error(e);
       setIsAiTyping(false);
+      chatAbortControllerRef.current = null;
       setMessages(prev => [...prev, { id: `temp-${crypto.randomUUID()}`, type: "system", content: "Failed to send message.", timestamp: new Date() }]);
     }
   };
@@ -172,6 +189,10 @@ export default function HelpPage() {
   };
 
   const stopChat = () => {
+    if (chatAbortControllerRef.current) {
+      chatAbortControllerRef.current.abort();
+      chatAbortControllerRef.current = null;
+    }
     setIsAiTyping(false);
   };
 

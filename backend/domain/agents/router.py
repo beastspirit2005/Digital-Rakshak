@@ -163,5 +163,24 @@ class RAICDecisionCore:
             "six_dim_score": six_dim_score
         }
 
+    async def execute(self, prompt: str, context: Dict[str, Any] = None, ai_mode: str = "auto") -> Dict[str, Any]:
+        """
+        Executes a single-agent reasoning prompt through the configured AI engine (local Ollama or cloud Groq).
+        Ensures compatibility with specialized agent modules (KnowledgeAgent, TimelineAgent, etc.).
+        """
+        if context is None:
+            context = {}
+            
+        from core.config import settings
+        resolved_ai_mode = ai_mode
+        if resolved_ai_mode == "auto":
+            resolved_ai_mode = settings.DEFAULT_AI_MODE
+            
+        if resolved_ai_mode == "groq":
+            from infrastructure.ai.groq_client import GroqClient
+            return await GroqClient().analyze(prompt=prompt, context=context)
+        else:
+            return await self.ollama.analyze(prompt=prompt, context=context)
+
 # Backward-compat alias — several agent modules still import this name.
 AIRouter = RAICDecisionCore

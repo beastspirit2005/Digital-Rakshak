@@ -30,6 +30,12 @@ async def send_email(to_email: str, subject: str, body: str, is_html: bool = Fal
         )
         logger.info(f"Email sent successfully to {to_email}")
         return True
+    except aiosmtplib.errors.SMTPAuthenticationError as auth_err:
+        logger.error(f"SMTP Authentication failed for {settings.SMTP_USER}: {auth_err}")
+        return False
+    except aiosmtplib.errors.SMTPTimeoutError as timeout_err:
+        logger.error(f"SMTP Timeout connecting to {settings.SMTP_HOST}:{settings.SMTP_PORT}: {timeout_err}")
+        return False
     except Exception as e:
         logger.error(f"Failed to send email to {to_email}: {str(e)}")
         return False

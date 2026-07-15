@@ -16,7 +16,7 @@ class HelpMessage(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
     session_id = Column(String, nullable=False, index=True)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True) # Optional, can be unauthenticated or anonymous
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True) # Optional, can be unauthenticated or anonymous
     role = Column(String, default=HelpMessageRole.USER.value, nullable=False)
     content = Column(Text, nullable=False)
     

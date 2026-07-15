@@ -6,8 +6,7 @@ from sqlalchemy.orm import relationship
 from infrastructure.db.session import Base
 import enum
 from core.config import settings
-
-
+from infrastructure.security.encryption import get_master_encryption_key
 from sqlalchemy_utils import StringEncryptedType
 from sqlalchemy_utils.types.encrypted.encrypted_type import AesEngine
 import os
@@ -41,8 +40,8 @@ class Case(Base):
     assigned_phone = Column(String, nullable=True)
     
     # Encrypted Victim Contact Info
-    victim_phone = Column(StringEncryptedType(String, lambda: settings.LOCAL_FILE_ENCRYPTION_KEY, AesEngine, 'pkcs5'), nullable=True)
-    victim_address = Column(StringEncryptedType(String, lambda: settings.LOCAL_FILE_ENCRYPTION_KEY, AesEngine, 'pkcs5'), nullable=True)
+    victim_phone = Column(StringEncryptedType(String, lambda: get_master_encryption_key(), AesEngine, 'pkcs5'), nullable=True)
+    victim_address = Column(StringEncryptedType(String, lambda: get_master_encryption_key(), AesEngine, 'pkcs5'), nullable=True)
     
     # Core content
     scam_text = Column(Text, nullable=False)

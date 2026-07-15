@@ -17,7 +17,7 @@ class RakshakCoreClient:
     """
     def __init__(self, model_version="1.0"):
         self.version = model_version
-        self.device = torch.device("cpu") if ML_AVAILABLE else "cpu"
+        self.device = torch.device("cpu") if (ML_AVAILABLE and 'torch' in globals()) else "cpu"
         self.model_dir = os.path.join(os.path.dirname(__file__), "..", "..", "models", "rakshak-core", f"v{model_version}")
         self.tokenizer = None
         self.model = None
@@ -26,6 +26,9 @@ class RakshakCoreClient:
         self.temperature = 1.5 # Temperature scaling factor for confidence calibration
 
     def load_model(self):
+        if not ML_AVAILABLE or 'torch' not in globals():
+            print("Lite Mode active: skipping local PyTorch model load.")
+            return False
         if not os.path.exists(self.model_dir):
             print(f"Warning: Model directory {self.model_dir} not found. Ensure train_model.py has been run.")
             return False
@@ -160,7 +163,7 @@ class RakshakVoiceClient:
         try:
             from faster_whisper import WhisperModel
             # Load in FP16 for maximum GPU speed
-            has_cuda = ML_AVAILABLE and torch.cuda.is_available()
+            has_cuda = ML_AVAILABLE and 'torch' in globals() and torch.cuda.is_available()
             self.model = WhisperModel("small", device="cuda" if has_cuda else "cpu", compute_type="float16")
             return True
         except Exception as e:
@@ -184,7 +187,7 @@ class RakshakVisionClient:
     def load_model(self):
         try:
             import easyocr
-            has_cuda = ML_AVAILABLE and torch.cuda.is_available()
+            has_cuda = ML_AVAILABLE and 'torch' in globals() and torch.cuda.is_available()
             self.reader = easyocr.Reader(['en', 'hi'], gpu=has_cuda)
             
             # Load PyTorch Fake Currency classifier (MobileNet/ResNet)

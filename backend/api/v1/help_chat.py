@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from pydantic import BaseModel
 from typing import List, Optional
 import json
@@ -14,11 +16,12 @@ from domain.models.settings import PlatformSettings
 from domain.models.help_message import HelpMessage, HelpMessageRole
 from domain.models.support import SupportTicket, TicketStatus
 from domain.models.user import User
-from api.deps import get_current_user, get_current_user_allow_unapproved
+from api.deps import get_current_user, get_current_user_allow_unapproved, get_current_user_optional
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+limiter = Limiter(key_func=get_remote_address)
 
 class HelpChatRequest(BaseModel):
     session_id: str
@@ -75,10 +78,13 @@ async def get_chat_settings(db: AsyncSession = Depends(get_db)):
     return {"force_local_inference": force_local}
 
 @router.post("/chat")
+@limiter.limit("20/minute")
 async def chat_endpoint(
+    request: Request,
     req: HelpChatRequest,
     background_tasks: BackgroundTasks,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    user: Optional[User] = Depends(get_current_user_optional)
 ):
     """
     Standard AI Chat endpoint (no streaming to keep Supabase Realtime simple).
@@ -97,6 +103,7 @@ async def chat_endpoint(
     # 1. Save User Message
     user_msg = HelpMessage(
         session_id=req.session_id,
+        user_id=user.id if user else None,
         role=HelpMessageRole.USER.value,
         content=req.message
     )
@@ -159,7 +166,7 @@ async def chat_endpoint(
                         full_reply = "Sorry, I couldn't generate a response. Please try again."
                 except Exception as ollama_err:
                     logger.error(f"Ollama error: {ollama_err}")
-                    full_reply = "Local inference service is unavailable. Falling back to cloud..."
+                    full_reply = ""  # Clear so cloud fallback triggers below
                     force_local = False  # Fallback to Groq
             
             # Cloud fallback
@@ -259,8 +266,8 @@ async def escalate_endpoint(
     import uuid
     new_ticket = SupportTicket(
         ticket_number=f"TKT-{uuid.uuid4().hex[:6].upper()}",
-        user_id=req.client_id,
-        subject=f"Live Chat Escalation - {req.client_id[:8]}",
+        user_id=client_uuid,
+        subject=f"Live Chat Escalation - {str(client_uuid)[:8]}",
         message="This ticket was automatically generated from a live chat escalation.",
         chat_session_ref=req.session_id,
         status="LIVE_CHAT",
@@ -272,9 +279,12 @@ async def escalate_endpoint(
     return {"status": "escalated", "ticket_number": new_ticket.ticket_number}
 
 @router.get("/messages/{session_id}")
+@limiter.limit("60/minute")
 async def get_citizen_messages(
+    request: Request,
     session_id: str,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    user: Optional[User] = Depends(get_current_user_optional)
 ):
     """Returns all messages for a citizen's help chat session."""
     result = await db.execute(
