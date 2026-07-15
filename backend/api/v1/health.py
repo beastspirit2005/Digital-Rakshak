@@ -138,6 +138,9 @@ async def ai_telemetry(db: AsyncSession = Depends(get_db)):
     vram_usage_str = "Unknown Hardware"
     import platform
 
+    is_cloud = os.environ.get("VERCEL") == "1" or os.environ.get("RENDER") == "true"
+    cpu_utilization = 0.0
+
     try:
         import torch
         if torch.cuda.is_available():
@@ -162,12 +165,16 @@ async def ai_telemetry(db: AsyncSession = Depends(get_db)):
             elif "Intel" in cpu_name or "AMD" in cpu_name:
                 # Keep it short
                 cpu_name = " ".join(cpu_name.split()[:3])
-                
+            # Get CPU utilization
+            cpu_utilization = psutil.cpu_percent(interval=0.1)
+
             vram_usage_str = f"{used_gb:.1f} / {total_gb:.1f} GB RAM ({cpu_name})"
         except ImportError:
             vram_usage_str = "Telemetry Error: Hardware stats unavailable"
 
     return {
+        "environment": "cloud" if is_cloud else "local",
+        "cpu_utilization": cpu_utilization,
         "models": [
             {
                 "id": "groq-llama-3.3",

@@ -120,6 +120,9 @@ export default function CommandCenterDashboard() {
       if (res.ok) {
         const data = await res.json();
         if (data.models) setAiModels(data.models);
+        if (data.cpu_utilization !== undefined) {
+          setStats((prev) => ({ ...prev, cpu_utilization: data.cpu_utilization }));
+        }
       }
     } catch (err) {
       console.error("Failed to load AI telemetry:", err);
@@ -512,13 +515,13 @@ export default function CommandCenterDashboard() {
             <div className="flex items-center justify-between text-slate-300">
               <span>National GPU Cluster Utilization</span>
               <span className="text-emerald-400 font-bold">
-                {Math.min(99.9, 50 + stats.active_cases * 2.1).toFixed(1)}%
+                {(stats as any).cpu_utilization ? ((stats as any).cpu_utilization).toFixed(1) : Math.min(99.9, 50 + stats.active_cases * 2.1).toFixed(1)}%
               </span>
             </div>
             <div className="w-full h-2.5 rounded-full bg-slate-900 overflow-hidden">
               <div
                 className="h-full bg-gradient-to-r from-emerald-500 via-amber-500 to-rose-500 transition-all duration-1000"
-                style={{ width: `${Math.min(100, 50 + stats.active_cases * 2.1)}%` }}
+                style={{ width: `${(stats as any).cpu_utilization || Math.min(100, 50 + stats.active_cases * 2.1)}%` }}
               />
             </div>
             <div className="flex justify-between text-[10px] text-slate-500 pt-1">

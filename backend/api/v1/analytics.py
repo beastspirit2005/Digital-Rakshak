@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, cast, Date
+from sqlalchemy import select, func, cast, Date, desc
 from infrastructure.db.session import get_db
 from api.deps import get_current_user, get_current_admin
 from domain.models.user import User
@@ -129,13 +129,33 @@ async def get_command_center_telemetry(db: AsyncSession = Depends(get_db), user:
             code = f"SYND-26-IND-{str(hash(entity_val))[-3:]}"
             name = f"{entity_type} Threat Ring ({entity_val[:6]}...)"
             
+            # Query Postgres to get the real financial loss and primary hub
+            hub_name = "Unknown Origin"
+            total_loss = 0.0
+            if case_ids:
+                stats_query = await db.execute(
+                    select(func.sum(Case.estimated_amount)).where(Case.id.in_(case_ids))
+                )
+                total_loss = stats_query.scalar() or 0.0
+                
+                city_query = await db.execute(
+                    select(Case.city, func.count(Case.id).label('c'))
+                    .where(Case.id.in_(case_ids), Case.city.isnot(None))
+                    .group_by(Case.city)
+                    .order_by(desc('c'))
+                    .limit(1)
+                )
+                top_city = city_query.first()
+                if top_city:
+                    hub_name = f"{top_city[0]} Hub"
+            
             campaigns.append({
                 "id": f"synd-{idx}",
                 "code": code,
                 "name": name,
-                "hub": "Cross-Border Transit Vector" if idx % 2 == 0 else "Domestic Phishing Node",
+                "hub": hub_name,
                 "linked_cases": len(case_ids),
-                "financial_exposure": f"₹{len(case_ids) * 3.5:.1f} Lakhs",
+                "financial_exposure": f"₹{total_loss / 100000:.2f} Lakhs" if total_loss > 0 else "₹0.0 Lakhs",
                 "risk_level": "CRITICAL" if len(case_ids) > 3 else "HIGH",
                 "status": "ACTIVE"
             })
@@ -152,7 +172,8 @@ async def get_command_center_telemetry(db: AsyncSession = Depends(get_db), user:
             func.avg(Case.latitude), 
             func.avg(Case.longitude), 
             func.count(Case.id),
-            func.max(Case.scam_type_code)
+            func.max(Case.scam_type_code),
+            func.sum(Case.estimated_amount)
         )
         .where(Case.city.isnot(None), Case.latitude.isnot(None), Case.longitude.isnot(None))
         .group_by(Case.city)
@@ -160,7 +181,8 @@ async def get_command_center_telemetry(db: AsyncSession = Depends(get_db), user:
     
     city_rows = city_query.all()
     for row in city_rows:
-        city_name, lat, lng, count, scam_code = row
+        city_name, lat, lng, count, scam_code, total_amount = row
+        actual_loss = total_amount or 0.0
         if city_name and lat and lng:
             city_coordinates[city_name] = {
                 "lat": lat,
@@ -168,7 +190,7 @@ async def get_command_center_telemetry(db: AsyncSession = Depends(get_db), user:
                 "cases": count,
                 "threat": 0.95 if count > 5 else 0.82,
                 "code": scam_code or "PHISHING",
-                "loss": f"₹{count * 2.1:.1f} Lakhs"
+                "loss": f"₹{actual_loss / 100000:.2f} Lakhs" if actual_loss > 0 else "₹0.0 Lakhs"
             }
             
     if not city_coordinates:
