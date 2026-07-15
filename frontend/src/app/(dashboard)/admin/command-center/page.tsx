@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { useAuthStore } from "@/lib/auth-store";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Siren,
@@ -51,6 +52,7 @@ interface CampaignSyndicate {
 }
 
 export default function CommandCenterDashboard() {
+  const { token } = useAuthStore();
   const router = useRouter();
   const [clusters, setClusters] = useState<SpatialCluster[]>([]);
   const [selectedCity, setSelectedCity] = useState<string | null>("Delhi NCR");
@@ -72,7 +74,6 @@ export default function CommandCenterDashboard() {
 
   const fetchCommandCenterData = async () => {
     try {
-      const token = localStorage.getItem("token") || localStorage.getItem("access_token") || "";
       const res = await fetch(`${apiBase}/analytics/command-center`, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -97,7 +98,6 @@ export default function CommandCenterDashboard() {
   const fetchSpatialClusters = async () => {
     setLoadingClusters(true);
     try {
-      const token = localStorage.getItem("token") || localStorage.getItem("access_token") || "";
       const res = await fetch(`${apiBase}/cases/clusters`, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -114,7 +114,6 @@ export default function CommandCenterDashboard() {
 
   const fetchAiTelemetry = async () => {
     try {
-      const token = localStorage.getItem("token") || localStorage.getItem("access_token") || "";
       const res = await fetch(`${apiBase}/health/ai-telemetry`, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -131,7 +130,6 @@ export default function CommandCenterDashboard() {
     setSimulatingEvent(true);
     setSimulationMsg("Broadcasting live telemetry pulse...");
     try {
-      const token = localStorage.getItem("token") || localStorage.getItem("access_token") || "";
       const agents = ["ThreatAnalysisAgent", "BehaviourAgent", "CampaignAgent", "DecisionCore", "VisionAgent"];
       const randomAgent = agents[Math.floor(Math.random() * agents.length)];
       const randomScore = Number((0.85 + Math.random() * 0.14).toFixed(2));

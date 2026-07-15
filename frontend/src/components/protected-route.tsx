@@ -42,11 +42,8 @@ export function ProtectedRoute({
   useEffect(() => {
     if (!isHydrated) {
       hydrate();
+      return;
     }
-  }, [isHydrated, hydrate]);
-
-  useEffect(() => {
-    if (!isHydrated) return;
 
     if (!isAuthenticated || !token || !user) {
       router.replace(
@@ -69,6 +66,7 @@ export function ProtectedRoute({
     allowedRoles,
     pathname,
     router,
+    hydrate,
   ]);
 
   if (!isHydrated) {

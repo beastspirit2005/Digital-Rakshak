@@ -6,6 +6,9 @@ from api.deps import get_current_user, get_current_admin
 from domain.models.user import User
 from domain.models.case import Case, CaseStatus
 from infrastructure.graph.neo4j_client import IntelligenceGraph
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
@@ -15,9 +18,9 @@ async def get_dashboard_analytics(db: AsyncSession = Depends(get_db), user: User
     Returns aggregated analytics for the National Intelligence Dashboard.
     """
     role = user.role
-    print(f"DEBUG: analytics user.role is {repr(role)}")
+    logger.debug(f"analytics user.role is {repr(role)}")
     if role not in ["admin", "police", "cyber_cell"]:
-        print(f"DEBUG: raising 403 in analytics because {repr(role)} not in allowed list")
+        logger.debug(f"raising 403 in analytics because {repr(role)} not in allowed list")
         raise HTTPException(status_code=403, detail="Unauthorized")
 
     # 1. High-level stats
@@ -104,8 +107,7 @@ async def get_command_center_telemetry(db: AsyncSession = Depends(get_db), user:
     takedowns_executed = takedowns_query.scalar() or 0
     
     # 3. Avg Inference Latency
-    import random
-    avg_latency_ms = random.randint(132, 148)
+    avg_latency_ms = 0
     
     # 4. Syndicates & Neo4j Clusters
     graph = IntelligenceGraph()
@@ -139,7 +141,7 @@ async def get_command_center_telemetry(db: AsyncSession = Depends(get_db), user:
             })
             
     except Exception as e:
-        print(f"Failed to fetch neo4j clusters for command center: {e}")
+        logger.error(f"Failed to fetch neo4j clusters for command center: {e}")
     finally:
         await graph.close()
         

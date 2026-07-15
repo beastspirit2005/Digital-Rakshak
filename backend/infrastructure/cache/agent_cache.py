@@ -15,8 +15,8 @@ class AgentExecutionCache:
     """
     _instance = None
     _memory_cache: Dict[str, Dict[str, Any]] = {}
-    _hits: int = 3419 # Initial seed stats representing national cached queries today
-    _misses: int = 412
+    _hits: int = 0
+    _misses: int = 0
     _redis_client = None
 
     def __new__(cls, *args, **kwargs):
@@ -107,10 +107,8 @@ class AgentExecutionCache:
             "misses": self._misses,
             "total_requests": total,
             "hit_ratio_percent": ratio,
-            "cached_keys_count": len(self._memory_cache) + 142, # include pre-warmed signatures
-            "storage_backend": "Hybrid Memory + Redis Async Bridge",
-            "avg_cache_latency_ms": 2.4,
-            "avg_inference_saved_ms": 139.6
+            "cached_keys_count": len(self._memory_cache),
+            "storage_backend": "Hybrid Memory + Redis Async Bridge"
         }
 
     async def flush(self) -> int:

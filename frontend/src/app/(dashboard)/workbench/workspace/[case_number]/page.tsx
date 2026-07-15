@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { useAuthStore } from "@/lib/auth-store";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Shield,
@@ -69,6 +70,7 @@ interface CoCRecord {
 export default function InvestigatorWorkspacePage() {
   const params = useParams();
   const router = useRouter();
+  const { token } = useAuthStore();
   const caseNumber = typeof params?.case_number === "string" ? params.case_number : "";
 
   const [activeTab, setActiveTab] = useState<"evidence" | "dna" | "raic" | "audit">("evidence");
@@ -93,7 +95,6 @@ export default function InvestigatorWorkspacePage() {
     setLoading(true);
     setError(null);
     try {
-      const token = localStorage.getItem("access_token") || "";
       const res = await fetch(`${apiBase}/cases/${caseNumber}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -119,7 +120,6 @@ export default function InvestigatorWorkspacePage() {
 
   const fetchCocHistory = async (evId: string) => {
     try {
-      const token = localStorage.getItem("access_token") || "";
       const res = await fetch(`${apiBase}/evidence/${evId}/history`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -135,7 +135,6 @@ export default function InvestigatorWorkspacePage() {
   const verifyEvidenceIntegrity = async (evId: string) => {
     setVerifyingId(evId);
     try {
-      const token = localStorage.getItem("access_token") || "";
       const res = await fetch(`${apiBase}/evidence/${evId}/verify`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
@@ -157,7 +156,6 @@ export default function InvestigatorWorkspacePage() {
     if (!caseData) return;
     setActionStatus("Processing action...");
     try {
-      const token = localStorage.getItem("access_token") || "";
       const endpoint =
         actionType === "approve"
           ? `${apiBase}/cases/${caseData.case_number}/verify`

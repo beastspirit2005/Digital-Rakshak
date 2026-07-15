@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef } from "react";
+import { useAuthStore } from "@/lib/auth-store";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ShieldAlert,
@@ -25,6 +26,7 @@ import { RAICExecutionMonitor } from "@/components/ui/RAICExecutionMonitor";
 import { api } from "@/lib/api";
 
 export default function CounterfeitIntelligenceHubPage() {
+  const { token } = useAuthStore();
   const [analyzing, setAnalyzing] = useState<boolean>(false);
   const [analyzed, setAnalyzed] = useState<boolean>(false);
   const [advisorySent, setAdvisorySent] = useState<boolean>(false);
@@ -56,7 +58,6 @@ export default function CounterfeitIntelligenceHubPage() {
       const formData = new FormData();
       formData.append("file", selectedFile);
       
-      const token = localStorage.getItem("access_token") || "";
       const res = await fetch(api("/scan/counterfeit"), {
         method: "POST",
         headers: {

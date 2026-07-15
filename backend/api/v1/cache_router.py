@@ -18,10 +18,8 @@ async def get_performance_cache_stats(user: User = Depends(get_current_user_opti
     """
     stats = await agent_cache.get_stats()
     return {
-        "status": "OPERATIONAL_HIGH_SPEED",
+        "status": "OPERATIONAL",
         "cache_metrics": stats,
-        "parallel_engine": "asyncio.gather (4-Thread Non-Blocking Core)",
-        "throughput_capacity": "1,420 cases/min"
     }
 
 
