@@ -282,7 +282,7 @@ export default function CommandCenterDashboard() {
         </div>
 
         {/* Right 6 Columns: Geographic Threat Heatmap & Active Clusters */}
-        <div className="lg:col-span-6 bg-slate-900/70 border border-slate-800 rounded-xl p-5 flex flex-col justify-between h-[495px]">
+        <div className="lg:col-span-6 bg-slate-900/70 border border-slate-800 rounded-xl p-5 flex flex-col justify-between min-h-[495px]">
           <div>
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div className="flex items-center gap-2">
@@ -295,14 +295,14 @@ export default function CommandCenterDashboard() {
             </div>
 
             {/* Interactive India Cluster Matrix */}
-            <div className="mt-4 grid grid-cols-1 sm:grid-cols-5 gap-3">
+            <div className="mt-4 flex overflow-x-auto gap-3 pb-2 scrollbar-thin scrollbar-thumb-slate-700">
               {Object.entries(cityCoordinates).map(([city, info]) => {
                 const isSelected = selectedCity === city;
                 return (
                   <div
                     key={city}
                     onClick={() => setSelectedCity(city)}
-                    className={`p-3 rounded-xl border cursor-pointer transition-all flex flex-col justify-between ${
+                    className={`min-w-[140px] flex-shrink-0 p-3 rounded-xl border cursor-pointer transition-all flex flex-col justify-between ${
                       isSelected
                         ? "bg-rose-950/40 border-rose-500 shadow-lg scale-102"
                         : "bg-slate-950/60 border-slate-800/80 hover:border-slate-700"
@@ -326,36 +326,38 @@ export default function CommandCenterDashboard() {
           </div>
 
           {/* Selected City Deep-Dive Box */}
-          {selectedCity && cityCoordinates[selectedCity] && (
-            <div className="p-4 rounded-xl bg-slate-950 border border-rose-500/30 space-y-3 font-mono text-xs">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-rose-400 uppercase tracking-wider flex items-center gap-1.5">
-                  <MapPin className="w-4 h-4" /> Selected Cluster: {selectedCity} Surveillance Hub
-                </span>
-                <span className="px-2 py-0.5 rounded text-[10px] bg-rose-500/20 text-rose-300 font-bold">
-                  THREAT INDEX: {(cityCoordinates[selectedCity].threat * 100).toFixed(0)}%
-                </span>
+          <div className="mt-4">
+            {selectedCity && cityCoordinates[selectedCity] && (
+              <div className="p-4 rounded-xl bg-slate-950 border border-rose-500/30 space-y-3 font-mono text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-rose-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <MapPin className="w-4 h-4" /> Selected Cluster: {selectedCity} Surveillance Hub
+                  </span>
+                  <span className="px-2 py-0.5 rounded text-[10px] bg-rose-500/20 text-rose-300 font-bold">
+                    THREAT INDEX: {(cityCoordinates[selectedCity].threat * 100).toFixed(0)}%
+                  </span>
+                </div>
+                <p className="text-slate-300 text-[11px] leading-relaxed">
+                  High concentration of <strong className="text-white">{cityCoordinates[selectedCity].code}</strong> vectors
+                  targeting senior citizens and corporate executives. Correlated with 6 active UPI handles and 3 overseas SIP
+                  trunking gateways.
+                </p>
+                <div className="flex items-center justify-between pt-2 border-t border-slate-800">
+                  <span className="text-slate-400 text-[11px]">Prevented financial loss today:</span>
+                  <span className="text-emerald-400 font-bold">{cityCoordinates[selectedCity].loss}</span>
+                </div>
               </div>
-              <p className="text-slate-300 text-[11px] leading-relaxed">
-                High concentration of <strong className="text-white">{cityCoordinates[selectedCity].code}</strong> vectors
-                targeting senior citizens and corporate executives. Correlated with 6 active UPI handles and 3 overseas SIP
-                trunking gateways.
-              </p>
-              <div className="flex items-center justify-between pt-2 border-t border-slate-800">
-                <span className="text-slate-400 text-[11px]">Prevented financial loss today:</span>
-                <span className="text-emerald-400 font-bold">{cityCoordinates[selectedCity].loss}</span>
-              </div>
+            )}
+            
+            <div className="pt-3 text-right">
+              <Link
+                href="/workbench/map"
+                className="inline-flex items-center gap-1.5 text-xs font-mono text-emerald-400 hover:text-emerald-300"
+              >
+                <span>Launch Interactive MapLibre / GeoJSON Viewer</span>
+                <ArrowUpRight className="w-3.5 h-3.5" />
+              </Link>
             </div>
-          )}
-
-          <div className="pt-2 text-right">
-            <Link
-              href="/workbench/map"
-              className="inline-flex items-center gap-1.5 text-xs font-mono text-emerald-400 hover:text-emerald-300"
-            >
-              <span>Launch Interactive MapLibre / GeoJSON Viewer</span>
-              <ArrowUpRight className="w-3.5 h-3.5" />
-            </Link>
           </div>
         </div>
       </div>
