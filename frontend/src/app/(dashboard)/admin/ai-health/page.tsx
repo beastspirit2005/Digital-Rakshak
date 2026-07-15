@@ -57,17 +57,17 @@ export default function AIHealthGovernanceDashboard() {
   const toast = useToast();
   const [loading, setLoading] = useState(false);
   const [sovereignLock, setSovereignLock] = useState(false);
-  const [primaryEngine, setPrimaryEngine] = useState("gemini-3.1-pro");
+  const [primaryEngine, setPrimaryEngine] = useState("groq-llama-3.3");
 
   const [models, setModels] = useState<ModelConfig[]>([
     {
-      id: "gemini-3.1-pro",
-      name: "Gemini 3.1 Pro (Reasoning Engine)",
-      version: "v3.1-pro-exp-07",
+      id: "groq-llama-3.3",
+      name: "Groq Llama-3.3-70B-Versatile",
+      version: "llama-3.3-70b-v",
       role: "Primary RAIC 6-Factor Consensus & Deep Threat Synthesis",
       status: "ONLINE",
-      latency_ms: 112,
-      drift_index: 0.02,
+      latency_ms: 42,
+      drift_index: 0.03,
       is_active: true
     },
     {
@@ -90,16 +90,6 @@ export default function AIHealthGovernanceDashboard() {
       latency_ms: 142,
       drift_index: 0.01,
       is_active: true
-    },
-    {
-      id: "groq-llama-3.3",
-      name: "Groq Llama-3.3-70B-Versatile",
-      version: "llama-3.3-70b-v",
-      role: "High-Speed Low-Latency Phishing Triaging & Regex Fallback",
-      status: "STANDBY",
-      latency_ms: 42,
-      drift_index: 0.03,
-      is_active: false
     }
   ]);
 
