@@ -470,10 +470,10 @@ export default function CommandCenterDashboard() {
                     {model.vram_usage ? (
                       <>
                         <span>
-                          VRAM: <strong className="text-amber-400">{model.vram_usage.split("(")[0]}</strong>
+                          VRAM: <strong className="text-amber-400">{model.vram_usage.split("(")[0].trim()}</strong>
                         </span>
                         <span>
-                          GPU: <strong className="text-white">NVIDIA A10G</strong>
+                          Hardware: <strong className="text-white">{model.vram_usage.match(/\((.*?)\)/)?.[1] || "Local Node"}</strong>
                         </span>
                       </>
                     ) : (

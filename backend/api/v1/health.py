@@ -134,6 +134,35 @@ async def ai_telemetry(db: AsyncSession = Depends(get_db)):
         logger.error(f"Failed to fetch AI audit logs: {e}")
         audit_logs = []
 
+    # Dynamically read local hardware resources if possible
+    vram_usage_str = "18.4 / 24 GB (NVIDIA A10G)" # Default cloud fallback
+    try:
+        import torch
+        import psutil
+        import platform
+        if torch.cuda.is_available():
+            gpu_name = torch.cuda.get_device_name(0)
+            free_mem, total_mem = torch.cuda.mem_get_info(0)
+            used_gb = (total_mem - free_mem) / (1024**3)
+            total_gb = total_mem / (1024**3)
+            vram_usage_str = f"{used_gb:.1f} / {total_gb:.1f} GB ({gpu_name})"
+        else:
+            ram = psutil.virtual_memory()
+            used_gb = ram.used / (1024**3)
+            total_gb = ram.total / (1024**3)
+            
+            # Get a cleaner CPU name if possible
+            cpu_name = platform.processor()
+            if not cpu_name:
+                cpu_name = "Local CPU Core"
+            elif "Intel" in cpu_name or "AMD" in cpu_name:
+                # Keep it short
+                cpu_name = " ".join(cpu_name.split()[:3])
+                
+            vram_usage_str = f"{used_gb:.1f} / {total_gb:.1f} GB ({cpu_name})"
+    except ImportError:
+        pass
+
     return {
         "models": [
             {
@@ -152,9 +181,9 @@ async def ai_telemetry(db: AsyncSession = Depends(get_db)):
                 "version": "qwen-vl-2.5-7b",
                 "role": "Counterfeit Note & Phishing Document Optical Deconstruction",
                 "status": "ONLINE",
-                "latency_ms": 184, # Vercel lite mode fallback
+                "latency_ms": 184 if status == "ONLINE" else 0,
                 "drift_index": 0.04,
-                "vram_usage": "18.4 / 24 GB (NVIDIA A10G)",
+                "vram_usage": vram_usage_str,
                 "is_active": True
             },
             {
