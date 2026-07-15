@@ -664,7 +664,7 @@ export default function InvestigatorWorkspacePage() {
                     </h3>
                   </div>
                   <span className="text-xs font-mono text-slate-400">
-                    Model: <strong className="text-emerald-400">Gemini 3.1 Pro + Qwen 2.5-VL Refinement</strong>
+                    Model: <strong className="text-emerald-400">Groq Llama 3 70B + Vision Refinement</strong>
                   </span>
                 </div>
 

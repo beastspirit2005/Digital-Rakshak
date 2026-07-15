@@ -166,9 +166,8 @@ export function GlobalChatWidget() {
                   className="h-8 flex-1 rounded-control bg-surface border border-line px-2 text-xs text-ink focus:border-accent-text focus:outline-none"
                   aria-label="AI engine"
                 >
-                  <option value="groq">Groq — fast cloud</option>
-                  <option value="cloud">Gemini — cloud</option>
-                  <option value="local">Ollama — local</option>
+                  <option value="groq">Groq — cloud</option>
+                  <option value="ollama">Ollama — local</option>
                 </select>
                 {user.role === "admin" && (
                   <input

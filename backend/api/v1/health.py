@@ -134,8 +134,8 @@ async def ai_telemetry(db: AsyncSession = Depends(get_db)):
         logger.error(f"Failed to fetch AI audit logs: {e}")
         audit_logs = []
 
-    # Dynamically read local hardware resources if possible
-    vram_usage_str = "18.4 / 24 GB (NVIDIA A10G)" # Default cloud fallback
+    # Dynamically read actual hardware resources
+    vram_usage_str = "Unknown Hardware"
     try:
         import torch
         import psutil
@@ -154,14 +154,14 @@ async def ai_telemetry(db: AsyncSession = Depends(get_db)):
             # Get a cleaner CPU name if possible
             cpu_name = platform.processor()
             if not cpu_name:
-                cpu_name = "Local CPU Core"
+                cpu_name = "Cloud CPU Core"
             elif "Intel" in cpu_name or "AMD" in cpu_name:
                 # Keep it short
                 cpu_name = " ".join(cpu_name.split()[:3])
                 
-            vram_usage_str = f"{used_gb:.1f} / {total_gb:.1f} GB ({cpu_name})"
+            vram_usage_str = f"{used_gb:.1f} / {total_gb:.1f} GB RAM ({cpu_name})"
     except ImportError:
-        pass
+        vram_usage_str = "Telemetry Error: psutil missing"
 
     return {
         "models": [

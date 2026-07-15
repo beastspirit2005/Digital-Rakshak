@@ -131,7 +131,7 @@ async def chat_endpoint(
     # 3. Generate AI Response
     system_prompt = {
         "role": "system",
-        "content": "You are the Digital Rakshak AI Support Agent. Answer questions concisely and politely about reporting cyber crimes and using the platform. Do NOT mention you are an AI model like Gemini, Groq, or Ollama."
+        "content": "You are the Digital Rakshak AI Support Agent. Answer questions concisely and politely about reporting cyber crimes and using the platform. Do NOT mention you are an AI model like Groq or Ollama."
     }
     
     formatted_messages = [system_prompt] + messages
