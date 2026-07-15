@@ -50,7 +50,7 @@ export default function CopilotPage() {
             "Location access is unavailable. The report will be submitted without GPS coordinates."
           );
         },
-        { enableHighAccuracy: true, timeout: 5000 }
+        { enableHighAccuracy: true, timeout: 30000, maximumAge: 10000 }
       );
     } else {
       setIsLocating(false);
