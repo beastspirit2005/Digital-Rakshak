@@ -186,7 +186,7 @@ const sliceColor = (index: number) => chartSeries[index % chartSeries.length];
           sub="Live aggregated intelligence for policy decisions."
           actions={
             <div className="flex items-center gap-2">
-              <Badge tone="default">
+              <Badge tone="neutral">
                 Hardware: {telemetry}
               </Badge>
               <Badge tone={threatCritical ? "danger" : "warning"}>

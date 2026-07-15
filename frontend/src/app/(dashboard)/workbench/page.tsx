@@ -160,7 +160,7 @@ export default function WorkbenchDashboard() {
           sub="Case activity across your jurisdiction, past seven days."
           actions={
             <div className="flex items-center gap-2">
-              <Badge tone="default">
+              <Badge tone="neutral">
                 Hardware: {telemetry}
               </Badge>
             </div>
