@@ -8,7 +8,7 @@ export interface TabItem {
   label: React.ReactNode;
 }
 
-/** Segmented control with a sliding active indicator. */
+/** Segmented control with premium indicator sliding animations. */
 export function Segmented({
   items,
   value,
@@ -26,7 +26,7 @@ export function Segmented({
   return (
     <div
       role="tablist"
-      className={cn("inline-flex p-1 rounded-control bg-surface-2 gap-1", className)}
+      className={cn("inline-flex p-1 rounded-control bg-surface-2 border border-line/10 gap-1", className)}
     >
       {items.map((item) => {
         const active = item.id === value;
@@ -38,19 +38,19 @@ export function Segmented({
             type="button"
             onClick={() => onChange(item.id)}
             className={cn(
-              "relative flex-1 h-9 px-4 rounded-[6px] text-sm font-medium whitespace-nowrap",
-              "transition-colors duration-150",
-              active ? "text-ink" : "text-ink-2 hover:text-ink"
+              "relative flex-1 h-9 px-4.5 rounded-control text-xs font-bold uppercase tracking-wider whitespace-nowrap",
+              "transition-colors duration-150 cursor-pointer select-none",
+              active ? "text-ink" : "text-ink-3 hover:text-ink"
             )}
           >
             {active && (
               <motion.span
                 layoutId={layoutId}
                 transition={reduced ? { duration: 0 } : { type: "spring", stiffness: 500, damping: 40 }}
-                className="absolute inset-0 rounded-[6px] bg-surface shadow-card"
+                className="absolute inset-0 rounded-control bg-surface shadow-card border border-line/10"
               />
             )}
-            <span className="relative z-10 flex items-center justify-center gap-1.5">
+            <span className="relative z-10 flex items-center justify-center gap-2">
               {item.label}
             </span>
           </button>

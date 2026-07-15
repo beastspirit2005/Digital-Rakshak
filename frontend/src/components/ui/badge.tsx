@@ -3,13 +3,13 @@ import { cn } from "@/lib/utils";
 type Tone = "neutral" | "success" | "warning" | "danger" | "lilac" | "peach" | "accent";
 
 const tones: Record<Tone, string> = {
-  neutral: "bg-surface-2 text-ink-2",
-  success: "bg-success-tint text-success",
-  warning: "bg-warning-tint text-warning",
-  danger: "bg-danger-tint text-danger",
-  lilac: "bg-lilac/15 text-lilac-text",
-  peach: "bg-peach/15 text-peach-text",
-  accent: "bg-accent text-accent-ink",
+  neutral: "bg-surface-3/30 text-ink-2 border-line/10",
+  success: "bg-success-tint text-success border-success/15",
+  warning: "bg-warning-tint text-warning border-warning/15",
+  danger: "bg-danger-tint text-danger border-danger/15",
+  lilac: "bg-lilac/10 text-lilac-text border-lilac/15",
+  peach: "bg-peach/10 text-peach-text border-peach/15",
+  accent: "bg-accent/10 text-accent-text border-accent/20",
 };
 
 export function Badge({
@@ -24,7 +24,7 @@ export function Badge({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-pill px-2.5 py-0.5 text-xs font-medium whitespace-nowrap",
+        "inline-flex items-center gap-1.5 rounded-pill px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap border",
         tones[tone],
         className
       )}
@@ -44,10 +44,9 @@ const statusTone: Record<string, Tone> = {
   analyzing: "warning",
   assigned: "lilac",
   investigating: "lilac",
-  submitted: "neutral",
+  submitted: "accent",
 };
 
-/** Case/status string → tinted badge with sentence-case label. */
 export function StatusBadge({ status }: { status: string }) {
   const key = (status || "").toLowerCase();
   const label = key.replace(/_/g, " ");
@@ -63,5 +62,5 @@ const priorityTone: Record<string, Tone> = {
 
 export function PriorityBadge({ priority }: { priority: string }) {
   const key = (priority || "").toLowerCase();
-  return <Badge tone={priorityTone[key] ?? "neutral"} className="capitalize">{key || "—"}</Badge>;
+  return <Badge tone={priorityTone[key] ?? "neutral"} className="capitalize font-mono">{key || "—"}</Badge>;
 }

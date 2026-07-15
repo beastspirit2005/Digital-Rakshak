@@ -1,51 +1,94 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { useAuthStore } from "@/lib/auth-store";
-import { Loader2 } from "lucide-react";
+import { useEffect } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useAuthStore, type UserRole } from "@/lib/auth-store";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  allowedRoles?: string[];
+  allowedRoles?: UserRole[];
 }
 
-export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
+function routeForRole(role: UserRole) {
+  if (role === "admin") return "/admin";
+  if (role === "citizen") return "/citizen";
+
+  if (role === "banker" || role === "bank_employee") {
+    return "/banker";
+  }
+
+  if (role === "police" || role === "cyber_cell") {
+    return "/workbench";
+  }
+
+  return "/auth/login";
+}
+
+export function ProtectedRoute({
+  children,
+  allowedRoles,
+}: ProtectedRouteProps) {
   const router = useRouter();
-  const { isAuthenticated, user } = useAuthStore();
-  const [isChecking, setIsChecking] = useState(true);
+  const pathname = usePathname();
+
+  const {
+    user,
+    token,
+    isAuthenticated,
+    isHydrated,
+    hydrate,
+  } = useAuthStore();
 
   useEffect(() => {
-    // Read directly from the synchronous Zustand state to bypass React's render cycle lag
-    const state = useAuthStore.getState();
+    if (!isHydrated) {
+      hydrate();
+    }
+  }, [isHydrated, hydrate]);
 
-    if (!state.isAuthenticated) {
-      const currentPath = window.location.pathname;
-      router.replace(`/auth/login?next=${encodeURIComponent(currentPath)}`);
+  useEffect(() => {
+    if (!isHydrated) return;
+
+    if (!isAuthenticated || !token || !user) {
+      router.replace(
+        `/auth/login?next=${encodeURIComponent(pathname)}`
+      );
       return;
     }
 
-    if (allowedRoles && state.user && !allowedRoles.includes(state.user.role)) {
-      if (state.user.role === 'admin') router.replace("/admin");
-      else if (state.user.role === 'citizen') router.replace("/citizen");
-      else router.replace("/workbench");
-      return;
+    if (
+      allowedRoles &&
+      !allowedRoles.includes(user.role)
+    ) {
+      router.replace(routeForRole(user.role));
     }
+  }, [
+    isHydrated,
+    isAuthenticated,
+    token,
+    user,
+    allowedRoles,
+    pathname,
+    router,
+  ]);
 
-    setIsChecking(false);
-  }, [isAuthenticated, user, allowedRoles, router]);
-
-  // Show loading while checking
-  if (isChecking || !isAuthenticated) {
+  if (!isHydrated) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-bg">
-        <Loader2 className="w-6 h-6 animate-spin text-ink-3" />
+      <div className="min-h-screen bg-bg flex items-center justify-center">
+        <p className="text-sm text-ink-2">
+          Verifying secure access…
+        </p>
       </div>
     );
   }
 
-  // Role check
-  if (allowedRoles && user && !allowedRoles.includes(user.role)) {
+  if (!isAuthenticated || !token || !user) {
+    return null;
+  }
+
+  if (
+    allowedRoles &&
+    !allowedRoles.includes(user.role)
+  ) {
     return null;
   }
 

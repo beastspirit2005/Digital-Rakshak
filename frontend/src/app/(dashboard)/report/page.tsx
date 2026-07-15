@@ -1,8 +1,18 @@
 "use client";
 
 import { api } from "@/lib/api";
+import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
-import { Loader2, CheckCircle2, UploadCloud, MapPin } from "lucide-react";
+import { 
+  Loader2, 
+  CheckCircle2, 
+  UploadCloud, 
+  MapPin, 
+  Lock, 
+  ChevronRight, 
+  ChevronLeft, 
+  Clock 
+} from "lucide-react";
 import { TerminalOverlay } from "@/components/ui/terminal-overlay";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import axios from "axios";
@@ -17,35 +27,41 @@ import {
 } from "recharts";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea, Label, FormError } from "@/components/ui/field";
-import { Card, Inset } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Segmented } from "@/components/ui/tabs";
 import { ConfidenceDial } from "@/components/ui/stat";
 import { ZtivfMeters } from "@/components/ztivf-meters";
 import { axisTick } from "@/components/ui/chart";
 
 export default function ReportPage() {
+  // Wizard Navigation Step
+  const [activeStep, setActiveStep] = useState<number>(1);
+
+  // Core Form Fields
   const [scamText, setScamText] = useState("");
   const [city, setCity] = useState("");
   const [state, setState] = useState("");
   const [victimPhone, setVictimPhone] = useState("");
   const [victimAddress, setVictimAddress] = useState("");
+  const [reportType, setReportType] = useState("scam");
+  const [file, setFile] = useState<File | null>(null);
+
+  // Operational State Handlers
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [successData, setSuccessData] = useState<any>(null);
   const [aiMode, setAiMode] = useState("auto");
-  const [reportType, setReportType] = useState("scam");
-  const [file, setFile] = useState<File | null>(null);
 
+  // Geolocation States
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
   const [isLocating, setIsLocating] = useState(false);
   const [locationSuccess, setLocationSuccess] = useState(false);
 
+  // Terminal Simulation Overlay
   const [showBrain, setShowBrain] = useState(false);
   const [brainLogs, setBrainLogs] = useState<string[]>([]);
-
   const [models, setModels] = useState<any[]>([]);
-  const [isHeavy, setIsHeavy] = useState(false);
 
   const { token } = useAuthStore();
   const reduced = useReducedMotion();
@@ -53,7 +69,9 @@ export default function ReportPage() {
   useEffect(() => {
     const fetchModels = async () => {
       try {
-        const res = await axios.get(api("/agents/models"), { headers: { Authorization: `Bearer ${token}` } });
+        const res = await axios.get(api("/agents/models"), { 
+          headers: { Authorization: `Bearer ${token}` } 
+        });
         setModels(res.data.models);
         const recommended = res.data.models.find((m: any) => m.is_recommended);
         if (recommended) {
@@ -64,16 +82,7 @@ export default function ReportPage() {
       }
     };
     fetchModels();
-  }, []);
-
-  useEffect(() => {
-    if (aiMode === "both") {
-      setIsHeavy(true);
-    } else {
-      const selected = models.find((m) => m.id === aiMode);
-      setIsHeavy(selected?.is_heavy || false);
-    }
-  }, [aiMode, models]);
+  }, [token]);
 
   const handleDetectLocation = () => {
     setIsLocating(true);
@@ -101,14 +110,14 @@ export default function ReportPage() {
           }
         } catch (err) {
           console.error("Failed to reverse geocode", err);
-          setError("We got your coordinates but couldn't look up the city name.");
+          setError("We captured your coordinates but couldn't resolve the city name.");
         } finally {
           setIsLocating(false);
         }
       },
-      (error) => {
-        console.error(error);
-        setError("Location detection failed. Check that location permission is allowed.");
+      (err) => {
+        console.error(err);
+        setError("Location detection failed. Ensure location permissions are active.");
         setIsLocating(false);
       },
       { enableHighAccuracy: true, timeout: 10000 }
@@ -132,8 +141,8 @@ export default function ReportPage() {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     setIsLoading(true);
     setShowBrain(true);
     setBrainLogs([]);
@@ -167,155 +176,387 @@ export default function ReportPage() {
 
       setSuccessData(response.data);
     } catch (err: any) {
-      setError(err.response?.data?.detail || "The report couldn't be submitted. Try again.");
+      setError(err.response?.data?.detail || "The report couldn't be submitted. Please try again.");
     } finally {
       setIsLoading(false);
       setShowBrain(false);
     }
   };
 
+  const progressPercentage = activeStep * 25;
   const sixDim = successData?.ai_analysis?.six_dim_score;
 
   return (
-    <div className="max-w-2xl mx-auto pt-2 pb-8">
-      <div className="mb-8">
-        <p className="font-serif italic text-sm text-ink-2 mb-2">Two minutes, eleven AI engines</p>
-        <h1 className="font-display font-semibold text-xl sm:text-2xl tracking-tight text-ink">
-          Report a cyber crime
-        </h1>
-        <p className="text-sm text-ink-2 mt-2 max-w-lg">
-          Describe what happened in your own words. The report is analyzed instantly and routed
-          to the right agency.
-        </p>
-      </div>
-
-      <AnimatePresence mode="wait" initial={false}>
+    <div className="max-w-2xl mx-auto pt-4 pb-12 px-4 sm:px-6">
+      <AnimatePresence mode="wait">
         {!successData ? (
-          <motion.form
-            key="form"
-            initial={{ opacity: 0, y: reduced ? 0 : 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-            onSubmit={handleSubmit}
-            className="space-y-6"
-          >
-            <FormError>{error}</FormError>
-
-            <Segmented
-              className="w-full"
-              items={[
-                { id: "scam", label: "Cyber scam" },
-                { id: "counterfeit", label: "Fake currency" },
-              ]}
-              value={reportType}
-              onChange={setReportType}
-            />
-
-            <Card className="p-6 space-y-2">
-              <Label htmlFor="scamText">What happened?</Label>
-              <Textarea
-                id="scamText"
-                required
-                rows={6}
-                value={scamText}
-                onChange={(e) => setScamText(e.target.value)}
-                placeholder="Example: I got an SMS saying my electricity bill is unpaid and power will be cut tonight. The link was http://fake-bescom-update.com"
-              />
-              <p className="text-xs text-ink-3">
-                Paste the message if you have it. Names, numbers, and timelines all help the analysis.
-              </p>
-            </Card>
-
-            <Card className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <Label className="mb-0">Where did this happen?</Label>
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={handleDetectLocation}
-                  loading={isLocating}
-                >
-                  <MapPin className="w-3.5 h-3.5" />
-                  {locationSuccess ? "Location captured" : "Detect my location"}
-                </Button>
+          <div key="reporting-wizard" className="space-y-6">
+            {/* Header progress tracking */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider">
+                <span className="text-accent font-display">Step {activeStep} of 4</span>
+                <span className="text-ink-3 flex items-center gap-1.5 font-sans normal-case">
+                  <Clock className="w-3.5 h-3.5" />
+                  About 1 minute
+                </span>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Input
-                  type="text"
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                  placeholder="City"
-                  aria-label="City"
-                />
-                <Input
-                  type="text"
-                  value={state}
-                  onChange={(e) => setState(e.target.value)}
-                  placeholder="State"
-                  aria-label="State"
+              <div className="h-1.5 w-full bg-surface-3 rounded-full overflow-hidden">
+                <motion.div
+                  className="h-full bg-accent"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${progressPercentage}%` }}
+                  transition={{ duration: 0.3, ease: "easeOut" }}
                 />
               </div>
-              {locationSuccess && (
-                <p className="text-xs text-success font-medium mt-3 flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  GPS captured: {latitude?.toFixed(4)}, {longitude?.toFixed(4)}
-                </p>
-              )}
-              
-              <div className="mt-4 pt-4 border-t border-line space-y-3">
-                <Label>Contact Details (Optional but Recommended)</Label>
-                <Input
-                  type="tel"
-                  value={victimPhone}
-                  onChange={(e) => setVictimPhone(e.target.value)}
-                  placeholder="Phone Number (e.g. +91 9876543210)"
-                  aria-label="Phone Number"
-                />
-                <Textarea
-                  value={victimAddress}
-                  onChange={(e) => setVictimAddress(e.target.value)}
-                  placeholder="Full Address"
-                  aria-label="Address"
-                  rows={2}
-                />
-                <p className="text-[10px] text-ink-3">Your contact details are encrypted before being saved.</p>
-              </div>
-            </Card>
+            </div>
 
-            <label className="relative block rounded-card border border-dashed border-line bg-surface p-8 text-center cursor-pointer transition-colors duration-150 hover:border-ink-3">
-              <input
-                type="file"
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                onChange={(e) => setFile(e.target.files?.[0] || null)}
-                accept="image/png, image/jpeg, image/gif, application/pdf, audio/mpeg, audio/wav"
-              />
-              {file ? (
-                <div className="flex flex-col items-center gap-1">
-                  <CheckCircle2 className="w-6 h-6 text-success mb-1" />
-                  <p className="text-sm font-medium text-ink">{file.name}</p>
-                  <p className="text-xs text-ink-3">{(file.size / 1024 / 1024).toFixed(2)} MB · click to change</p>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center gap-1">
-                  <UploadCloud className="w-6 h-6 text-ink-3 mb-1" />
-                  <p className="text-sm font-medium text-ink">Add a screenshot or recording</p>
-                  <p className="text-xs text-ink-3">JPEG, PNG, PDF, or MP3 up to 10 MB — optional</p>
-                </div>
-              )}
-            </label>
+            {/* Steps Container */}
+            <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
+              <FormError>{error}</FormError>
 
-            <Button
-              type="submit"
-              variant="primary"
-              size="lg"
-              disabled={!scamText.trim()}
-              loading={isLoading}
-              className="w-full sticky bottom-20 md:bottom-auto md:static shadow-card"
-            >
-              {isLoading ? "Analyzing your report…" : "Submit for analysis"}
-            </Button>
-          </motion.form>
+              <AnimatePresence mode="wait">
+                {activeStep === 1 && (
+                  <motion.div
+                    key="step-1"
+                    initial={reduced ? { opacity: 0 } : { opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={reduced ? { opacity: 0 } : { opacity: 0, x: -20 }}
+                    transition={{ duration: 0.25, ease: "easeOut" }}
+                    className="space-y-6"
+                  >
+                    <div className="space-y-1">
+                      <p className="text-xs font-bold uppercase tracking-widest text-accent font-mono">
+                        REPORT A SCAM
+                      </p>
+                      <h2 className="font-display font-bold text-2xl tracking-tight text-ink">
+                        What happened?
+                      </h2>
+                      <p className="text-sm text-ink-2">
+                        Tell us what happened in your own words. You don't need to use formal language.
+                      </p>
+                    </div>
+
+                    <div className="space-y-4">
+                      <Segmented
+                        className="w-full"
+                        items={[
+                          { id: "scam", label: "Cyber scam" },
+                          { id: "counterfeit", label: "Fake currency" },
+                        ]}
+                        value={reportType}
+                        onChange={setReportType}
+                      />
+
+                      <Card className="p-6 bg-surface-2 border-line/10">
+                        <Label htmlFor="scamText" className="sr-only">Incident Details</Label>
+                        <Textarea
+                          id="scamText"
+                          required
+                          rows={7}
+                          value={scamText}
+                          onChange={(e) => setScamText(e.target.value)}
+                          placeholder="Example: I got an SMS saying my electricity bill is unpaid and power will be cut tonight. The sender asked me to call +919876543210 and install an APK link http://fake-bescom-update.com"
+                          className="bg-surface focus:ring-1 focus:ring-accent/30 focus:border-accent"
+                        />
+                        <p className="text-xs text-ink-3 mt-3 leading-normal">
+                          Paste the message if you have it. Names, numbers, links and timelines all help the analysis.
+                        </p>
+                      </Card>
+                    </div>
+
+                    <div className="flex justify-end pt-2">
+                      <Button
+                        type="button"
+                        variant="primary"
+                        size="lg"
+                        disabled={!scamText.trim()}
+                        onClick={() => setActiveStep(2)}
+                        className="w-full sm:w-auto shadow-md"
+                      >
+                        Continue
+                        <ChevronRight className="w-4 h-4 ml-1.5" />
+                      </Button>
+                    </div>
+                  </motion.div>
+                )}
+
+                {activeStep === 2 && (
+                  <motion.div
+                    key="step-2"
+                    initial={reduced ? { opacity: 0 } : { opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={reduced ? { opacity: 0 } : { opacity: 0, x: -20 }}
+                    transition={{ duration: 0.25, ease: "easeOut" }}
+                    className="space-y-6"
+                  >
+                    <div className="space-y-1">
+                      <p className="text-xs font-bold uppercase tracking-widest text-accent font-mono">
+                        REPORT A SCAM
+                      </p>
+                      <h2 className="font-display font-bold text-2xl tracking-tight text-ink">
+                        Where did this happen?
+                      </h2>
+                      <p className="text-sm text-ink-2">
+                        This helps us route your report to the right authority.
+                      </p>
+                    </div>
+
+                    <Card className="p-6 bg-surface-2 border-line/10 space-y-6">
+                      <button
+                        type="button"
+                        onClick={handleDetectLocation}
+                        disabled={isLocating}
+                        className={cn(
+                          "w-full p-5 rounded-card border text-center transition-all duration-200 cursor-pointer",
+                          locationSuccess
+                            ? "border-success/30 bg-success-tint/20 text-success"
+                            : "border-line bg-surface hover:border-accent"
+                        )}
+                      >
+                        {isLocating ? (
+                          <div className="flex items-center justify-center gap-2">
+                            <Loader2 className="w-5 h-5 animate-spin text-accent" />
+                            <span className="text-sm font-semibold text-ink">Accessing GPS...</span>
+                          </div>
+                        ) : (
+                          <div className="space-y-1.5 flex flex-col items-center">
+                            <MapPin className={cn("w-6 h-6", locationSuccess ? "text-success" : "text-accent")} />
+                            <span className="text-sm font-semibold text-ink">
+                              {locationSuccess ? "Location captured" : "Use my current location"}
+                            </span>
+                            <span className="text-xs text-ink-3">Detect location automatically</span>
+                          </div>
+                        )}
+                      </button>
+
+                      {locationSuccess && (
+                        <p className="text-xs text-success font-medium flex items-center gap-1.5 justify-center">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          GPS coordinates captured: {latitude?.toFixed(4)}, {longitude?.toFixed(4)}
+                        </p>
+                      )}
+
+                      <div className="relative flex items-center justify-center">
+                        <div className="absolute inset-0 flex items-center">
+                          <span className="w-full border-t border-line/10" />
+                        </div>
+                        <span className="relative px-3 bg-surface-2 text-xs font-semibold text-ink-3 uppercase">
+                          OR
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="city">City</Label>
+                          <Input
+                            id="city"
+                            type="text"
+                            value={city}
+                            onChange={(e) => setCity(e.target.value)}
+                            placeholder="e.g. Bengaluru"
+                            className="bg-surface focus:ring-1 focus:ring-accent/30 focus:border-accent"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="state">State</Label>
+                          <Input
+                            id="state"
+                            type="text"
+                            value={state}
+                            onChange={(e) => setState(e.target.value)}
+                            placeholder="e.g. Karnataka"
+                            className="bg-surface focus:ring-1 focus:ring-accent/30 focus:border-accent"
+                          />
+                        </div>
+                      </div>
+                    </Card>
+
+                    <div className="flex items-center justify-between gap-4 pt-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="lg"
+                        onClick={() => setActiveStep(1)}
+                        className="text-ink-2 hover:text-ink"
+                      >
+                        <ChevronLeft className="w-4 h-4 mr-1.5" />
+                        Back
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="primary"
+                        size="lg"
+                        onClick={() => setActiveStep(3)}
+                        className="shadow-md"
+                      >
+                        Continue
+                        <ChevronRight className="w-4 h-4 ml-1.5" />
+                      </Button>
+                    </div>
+                  </motion.div>
+                )}
+
+                {activeStep === 3 && (
+                  <motion.div
+                    key="step-3"
+                    initial={reduced ? { opacity: 0 } : { opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={reduced ? { opacity: 0 } : { opacity: 0, x: -20 }}
+                    transition={{ duration: 0.25, ease: "easeOut" }}
+                    className="space-y-6"
+                  >
+                    <div className="space-y-1">
+                      <p className="text-xs font-bold uppercase tracking-widest text-accent font-mono">
+                        REPORT A SCAM
+                      </p>
+                      <h2 className="font-display font-bold text-2xl tracking-tight text-ink">
+                        How can we contact you?
+                      </h2>
+                      <p className="text-sm text-ink-2">
+                        Optional, but recommended. Your details are used only for updates about your report.
+                      </p>
+                    </div>
+
+                    <Card className="p-6 bg-surface-2 border-line/10 space-y-4">
+                      <div>
+                        <Label htmlFor="victimPhone">Phone Number</Label>
+                        <Input
+                          id="victimPhone"
+                          type="tel"
+                          value={victimPhone}
+                          onChange={(e) => setVictimPhone(e.target.value)}
+                          placeholder="e.g. +91 98765 43210"
+                          className="bg-surface focus:ring-1 focus:ring-accent/30 focus:border-accent"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="victimAddress">Full Address</Label>
+                        <Textarea
+                          id="victimAddress"
+                          rows={3}
+                          value={victimAddress}
+                          onChange={(e) => setVictimAddress(e.target.value)}
+                          placeholder="e.g. Door No, Street, Ward, District, Pin Code"
+                          className="bg-surface focus:ring-1 focus:ring-accent/30 focus:border-accent"
+                        />
+                      </div>
+
+                      <div className="pt-2 flex items-center gap-2 text-xs text-ink-3 bg-surface p-3 rounded-control border border-line/5">
+                        <Lock className="w-3.5 h-3.5 text-accent shrink-0" />
+                        <span>Your contact details are encrypted before being saved.</span>
+                      </div>
+                    </Card>
+
+                    <div className="flex items-center justify-between gap-4 pt-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="lg"
+                        onClick={() => setActiveStep(2)}
+                        className="text-ink-2 hover:text-ink"
+                      >
+                        <ChevronLeft className="w-4 h-4 mr-1.5" />
+                        Back
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="primary"
+                        size="lg"
+                        onClick={() => setActiveStep(4)}
+                        className="shadow-md"
+                      >
+                        Continue
+                        <ChevronRight className="w-4 h-4 ml-1.5" />
+                      </Button>
+                    </div>
+                  </motion.div>
+                )}
+
+                {activeStep === 4 && (
+                  <motion.div
+                    key="step-4"
+                    initial={reduced ? { opacity: 0 } : { opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={reduced ? { opacity: 0 } : { opacity: 0, x: -20 }}
+                    transition={{ duration: 0.25, ease: "easeOut" }}
+                    className="space-y-6"
+                  >
+                    <div className="space-y-1">
+                      <p className="text-xs font-bold uppercase tracking-widest text-accent font-mono">
+                        REPORT A SCAM
+                      </p>
+                      <h2 className="font-display font-bold text-2xl tracking-tight text-ink">
+                        Do you have a screenshot or recording?
+                      </h2>
+                      <p className="text-sm text-ink-2">
+                        Optional — you can submit your report without one.
+                      </p>
+                    </div>
+
+                    <label className="relative block rounded-card border border-dashed border-line bg-surface p-10 text-center cursor-pointer transition-colors duration-150 hover:border-accent">
+                      <input
+                        type="file"
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        onChange={(e) => setFile(e.target.files?.[0] || null)}
+                        accept="image/png, image/jpeg, image/gif, application/pdf, audio/mpeg, audio/wav"
+                      />
+                      {file ? (
+                        <div className="flex flex-col items-center gap-2">
+                          <CheckCircle2 className="w-8 h-8 text-success mb-1" />
+                          <p className="text-sm font-semibold text-ink truncate max-w-md">{file.name}</p>
+                          <p className="text-xs text-ink-3">
+                            {(file.size / 1024 / 1024).toFixed(2)} MB • Click to change
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center gap-2">
+                          <UploadCloud className="w-8 h-8 text-accent mb-1" />
+                          <p className="text-sm font-semibold text-ink">Add a screenshot or recording</p>
+                          <p className="text-xs text-ink-3">
+                            JPEG · PNG · PDF · MP3 · Up to 10 MB
+                          </p>
+                        </div>
+                      )}
+                    </label>
+
+                    <div className="flex flex-col gap-3 pt-2">
+                      <div className="flex items-center justify-between gap-4">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="lg"
+                          onClick={() => setActiveStep(3)}
+                          className="text-ink-2 hover:text-ink"
+                        >
+                          <ChevronLeft className="w-4 h-4 mr-1.5" />
+                          Back
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="primary"
+                          size="lg"
+                          loading={isLoading}
+                          onClick={() => handleSubmit()}
+                          className="shadow-md"
+                        >
+                          Submit for analysis
+                        </Button>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleSubmit()}
+                        disabled={isLoading}
+                        className="text-xs text-center text-ink-3 hover:text-accent transition-colors py-2"
+                      >
+                        Skip for now
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </form>
+          </div>
         ) : (
           <motion.div
             key="success"
@@ -324,7 +565,7 @@ export default function ReportPage() {
             transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
             className="space-y-6"
           >
-            <Card className="p-6 sm:p-8">
+            <Card className="p-6 sm:p-8 bg-surface-2 border-line/10">
               <div className="flex flex-col sm:flex-row sm:items-center gap-6">
                 <ConfidenceDial
                   value={successData.ai_analysis?.confidence || 0}
@@ -333,14 +574,14 @@ export default function ReportPage() {
                 />
                 <div>
                   <p className="text-xs text-ink-3 mb-1">
-                    Case <span className="text-ink font-medium tabular">{successData.case_number}</span>
+                    Case <span className="text-ink font-semibold tabular">{successData.case_number}</span>
                   </p>
                   <h2 className="font-display font-semibold text-lg tracking-tight text-ink">
                     Report filed
                   </h2>
                   <p className="text-sm text-ink-2 mt-1">
                     Classified as{" "}
-                    <span className="font-medium text-ink capitalize">
+                    <span className="font-semibold text-ink capitalize">
                       {(successData.ai_analysis?.threat_class || "unknown").replace(/_/g, " ")}
                     </span>
                     . Investigators can see this case now.
@@ -350,8 +591,8 @@ export default function ReportPage() {
             </Card>
 
             {successData.ai_analysis?.raw_explanation && (
-              <Card className="p-6">
-                <p className="text-xs text-ink-3 mb-2">Why the AI thinks so</p>
+              <Card className="p-6 bg-surface-2 border-line/10">
+                <p className="text-xs text-ink-3 mb-2 font-mono uppercase tracking-wider">Why the AI thinks so</p>
                 <p className="text-sm text-ink leading-relaxed">
                   {successData.ai_analysis.raw_explanation}
                 </p>
@@ -359,15 +600,15 @@ export default function ReportPage() {
             )}
 
             {successData.ai_analysis?.ztivf_metrics && (
-              <Card className="p-6">
-                <p className="text-xs text-ink-3 mb-4">Zero-trust validation</p>
+              <Card className="p-6 bg-surface-2 border-line/10">
+                <p className="text-xs text-ink-3 mb-4 font-mono uppercase tracking-wider">Zero-trust validation</p>
                 <ZtivfMeters metrics={successData.ai_analysis.ztivf_metrics} />
               </Card>
             )}
 
             {sixDim && (
-              <Card className="p-6">
-                <p className="text-xs text-ink-3 mb-2">Threat profile</p>
+              <Card className="p-6 bg-surface-2 border-line/10">
+                <p className="text-xs text-ink-3 mb-2 font-mono uppercase tracking-wider">Threat profile</p>
                 <div className="h-60 w-full">
                   <ResponsiveContainer width="100%" height="100%">
                     <RadarChart
@@ -405,6 +646,12 @@ export default function ReportPage() {
                   setSuccessData(null);
                   setScamText("");
                   setFile(null);
+                  setActiveStep(1);
+                  setLocationSuccess(false);
+                  setLatitude(null);
+                  setLongitude(null);
+                  setCity("");
+                  setState("");
                 }}
               >
                 Report another
@@ -417,7 +664,6 @@ export default function ReportPage() {
         )}
       </AnimatePresence>
 
-      {/* RAIC execution log — shown while the swarm analyzes */}
       <TerminalOverlay open={showBrain} logs={brainLogs} />
     </div>
   );

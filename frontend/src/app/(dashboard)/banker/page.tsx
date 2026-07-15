@@ -24,62 +24,106 @@ interface TakedownPolicy {
   created_at: string;
 }
 
+
+
 export default function BankerDashboard() {
   const { token } = useAuthStore();
   const toast = useToast();
-  const [policies, setPolicies] = useState<TakedownPolicy[]>([]);
+  const [policies, setPolicies] =useState<TakedownPolicy[]>([]);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState<number | null>(null);
 
-  useEffect(() => {
-    const fetchPendingPolicies = async () => {
-      if (!token) return;
-      try {
-        const res = await fetch(api("/takedowns/pending"), {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setPolicies(data);
-        }
-      } catch (error) {
-        console.error("Failed to fetch policies", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchPendingPolicies();
-  }, [token]);
-
-  const approvePolicy = async (id: number) => {
+useEffect(() => {
+  const fetchPendingPolicies = async () => {
     if (!token) return;
-    setProcessing(id);
-    try {
-      const res = await fetch(api(`/takedowns/${id}/approve`), {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-      });
 
-      if (res.ok) {
-        setPolicies((prev) => prev.filter((p) => p.id !== id));
-        toast("success", "Takedown executed.");
-      } else {
-        toast("danger", "The takedown couldn't be approved.");
+    try {
+      setLoading(true);
+
+      const res = await fetch(
+        api("/takedowns/pending"),
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!res.ok) {
+        throw new Error(
+          "Failed to load pending takedowns."
+        );
       }
+
+      const data = await res.json();
+
+      setPolicies(Array.isArray(data) ? data : []);
     } catch (error) {
-      console.error("Error approving policy", error);
-      toast("danger", "The takedown couldn't be approved.");
+      console.error(
+        "Failed to load pending takedowns:",
+        error
+      );
+
+      setPolicies([]);
+
+      toast(
+        "danger",
+        "Pending takedowns couldn't be loaded."
+      );
     } finally {
-      setProcessing(null);
+      setLoading(false);
     }
   };
 
-  const columns: Column<TakedownPolicy>[] = [
+  fetchPendingPolicies();
+}, [token]);
+const approvePolicy = async (id: number) => {
+  if (!token) return;
+
+  setProcessing(id);
+
+  try {
+    const res = await fetch(
+      api(`/takedowns/${id}/approve`),
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    if (!res.ok) {
+      throw new Error(
+        "The takedown couldn't be approved."
+      );
+    }
+
+    setPolicies((prev) =>
+      prev.filter((policy) => policy.id !== id)
+    );
+
+    toast("success", "Takedown executed.");
+  } catch (error) {
+    console.error(
+      "Error approving takedown:",
+      error
+    );
+
+    toast(
+      "danger",
+      "The takedown couldn't be approved."
+    );
+  } finally {
+    setProcessing(null);
+  }
+};  
+const columns: Column<TakedownPolicy>[] = [
     {
       key: "target",
       header: "Target",
       mobile: "title",
-      render: (p) => <span className="font-medium text-ink break-all tabular">{p.target}</span>,
+      render: (p) => <span className="font-semibold text-ink break-all tabular">{p.target}</span>,
     },
     {
       key: "case_number",
@@ -94,9 +138,7 @@ export default function BankerDashboard() {
     {
       key: "action",
       header: "Requested action",
-      render: (p) => (
-        <span className="capitalize text-ink">{p.action.replace(/_/g, " ")}</span>
-      ),
+      render: (p) => <span className="capitalize text-ink">{p.action.replace(/_/g, " ")}</span>,
     },
     {
       key: "reason",

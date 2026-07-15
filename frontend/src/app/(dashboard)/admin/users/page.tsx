@@ -7,6 +7,7 @@ import { useAuthStore } from "@/lib/auth-store";
 import axios from "axios";
 import { cn } from "@/lib/utils";
 import { Card, CardHeader } from "@/components/ui/card";
+
 import { PageHeader } from "@/components/ui/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -54,22 +55,28 @@ export default function AdminUsersPage() {
   const [formError, setFormError] = useState("");
 
   const fetchUsers = async () => {
-    if (!token) return;
-    try {
-      const response = await fetch(api("/users/"), {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!response.ok) {
-        throw new Error("The user list couldn't be loaded.");
-      }
-      const data = await response.json();
-      setUsers(data);
-    } catch (err: any) {
-      setError(err.message || "The user list couldn't be loaded.");
-    } finally {
-      setLoading(false);
+
+
+  if (!token) return;
+
+  try {
+    const response = await fetch(api("/users/"), {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (!response.ok) {
+      throw new Error("The user list couldn't be loaded.");
     }
-  };
+
+    const data = await response.json();
+
+    setUsers(data);
+  } catch (err: any) {
+    setError(err.message || "The user list couldn't be loaded.");
+  } finally {
+    setLoading(false);
+  }
+};
 
   useEffect(() => {
     fetchUsers();
@@ -80,6 +87,7 @@ export default function AdminUsersPage() {
     e.preventDefault();
     setFormLoading(true);
     setFormError("");
+  
     try {
       await axios.post(api("/users"), formData, {
         headers: { Authorization: `Bearer ${token}` },
@@ -98,6 +106,7 @@ export default function AdminUsersPage() {
     if (!selectedUser) return;
     setFormLoading(true);
     setFormError("");
+  
     try {
       await axios.put(
         api(`/users/${selectedUser.id}`),
@@ -122,6 +131,7 @@ export default function AdminUsersPage() {
     if (!selectedUser) return;
     setFormLoading(true);
     setFormError("");
+   
     try {
       await axios.delete(api(`/users/${selectedUser.id}`), {
         headers: { Authorization: `Bearer ${token}` },

@@ -1,6 +1,7 @@
 "use client";
 
 import { api } from "@/lib/api";
+
 import { useState, useEffect } from "react";
 import { CheckCircle2, Search, Users, Siren } from "lucide-react";
 import axios from "axios";
@@ -38,50 +39,94 @@ export default function AdminPage() {
   const router = useRouter();
 
   const fetchUsers = async () => {
-    try {
-      const response = await axios.get(api("/users"), {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setUsers(response.data);
-    } catch (err: any) {
-      setError(err.response?.data?.detail || "The user list couldn't be loaded.");
-    } finally {
-      setLoading(false);
-    }
-  };
+  if (!token) return;
 
-  useEffect(() => {
-    if (token) fetchUsers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
+  try {
+    setLoading(true);
+    setError("");
+
+    const response = await axios.get(
+      api("/users")
+    );
+
+    setUsers(
+      Array.isArray(response.data)
+        ? response.data
+        : []
+    );
+  } catch (err: any) {
+    console.error("Failed to load users:", err);
+
+    setUsers([]);
+
+    setError(
+      err.response?.data?.detail ||
+        "The user list couldn't be loaded."
+    );
+  } finally {
+    setLoading(false);
+  }
+};
+useEffect(() => {
+  if (token) {
+    fetchUsers();
+  }
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [token]);
 
   const handleApprove = async (userId: string) => {
-    setApprovingId(userId);
-    try {
-      await axios.post(api(`/users/${userId}/approve`), {}, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, is_approved: true } : u)));
-    } catch (err: any) {
-      setError(err.response?.data?.detail || "The user couldn't be approved.");
-    } finally {
-      setApprovingId(null);
-    }
-  };
+  if (!token) return;
+
+  setApprovingId(userId);
+  setError("");
+
+  try {
+    await axios.post(
+      api(`/users/${userId}/approve`),
+      {}
+    );
+
+    await fetchUsers();
+  } catch (err: any) {
+    console.error("Failed to approve user:", err);
+
+    setError(
+      err.response?.data?.detail ||
+        "The user couldn't be approved."
+    );
+  } finally {
+    setApprovingId(null);
+  }
+};
 
   const handleSimulateAttack = async () => {
-    setIsSimulating(true);
-    setError("");
-    try {
-      await axios.post(api("/cases/simulate-attack"), {}, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      router.push("/workbench/map");
-    } catch (err: any) {
-      setError(err.response?.data?.detail || "The simulation couldn't be started.");
-      setIsSimulating(false);
-    }
-  };
+  if (!token) return;
+
+  setIsSimulating(true);
+  setError("");
+
+  try {
+    await axios.post(
+      api("/cases/simulate-attack"),
+      {}
+    );
+
+    router.push("/workbench/map");
+  } catch (err: any) {
+    console.error(
+      "Failed to simulate attack:",
+      err
+    );
+
+    setError(
+      err.response?.data?.detail ||
+        "The simulation couldn't be started."
+    );
+  } finally {
+    setIsSimulating(false);
+  }
+};
 
   const filteredUsers = users.filter(
     (u) =>

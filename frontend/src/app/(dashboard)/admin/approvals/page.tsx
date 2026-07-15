@@ -3,6 +3,7 @@
 import { api } from "@/lib/api";
 import React, { useEffect, useState } from "react";
 import { CheckCircle2 } from "lucide-react";
+
 import { useAuthStore } from "@/lib/auth-store";
 import { Card, CardHeader } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
@@ -36,26 +37,32 @@ export default function AdminApprovalsPage() {
   }, [token]);
 
   const fetchPendingUsers = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch(api("/users/pending"), {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!response.ok) {
-        throw new Error("Pending registrations couldn't be loaded.");
-      }
-      const data = await response.json();
-      setUsers(data);
-    } catch (err: any) {
-      setError(err.message || "Pending registrations couldn't be loaded.");
-    } finally {
-      setLoading(false);
+ 
+
+  try {
+    setLoading(true);
+
+    const response = await fetch(api("/users/pending"), {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (!response.ok) {
+      throw new Error("Pending registrations couldn't be loaded.");
     }
-  };
+
+    const data = await response.json();
+    setUsers(data);
+  } catch (err: any) {
+    setError(err.message || "Pending registrations couldn't be loaded.");
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleApprove = async (userId: string) => {
     try {
       setApprovingId(userId);
+     
       const response = await fetch(api(`/users/${userId}/approve`), {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },

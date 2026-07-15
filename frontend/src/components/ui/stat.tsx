@@ -39,12 +39,12 @@ export function CountUp({
     return () => cancelAnimationFrame(raf);
   }, [value, duration, reduced]);
 
-  return <span className={cn("tabular", className)}>{format(display)}</span>;
+  return <span className={cn("tabular font-bold", className)}>{format(display)}</span>;
 }
 
 /**
- * The signature moment: a ring that draws in while its number ticks up.
- * Used large on dashboard heroes, small on case rows (RAIC confidence).
+ * Signature visual indicator: cyber-blue intelligence ring track
+ * with high-trust percentage visualization.
  */
 export function ConfidenceDial({
   value,
@@ -98,23 +98,23 @@ export function ConfidenceDial({
           strokeLinecap="round"
           strokeDasharray={c}
           strokeDashoffset={offset}
-          style={{ transition: reduced ? "none" : "stroke-dashoffset 600ms var(--ease-out)" }}
+          style={{ transition: reduced ? "none" : "stroke-dashoffset 650ms var(--ease-out)" }}
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span
-          className="font-display font-semibold text-ink tabular"
+          className="font-display font-black text-ink tabular"
           style={{ fontSize: size / 4.2 }}
         >
           <CountUp value={clamped * 100} format={(n) => `${Math.round(n)}%`} />
         </span>
-        {label && size >= 96 && <span className="text-xs text-ink-2 mt-0.5">{label}</span>}
+        {label && size >= 96 && <span className="text-[10px] uppercase font-mono font-bold text-ink-3 tracking-wider mt-1">{label}</span>}
       </div>
     </div>
   );
 }
 
-/** Compact stat card: quiet label, big tabular figure, optional delta. */
+/** Compact stat card: clear visual separation, font-display, tabular. */
 export function StatBlock({
   label,
   value,
@@ -133,17 +133,20 @@ export function StatBlock({
   className?: string;
 }) {
   return (
-    <Card className={cn("px-6 py-5", className)}>
-      <p className="text-sm text-ink-2">{label}</p>
-      <p className="font-display font-semibold text-xl text-ink mt-2 tracking-tight">
+    <Card className={cn("px-6 py-5.5 relative", className)}>
+      <div className="absolute top-0 left-0 w-full h-[3px] bg-accent/20" />
+      <p className="text-xs uppercase tracking-wider font-bold text-ink-3">{label}</p>
+      <p className="font-display font-black text-2xl text-ink mt-2.5 tracking-tight">
         {typeof value === "number" ? <CountUp value={value} format={format} /> : value}
       </p>
       {(delta || hint) && (
-        <p className="text-xs mt-1.5">
+        <p className="text-xs mt-2.5 flex items-center gap-1.5">
           {delta && (
-            <span className={deltaPositive ? "text-success" : "text-peach-text"}>{delta}</span>
+            <span className={cn("font-bold px-1.5 py-0.5 rounded text-[11px]", deltaPositive ? "bg-success/10 text-success" : "bg-warning/10 text-peach-text")}>
+              {delta}
+            </span>
           )}
-          {hint && <span className="text-ink-3">{delta ? " · " : ""}{hint}</span>}
+          {hint && <span className="text-ink-3 font-medium">{hint}</span>}
         </p>
       )}
     </Card>

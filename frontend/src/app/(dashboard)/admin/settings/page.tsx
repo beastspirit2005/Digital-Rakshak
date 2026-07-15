@@ -6,6 +6,7 @@ import { Activity, Fingerprint, Network, MapPin, CheckCircle2, Loader2, Wifi, Wi
 import axios from "axios";
 import { useAuthStore } from "@/lib/auth-store";
 import { cn } from "@/lib/utils";
+
 import { Card, CardHeader, Inset } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { Badge } from "@/components/ui/badge";
@@ -62,52 +63,88 @@ export default function AdminSettingsPage() {
 
   useEffect(() => {
     const fetchSettings = async () => {
-      try {
-        const res = await axios.get(api("/admin/settings"), {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setForceLocal(res.data.force_local_inference);
-        setAiMode(res.data.default_ai_mode);
-        setSmtpHost(res.data.smtp_host);
-        setSmtpPort(res.data.smtp_port);
-        setSmtpUser(res.data.smtp_user);
-        setOllamaHost(res.data.ollama_host);
-        setGroqConfigured(res.data.groq_configured);
-      } catch (err) {
-        console.error("Failed to load settings", err);
-      } finally {
-        setLoading(false);
-      }
-    };
+  
+
+  try {
+    const res = await axios.get(api("/admin/settings"), {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    setForceLocal(res.data.force_local_inference);
+    setAiMode(res.data.default_ai_mode);
+    setSmtpHost(res.data.smtp_host);
+    setSmtpPort(res.data.smtp_port);
+    setSmtpUser(res.data.smtp_user);
+    setOllamaHost(res.data.ollama_host);
+    setGroqConfigured(res.data.groq_configured);
+  } catch (err) {
+    console.error("Failed to load settings", err);
+  } finally {
+    setLoading(false);
+  }
+};
     if (token) fetchSettings();
   }, [token]);
 
-  const saveSettings = async (updates: { force_local_inference?: boolean; default_ai_mode?: string }) => {
-    setSaving(true);
-    setSaved(false);
-    try {
-      await axios.put(api("/admin/settings"), updates, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
-    } catch (err) {
-      console.error("Failed to save settings", err);
-    } finally {
-      setSaving(false);
-    }
-  };
+const saveSettings = async (updates: {
+  force_local_inference?: boolean;
+  default_ai_mode?: string;
+}) => {
+  if (!token) return;
 
-  const handleToggleLocal = () => {
-    const newVal = !forceLocal;
-    setForceLocal(newVal);
-    saveSettings({ force_local_inference: newVal });
-  };
+  setSaving(true);
+  setSaved(false);
 
-  const handleModeChange = (mode: "auto" | "groq" | "ollama" | "both") => {
-    setAiMode(mode);
-    saveSettings({ default_ai_mode: mode });
-  };
+  try {
+    const res = await axios.patch(
+      api("/admin/settings"),
+      updates,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    setForceLocal(res.data.force_local_inference);
+    setAiMode(res.data.default_ai_mode);
+    setSmtpHost(res.data.smtp_host);
+    setSmtpPort(res.data.smtp_port);
+    setSmtpUser(res.data.smtp_user);
+    setOllamaHost(res.data.ollama_host);
+    setGroqConfigured(res.data.groq_configured);
+
+    setSaved(true);
+
+    window.setTimeout(() => {
+      setSaved(false);
+    }, 2000);
+  } catch (err) {
+    console.error("Failed to save settings", err);
+  } finally {
+    setSaving(false);
+  }
+};
+
+const handleToggleLocal = () => {
+  const newVal = !forceLocal;
+
+  setForceLocal(newVal);
+
+  saveSettings({
+    force_local_inference: newVal,
+  });
+};
+
+const handleModeChange = (
+  mode: "auto" | "groq" | "ollama" | "both"
+) => {
+  setAiMode(mode);
+
+  saveSettings({
+    default_ai_mode: mode,
+  });
+};
 
   if (loading) {
     return (
