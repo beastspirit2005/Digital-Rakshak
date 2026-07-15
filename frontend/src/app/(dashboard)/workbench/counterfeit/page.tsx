@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ShieldAlert,
@@ -18,145 +18,76 @@ import {
   Search,
   Lock,
   Layers,
-  Zap
+  Zap,
+  Image as ImageIcon
 } from "lucide-react";
 import { RAICExecutionMonitor } from "@/components/ui/RAICExecutionMonitor";
-
-interface SecurityFeatureCheck {
-  feature_name: string;
-  expected_spec: string;
-  observed_spec: string;
-  status: "PASS" | "FAIL" | "SUSPICIOUS";
-  confidence: number;
-}
+import { api } from "@/lib/api";
 
 export default function CounterfeitIntelligenceHubPage() {
-  const [selectedNote, setSelectedNote] = useState<string>("₹500 Series #2026-84A (Kolkata Seizure)");
   const [analyzing, setAnalyzing] = useState<boolean>(false);
-  const [analyzed, setAnalyzed] = useState<boolean>(true);
+  const [analyzed, setAnalyzed] = useState<boolean>(false);
   const [advisorySent, setAdvisorySent] = useState<boolean>(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [visionResult, setVisionResult] = useState<any>(null);
+  
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const sampleNotes = [
-    {
-      id: "note-1",
-      title: "₹500 Series #2026-84A (Kolkata Seizure)",
-      serial: "8MD 492810",
-      verdict: "COUNTERFEIT (Grade B+ Super-Note)",
-      confidence: 0.96,
-      origin: "Kolkata - Indo-Bangladesh Transit Vector",
-      syndicate: "SYND-2026-IND-55"
-    },
-    {
-      id: "note-2",
-      title: "₹500 Series #2025-12B (Delhi ATM Deposit)",
-      serial: "3AC 918241",
-      verdict: "COUNTERFEIT (Grade C Photostat/Offset)",
-      confidence: 0.99,
-      origin: "Delhi NCR Local Printing Node",
-      syndicate: "SYND-2026-IND-12"
-    },
-    {
-      id: "note-3",
-      title: "₹200 Series #2026-04C (Mumbai Retail Sweep)",
-      serial: "5LP 001924",
-      verdict: "AUTHENTIC (Genuine RBI Issue)",
-      confidence: 0.98,
-      origin: "Mumbai Federal Reserve Checkpoint",
-      syndicate: "None (Clean)"
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setSelectedFile(file);
+      setPreviewUrl(URL.createObjectURL(file));
+      setAnalyzed(false);
+      setVisionResult(null);
+      setAdvisorySent(false);
     }
-  ];
+  };
 
-  const currentSample = sampleNotes.find((n) => n.title === selectedNote) || sampleNotes[0];
-
-  const securityFeatures: SecurityFeatureCheck[] = currentSample.verdict.includes("COUNTERFEIT")
-    ? [
-        {
-          feature_name: "Optically Variable Ink (OVI) Colour Shift",
-          expected_spec: "Green to Blue shift on tilting at 45 degree angle",
-          observed_spec: "Static green pigment printed with glossy lacquer",
-          status: "FAIL",
-          confidence: 0.98
-        },
-        {
-          feature_name: "Watermark & Mahatma Gandhi Portrait",
-          expected_spec: "Multi-tonal watermarked portrait with light and dark contrast",
-          observed_spec: "Single-tone oil printed silhouette (Back-printed)",
-          status: "FAIL",
-          confidence: 0.94
-        },
-        {
-          feature_name: "Micro-lettering ('RBI' & 'Bharat' in Hindi)",
-          expected_spec: "Crisp 0.2mm intaglio lettering readable under 10x magnification",
-          observed_spec: "Blurred pixelated characters (300 DPI lithograph)",
-          status: "FAIL",
-          confidence: 0.97
-        },
-        {
-          feature_name: "Windowed Security Thread with Color Shift",
-          expected_spec: "3mm colour-shifting metallic thread embedded inside paper matrix",
-          observed_spec: "Surface-stamped silver foil strip glued between paper layers",
-          status: "FAIL",
-          confidence: 0.99
-        },
-        {
-          feature_name: "Intaglio Printing (Raised Tactile Marks)",
-          expected_spec: "Raised tactile bleeding marks (5 lines for ₹500) for visually impaired",
-          observed_spec: "Flat thermal embossing simulating tactile feel",
-          status: "SUSPICIOUS",
-          confidence: 0.88
-        }
-      ]
-    : [
-        {
-          feature_name: "Optically Variable Ink (OVI) Colour Shift",
-          expected_spec: "Green to Blue shift on tilting at 45 degree angle",
-          observed_spec: "Authentic multi-layer optical shift verified",
-          status: "PASS",
-          confidence: 0.99
-        },
-        {
-          feature_name: "Watermark & Mahatma Gandhi Portrait",
-          expected_spec: "Multi-tonal watermarked portrait with light and dark contrast",
-          observed_spec: "Genuine pulp fiber density differential verified",
-          status: "PASS",
-          confidence: 0.98
-        },
-        {
-          feature_name: "Micro-lettering ('RBI' & 'Bharat' in Hindi)",
-          expected_spec: "Crisp 0.2mm intaglio lettering readable under 10x magnification",
-          observed_spec: "Sharp intaglio impression verified",
-          status: "PASS",
-          confidence: 0.99
-        },
-        {
-          feature_name: "Windowed Security Thread with Color Shift",
-          expected_spec: "3mm colour-shifting metallic thread embedded inside paper matrix",
-          observed_spec: "Fully integrated security thread verified",
-          status: "PASS",
-          confidence: 0.99
-        },
-        {
-          feature_name: "Intaglio Printing (Raised Tactile Marks)",
-          expected_spec: "Raised tactile bleeding marks (5 lines for ₹500) for visually impaired",
-          observed_spec: "Authentic high-pressure intaglio relief verified",
-          status: "PASS",
-          confidence: 0.99
-        }
-      ];
-
-  const handleSimulateVisionScan = () => {
+  const handleSimulateVisionScan = async () => {
+    if (!selectedFile) return;
+    
     setAnalyzing(true);
     setAnalyzed(false);
     setAdvisorySent(false);
-    setTimeout(() => {
-      setAnalyzing(false);
+    
+    try {
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+      
+      const token = localStorage.getItem("access_token") || "";
+      const res = await fetch(api("/scan/counterfeit"), {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`
+        },
+        body: formData
+      });
+      
+      const data = await res.json();
+      setVisionResult(data);
       setAnalyzed(true);
-    }, 2000);
+    } catch (err) {
+      console.error("Vision scan failed:", err);
+      // Fallback error state
+      setVisionResult({
+        decision: "Error: Analysis Failed",
+        confidence: 0,
+        threat_class: "Unknown",
+        evidence: ["Failed to reach Groq Vision API."]
+      });
+      setAnalyzed(true);
+    } finally {
+      setAnalyzing(false);
+    }
   };
 
   const sendRbiAdvisory = () => {
     setAdvisorySent(true);
   };
+
+  const isCounterfeit = visionResult?.decision?.toLowerCase().includes("counterfeit");
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 p-4 md:p-6 space-y-6 font-sans">
@@ -176,33 +107,35 @@ export default function CounterfeitIntelligenceHubPage() {
               </span>
             </div>
             <p className="text-xs font-mono text-slate-400 mt-0.5 flex items-center gap-2">
-              <span>Model: Qwen 2.5-VL-7B-Instruct Vision Engine</span>
+              <span>Model: Groq Llama-3.2-90B-Vision</span>
               <span className="text-slate-600">•</span>
-              <span className="text-emerald-400 font-semibold">10-Layer Security Feature Decomposition</span>
+              <span className="text-emerald-400 font-semibold">Live Multi-Spectral Decomposition</span>
             </p>
           </div>
         </div>
 
-        {/* Note Selector */}
+        {/* Note Selector / Uploader Trigger */}
         <div className="flex items-center gap-3">
-          <select
-            value={selectedNote}
-            onChange={(e) => {
-              setSelectedNote(e.target.value);
-              setAdvisorySent(false);
-            }}
-            className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-xs font-mono text-slate-200 focus:outline-none focus:border-purple-500"
+          <input 
+            type="file" 
+            ref={fileInputRef} 
+            onChange={handleFileSelect} 
+            accept="image/*" 
+            className="hidden" 
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="px-4 py-2.5 rounded-lg bg-slate-900 border border-slate-800 text-xs font-mono font-bold text-slate-200 hover:bg-slate-800 transition-all flex items-center gap-2"
           >
-            {sampleNotes.map((note) => (
-              <option key={note.id} value={note.title}>
-                {note.title}
-              </option>
-            ))}
-          </select>
+            <Upload className="w-4 h-4" /> Upload Currency Image
+          </button>
+          
           <button
             onClick={handleSimulateVisionScan}
-            disabled={analyzing}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-mono font-bold bg-purple-600 hover:bg-purple-500 text-white shadow-lg transition-all"
+            disabled={analyzing || !selectedFile}
+            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-mono font-bold text-white shadow-lg transition-all ${
+              !selectedFile ? "bg-slate-800 text-slate-500 cursor-not-allowed" : "bg-purple-600 hover:bg-purple-500"
+            }`}
           >
             {analyzing ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Eye className="w-4 h-4" />}
             Execute Vision Scan
@@ -226,48 +159,53 @@ export default function CounterfeitIntelligenceHubPage() {
       {/* Top Split Card: Note Image / Telemetry vs Verdict Summary */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left 5 Columns: Note Spec & Vision Scan Progress */}
-        <div className="lg:col-span-5 bg-slate-900/70 border border-slate-800 rounded-xl p-5 space-y-4 flex flex-col justify-between">
+        <div className="lg:col-span-5 bg-slate-900/70 border border-slate-800 rounded-xl p-5 space-y-4 flex flex-col justify-between min-h-[350px]">
           <div>
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <span className="font-mono text-xs font-bold text-slate-300 uppercase">Serial # {currentSample.serial}</span>
-              <span className="text-xs font-mono text-purple-400 font-bold">{currentSample.origin}</span>
+              <span className="font-mono text-xs font-bold text-slate-300 uppercase">Live Image Ingestion Buffer</span>
+              <span className="text-xs font-mono text-purple-400 font-bold">Cloud Vision Engine</span>
             </div>
 
             {/* Simulated Currency Note Visual Viewport */}
-            <div className="mt-4 p-6 rounded-xl bg-gradient-to-br from-amber-950/40 via-slate-950 to-purple-950/40 border border-purple-500/30 relative flex flex-col items-center justify-center min-h-[220px]">
-              <div className="absolute inset-0 bg-[radial-gradient(#a855f7_1px,transparent_1px)] [background-size:12px_12px] opacity-20" />
-              <div className="z-10 text-center space-y-2">
-                <div className="px-4 py-2 rounded bg-slate-900/90 border border-purple-500/60 font-mono text-sm font-black tracking-widest text-white shadow-xl">
-                  RESERVE BANK OF INDIA • ₹500
+            <div className="mt-4 rounded-xl border border-purple-500/30 relative flex flex-col items-center justify-center min-h-[250px] overflow-hidden bg-slate-950">
+              <div className="absolute inset-0 bg-[radial-gradient(#a855f7_1px,transparent_1px)] [background-size:12px_12px] opacity-10" />
+              
+              {previewUrl ? (
+                <div className="relative w-full h-full p-2 flex items-center justify-center">
+                  <img src={previewUrl} alt="Uploaded evidence" className="max-w-full max-h-[220px] object-contain rounded-lg shadow-2xl relative z-10" />
+                  
+                  {/* Scan Line Animation */}
+                  {analyzing && (
+                    <motion.div 
+                      className="absolute inset-0 z-20 border-t-2 border-b-2 border-purple-500 bg-purple-500/20"
+                      initial={{ height: "10%", top: "0%" }}
+                      animate={{ top: ["0%", "90%", "0%"] }}
+                      transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                    />
+                  )}
                 </div>
-                <div className="text-xs font-mono text-purple-300">
-                  Optical Scan Resolution: 1200 DPI Multispectral
+              ) : (
+                <div className="z-10 text-center space-y-3 p-6 text-slate-500">
+                  <ImageIcon className="w-10 h-10 mx-auto opacity-50" />
+                  <p className="font-mono text-xs">No image uploaded. Click the upload button above to ingest a suspect currency note.</p>
                 </div>
-                {analyzing ? (
-                  <div className="pt-2 flex flex-col items-center gap-2 text-purple-400 font-mono text-xs">
-                    <RefreshCw className="w-6 h-6 animate-spin" />
-                    <span>Deconstructing 5 Security Layers...</span>
-                  </div>
-                ) : (
-                  <div className="pt-2">
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-mono font-bold ${
-                        currentSample.verdict.includes("COUNTERFEIT")
-                          ? "bg-rose-500/20 text-rose-400 border border-rose-500/40"
-                          : "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
-                      }`}
-                    >
-                      {currentSample.verdict}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
+              )}
 
-          <div className="pt-3 border-t border-slate-800 font-mono text-xs text-slate-400 flex items-center justify-between">
-            <span>Linked Syndicate Grid:</span>
-            <span className="font-bold text-white bg-slate-800 px-2 py-0.5 rounded">{currentSample.syndicate}</span>
+              {/* Status Badge Overlay */}
+              {analyzed && visionResult && (
+                <div className="absolute bottom-4 left-0 right-0 flex justify-center z-30">
+                  <span
+                    className={`px-3 py-1.5 rounded-full text-xs font-mono font-bold shadow-xl backdrop-blur-md ${
+                      isCounterfeit
+                        ? "bg-rose-500/90 text-white border border-rose-400"
+                        : "bg-emerald-500/90 text-white border border-emerald-400"
+                    }`}
+                  >
+                    {visionResult.decision}
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -280,67 +218,77 @@ export default function CounterfeitIntelligenceHubPage() {
                 Security Features Decomposition & Forensic Verdict
               </h3>
             </div>
-            <span className="text-xs font-mono text-emerald-400 font-bold">
-              Vision Confidence: {(currentSample.confidence * 100).toFixed(1)}%
-            </span>
+            {analyzed && visionResult && (
+              <span className={`text-xs font-mono font-bold ${isCounterfeit ? "text-rose-400" : "text-emerald-400"}`}>
+                Vision Confidence: {Math.round((visionResult.score || 0.99) * 100)}%
+              </span>
+            )}
           </div>
 
-          {analyzing ? (
-            <div className="py-16 text-center text-slate-500 font-mono text-xs space-y-3">
-              <RefreshCw className="w-8 h-8 animate-spin mx-auto text-purple-400" />
-              <p>Analyzing intaglio relief, OVI shift, and micro-lettering...</p>
+          {!selectedFile ? (
+            <div className="py-24 text-center text-slate-600 font-mono text-xs flex flex-col items-center justify-center">
+              <Eye className="w-8 h-8 mb-3 opacity-20" />
+              Awaiting image ingestion to begin optical decomposition...
             </div>
-          ) : (
-            <div className="space-y-3 max-h-80 overflow-y-auto pr-1 font-mono text-xs">
-              {securityFeatures.map((check, idx) => (
-                <div
-                  key={idx}
-                  className="p-3.5 rounded-lg bg-slate-950 border border-slate-800/80 hover:border-slate-700 transition-all space-y-2"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-slate-200">{check.feature_name}</span>
-                    <span
-                      className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                        check.status === "PASS"
-                          ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                          : check.status === "FAIL"
-                          ? "bg-rose-500/20 text-rose-400 border border-rose-500/30"
-                          : "bg-amber-500/20 text-amber-400 border border-amber-500/30"
-                      }`}
-                    >
-                      {check.status} ({Math.round(check.confidence * 100)}%)
-                    </span>
+          ) : analyzing ? (
+            <div className="py-24 text-center text-slate-500 font-mono text-xs space-y-3">
+              <RefreshCw className="w-8 h-8 animate-spin mx-auto text-purple-400" />
+              <p>Groq Vision AI analyzing intaglio relief, OVI shift, and micro-lettering...</p>
+            </div>
+          ) : analyzed && visionResult ? (
+            <div className="space-y-4 max-h-[300px] overflow-y-auto pr-1 font-mono text-xs">
+              
+              <div className="p-4 rounded-lg bg-slate-950 border border-slate-800">
+                <span className="text-slate-500 text-[10px] block uppercase mb-1">AI Final Verdict:</span>
+                <span className={`text-sm font-bold ${isCounterfeit ? "text-rose-400" : "text-emerald-400"}`}>
+                  {visionResult.decision}
+                </span>
+              </div>
+              
+              <div>
+                <span className="text-slate-500 text-[10px] block uppercase mb-2">Detected Anomalies / Evidence:</span>
+                {visionResult.evidence && visionResult.evidence.length > 0 ? (
+                  <ul className="space-y-2">
+                    {visionResult.evidence.map((ev: string, idx: number) => (
+                      <li key={idx} className="p-3 rounded bg-slate-950 border border-slate-800/80 text-slate-300 flex items-start gap-2">
+                        <AlertTriangle className={`w-4 h-4 mt-0.5 shrink-0 ${isCounterfeit ? "text-amber-500" : "text-emerald-500"}`} />
+                        <span>{ev}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="p-3 rounded bg-slate-950 border border-slate-800 text-slate-400">
+                    No distinct security features or anomalies identified.
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-slate-400">
-                    <div>
-                      <span className="text-slate-500 text-[10px] block uppercase">RBI Official Spec:</span>
-                      <span className="text-slate-300">{check.expected_spec}</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-500 text-[10px] block uppercase">Observed Vision Output:</span>
-                      <span
-                        className={
-                          check.status === "PASS"
-                            ? "text-emerald-300 font-medium"
-                            : "text-rose-300 font-medium"
-                        }
-                      >
-                        {check.observed_spec}
-                      </span>
-                    </div>
+                )}
+              </div>
+              
+              {visionResult.extracted_text && (
+                <div>
+                  <span className="text-slate-500 text-[10px] block uppercase mb-2">Raw OCR Extraction:</span>
+                  <div className="p-3 rounded bg-slate-950 border border-slate-800 text-slate-400 italic">
+                    "{visionResult.extracted_text}"
                   </div>
                 </div>
-              ))}
+              )}
+            </div>
+          ) : (
+            <div className="py-24 text-center text-slate-600 font-mono text-xs flex flex-col items-center justify-center">
+              Image loaded. Ready to execute scan.
             </div>
           )}
 
-          <div className="pt-3 border-t border-slate-800 flex justify-end gap-3">
+          <div className="pt-3 border-t border-slate-800 flex justify-end gap-3 mt-auto">
             <button
               onClick={sendRbiAdvisory}
-              disabled={advisorySent}
-              className="px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-rose-600 hover:from-purple-500 hover:to-rose-500 text-white font-mono font-bold text-xs transition-all shadow-lg flex items-center gap-2"
+              disabled={advisorySent || !analyzed || !isCounterfeit}
+              className={`px-4 py-2 rounded-lg font-mono font-bold text-xs transition-all shadow-lg flex items-center gap-2 ${
+                advisorySent || !analyzed || !isCounterfeit
+                  ? "bg-slate-800 text-slate-500 cursor-not-allowed"
+                  : "bg-gradient-to-r from-purple-600 to-rose-600 hover:from-purple-500 hover:to-rose-500 text-white"
+              }`}
             >
-              <Zap className="w-4 h-4" /> Dispatch Forensic Advisory to RBI / Banking Grid
+              <Zap className="w-4 h-4" /> Dispatch Forensic Advisory to RBI
             </button>
           </div>
         </div>

@@ -226,3 +226,42 @@ async def live_prevention_scan_apk(
         risk_level=risk_level,
         reasons=reasons if not is_safe else ["No dangerous permissions found. Code looks safe."]
     )
+
+@router.post("/counterfeit")
+async def scan_counterfeit_currency(
+    file: UploadFile = File(...),
+    user: User = Depends(get_current_user)
+):
+    """
+    Live Vision AI Pipeline for Counterfeit Currency Analysis.
+    Pipes uploaded image directly to VisionAgent (Groq Cloud Mode or Local PyTorch).
+    """
+    import os
+    import tempfile
+    from domain.agents.vision_agent import VisionAgent
+    
+    contents = await file.read()
+    import filetype
+    kind = filetype.guess(contents)
+    if kind is None or not kind.mime.startswith("image/"):
+        raise HTTPException(status_code=400, detail="Invalid file type. Please upload an image.")
+        
+    with tempfile.NamedTemporaryFile(delete=False, suffix=f".{kind.extension}") as temp_file:
+        temp_file.write(contents)
+        temp_path = temp_file.name
+
+    try:
+        agent = VisionAgent()
+        result = await agent.execute(
+            payload={"text": temp_path, "analyze_type": "counterfeit"},
+            case_id="LIVE_SCAN"
+        )
+        
+        if "error" in result:
+            raise HTTPException(status_code=500, detail=result["error"])
+            
+        return result
+    finally:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+
