@@ -75,7 +75,7 @@ export default function RegisterPage() {
       </h2>
       <p className="text-sm text-ink-2 mt-1.5 mb-8">
         Already registered?{" "}
-        <Link href="/auth/login" className="text-ink font-medium underline underline-offset-4 hover:text-accent-text">
+        <Link href="/auth/login" className="text-accent-text font-medium underline underline-offset-4 hover:text-accent-hover">
           Sign in
         </Link>
       </p>
@@ -131,7 +131,7 @@ export default function RegisterPage() {
                 className={cn(
                   "flex items-start gap-3 p-3.5 rounded-control border cursor-pointer transition-colors duration-150",
                   role === r.value
-                    ? "border-accent-text bg-surface"
+                    ? "border-accent-text bg-surface-2"
                     : "border-line bg-surface hover:border-ink-3"
                 )}
               >
@@ -141,7 +141,7 @@ export default function RegisterPage() {
                   value={r.value}
                   checked={role === r.value}
                   onChange={(e) => setRole(e.target.value)}
-                  className="mt-1 accent-(--accent-text)"
+                  className="mt-1 accent-accent"
                 />
                 <div>
                   <span className="text-sm font-medium text-ink">{r.label}</span>

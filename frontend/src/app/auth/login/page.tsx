@@ -1,9 +1,7 @@
 "use client";
 
-import { Suspense } from "react";
-
+import { Suspense, useState } from "react";
 import { api } from "@/lib/api";
-import { useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import axios from "axios";
@@ -19,6 +17,30 @@ function routeForRole(role: string) {
   if (role === "banker") return "/banker";
   return "/workbench";
 }
+function canAccessRoute(role: string, path: string) {
+  if (path.startsWith("/admin")) {
+    return role === "admin";
+  }
+
+  if (
+    path.startsWith("/workbench") ||
+    path.startsWith("/copilot") ||
+    path.startsWith("/police")
+  ) {
+    return ["admin", "police", "cyber_cell"].includes(role);
+  }
+
+  if (path.startsWith("/banker")) {
+    return ["admin", "banker", "bank_employee"].includes(role);
+  }
+
+  if (path.startsWith("/citizen")) {
+    return ["admin", "citizen"].includes(role);
+  }
+
+  return true;
+}
+
 function LoginForm() {
   const [loginMethod, setLoginMethod] = useState<"password" | "otp">("password");
   const [step, setStep] = useState<"email" | "otp">("email");
@@ -51,7 +73,14 @@ function LoginForm() {
       try {
         const response = await axios.post(api("/auth/login-password"), { email, password });
         login(response.data.access_token, response.data.user);
-        router.push(nextParam || routeForRole(response.data.user.role));
+        const role = response.data.user.role;
+
+const destination =
+  nextParam && canAccessRoute(role, nextParam)
+    ? nextParam
+    : routeForRole(role);
+
+router.replace(destination);
       } catch (err: any) {
         const status = err.response?.status;
         const detail = err.response?.data?.detail;
@@ -72,7 +101,14 @@ function LoginForm() {
     try {
       const response = await axios.post(api("/auth/verify-otp"), { email, otp });
       login(response.data.access_token, response.data.user);
-      router.push(nextParam || routeForRole(response.data.user.role));
+      const role = response.data.user.role;
+
+const destination =
+  nextParam && canAccessRoute(role, nextParam)
+    ? nextParam
+    : routeForRole(role);
+
+router.replace(destination);
     } catch (err: any) {
       const status = err.response?.status;
       const detail = err.response?.data?.detail;
@@ -89,7 +125,7 @@ function LoginForm() {
       <h2 className="font-display font-semibold text-xl tracking-tight text-ink">Sign in</h2>
       <p className="text-sm text-ink-2 mt-1.5 mb-8">
         New here?{" "}
-        <Link href="/auth/register" className="text-ink font-medium underline underline-offset-4 hover:text-accent-text">
+        <Link href="/auth/register" className="text-accent-text font-medium underline underline-offset-4 hover:text-accent-hover">
           Create an account
         </Link>
       </p>

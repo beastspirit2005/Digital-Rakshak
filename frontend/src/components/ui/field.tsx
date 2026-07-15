@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 const controlBase = cn(
   "w-full rounded-control border border-line bg-surface px-3.5 text-sm text-ink",
   "placeholder:text-ink-3 transition-colors duration-150",
-  "hover:border-ink-3 focus:border-accent-text focus:outline-none",
+  "hover:border-ink-3 focus:border-accent-text focus:outline-none focus:ring-1 focus:ring-accent-text/30",
   "disabled:opacity-50 disabled:pointer-events-none"
 );
 
@@ -55,7 +55,6 @@ export function FormNotice({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** Six segmented boxes for OTP entry; value is the raw string. */
 export function OtpInput({
   value,
   onChange,
@@ -91,7 +90,7 @@ export function OtpInput({
               "h-13 flex-1 rounded-control border bg-surface flex items-center justify-center",
               "font-display text-lg tabular",
               i === active && value.length < length
-                ? "border-accent-text"
+                ? "border-accent-text ring-1 ring-accent-text/30"
                 : c
                   ? "border-line text-ink"
                   : "border-line text-ink-3"

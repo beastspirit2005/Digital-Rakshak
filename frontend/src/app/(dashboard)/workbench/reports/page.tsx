@@ -214,8 +214,9 @@ function CaseDetail({
 }
 
 export default function ReportsRegisterPage() {
-  const [cases, setCases] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+const [cases, setCases] = useState<any[]>([]);
+const [loading, setLoading] = useState(true);
+const [error, setError] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [chatQuery, setChatQuery] = useState("");
@@ -226,27 +227,79 @@ export default function ReportsRegisterPage() {
   const pushToast = useToast();
   const reduced = useReducedMotion();
   
-  const fetchAllCases = async () => {
-    try {
-      const res = await axios.get(api("/cases/?limit=500&t=1"), {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setCases(res.data.cases);
-    } catch (err) {
-      console.error("Failed to load cases", err);
-    } finally {
-      setLoading(false);
-    }
-  };
+const fetchAllCases = async () => {
+  if (!token) {
+    setCases([]);
+    setError("Authentication required.");
+    setLoading(false);
+    return;
+  }
 
-  useEffect(() => {
-    if (token) fetchAllCases();
-    if (token && user?.role === "admin") {
-       axios.get(api("/users/"), { headers: { Authorization: `Bearer ${token}` }})
-         .then(res => setInvestigators(res.data.filter((u: any) => u.role === "police" || u.role === "cyber_cell")))
-         .catch(err => console.error("Failed to fetch investigators"));
-    }
-  }, [token, user]);
+  setLoading(true);
+  setError("");
+
+  try {
+    const res = await axios.get(api("/cases/?limit=500&t=1"), {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    const apiCases = Array.isArray(res.data?.cases)
+      ? res.data.cases
+      : [];
+
+    setCases(apiCases);
+  } catch (err: any) {
+    console.error("Failed to load case register", err);
+
+    setCases([]);
+
+    setError(
+      err.response?.data?.detail ||
+        "The case register couldn't be loaded from the backend."
+    );
+  } finally {
+    setLoading(false);
+  }
+};
+useEffect(() => {
+  if (!token) return;
+
+  fetchAllCases();
+
+  if (user?.role === "admin") {
+    axios
+      .get(api("/users/"), {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+      .then((res) => {
+        const users = Array.isArray(res.data)
+          ? res.data
+          : [];
+
+        setInvestigators(
+          users.filter(
+            (u: any) =>
+              u.role === "police" ||
+              u.role === "cyber_cell"
+          )
+        );
+      })
+      .catch((err) => {
+        console.error("Failed to load investigators", err);
+
+        setInvestigators([]);
+
+        pushToast(
+          "danger",
+          "Investigators couldn't be loaded from the backend."
+        );
+      });
+  }
+}, [token, user]);
   
   const handleAssign = async (caseNumber: string, invId: string) => {
     try {
@@ -333,9 +386,15 @@ export default function ReportsRegisterPage() {
               placeholder="Search case, type, or city"
               className="h-10 pl-10 pr-4 w-full sm:w-72 rounded-pill bg-surface text-sm text-ink placeholder:text-ink-3 border border-transparent hover:border-line focus:border-accent-text focus:outline-none transition-colors"
             />
+            
           </div>
         }
       />
+      {error && (
+  <div className="rounded-control border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
+    {error}
+  </div>
+)}
 
       <Card>
         {loading ? (

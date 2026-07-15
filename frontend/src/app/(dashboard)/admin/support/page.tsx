@@ -7,6 +7,7 @@ import { useAuthStore } from "@/lib/auth-store";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+
 import { Input } from "@/components/ui/field";
 import { MessageSquare, Mail, CheckCircle, Send, Users, AlertCircle } from "lucide-react";
 import { Rise } from "@/components/ui/motion";
@@ -25,25 +26,29 @@ export default function AdminSupportPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const fetchTickets = async () => {
-    try {
-      const res = await axios.get(api("/support/tickets"), {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setTickets(res.data.tickets);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  
+
+  try {
+    const res = await axios.get(api("/support/tickets"), {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    setTickets(res.data.tickets);
+  } catch (err) {
+    console.error(err);
+  } finally {
+    setLoading(false);
+  }
+};
 
   useEffect(() => {
     if (token) fetchTickets();
   }, [token]);
 
   // Connect WebSocket for Admin
-  useEffect(() => {
-    if (!user) return;
+useEffect(() => {
+  
+  if (!user) return;
     
     const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api/v1";
     let wsBase: string;

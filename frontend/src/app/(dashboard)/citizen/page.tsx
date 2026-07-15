@@ -1,13 +1,14 @@
 "use client";
 
 import { api } from "@/lib/api";
+
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import axios from "axios";
 import { FileText, Plus, AlertTriangle, PhoneCall, CheckCircle2 } from "lucide-react";
 import { useAuthStore } from "@/lib/auth-store";
 import { Button } from "@/components/ui/button";
-import { Card, CardHeader } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatBlock } from "@/components/ui/stat";
 import { StatusBadge, PriorityBadge } from "@/components/ui/badge";
@@ -38,15 +39,35 @@ function CaseStepper({ status }: { status: string }) {
     <div className="flex items-center gap-2 mt-4 text-xs font-medium">
       {steps.map((step, idx) => {
         const isActive = idx <= currentIndex;
+        const isResolvedStep = step === "resolved" && isActive;
+        
         return (
           <div key={step} className="flex items-center gap-2 flex-1">
             <div className={`flex items-center gap-1.5 ${isActive ? 'text-ink' : 'text-ink-3'}`}>
-              <div className={`w-4 h-4 rounded-full flex items-center justify-center border ${isActive ? 'border-success bg-success/20 text-success' : 'border-line bg-surface-2'}`}>
-                {isActive && <div className="w-1.5 h-1.5 rounded-full bg-success" />}
+              <div className={`w-4 h-4 rounded-full flex items-center justify-center border ${
+                isActive 
+                  ? isResolvedStep 
+                    ? 'border-success bg-success-tint text-success' 
+                    : 'border-warning bg-warning-tint text-warning'
+                  : 'border-line bg-surface-2'
+              }`}>
+                {isActive && (
+                  <div className={`w-1.5 h-1.5 rounded-full ${
+                    isResolvedStep ? 'bg-success' : 'bg-warning'
+                  }`} />
+                )}
               </div>
               <span className="capitalize">{step}</span>
             </div>
-            {idx < steps.length - 1 && <div className={`h-px flex-1 ${isActive ? 'bg-success' : 'bg-line'}`} />}
+            {idx < steps.length - 1 && (
+              <div className={`h-px flex-1 ${
+                idx < currentIndex 
+                  ? steps[idx + 1] === "resolved" && s === "resolved"
+                    ? 'bg-success' 
+                    : 'bg-warning'
+                  : 'bg-line'
+              }`} />
+            )}
           </div>
         );
       })}
@@ -62,14 +83,14 @@ export default function CitizenDashboard() {
   const pushToast = useToast();
 
   const fetchCases = async () => {
-    if (!token) {
-      setLoading(false);
-      return;
-    }
+   
+if (!token) return;
+   
     try {
       setLoading(true);
+      setError(null);
       const response = await axios.get(api("/cases/my"), {
-        headers: { Authorization: `Bearer ${token}` },
+
       });
       setCases(response.data.cases || []);
     } catch (err) {
@@ -85,10 +106,14 @@ export default function CitizenDashboard() {
   }, [token]);
 
   const handleResolve = async (caseNumber: string) => {
+   
+
     try {
-      await axios.post(api(`/cases/${caseNumber}/resolve`), {}, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await axios.post(
+        api(`/cases/${caseNumber}/resolve`),
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
       fetchCases();
     } catch (err) {
       console.error(err);
@@ -176,11 +201,11 @@ export default function CitizenDashboard() {
               const isInvestigating = normalizeStatus(c.status) === "investigating";
               
               return (
-                <Card key={c.id} className="p-6 transition-all hover:border-ink-3 hover:shadow-card">
+                <Card key={c.id} className="p-6 transition-all hover:border-[#253540] hover:shadow-card">
                   <div className="flex flex-col sm:flex-row justify-between gap-4">
                     <div>
                       <div className="flex items-center gap-3 mb-2">
-                        <span className="font-medium text-ink tabular">{c.case_number}</span>
+                        <span className="font-semibold text-ink tabular">{c.case_number}</span>
                         <StatusBadge status={c.status} />
                         <PriorityBadge priority={c.priority} />
                       </div>
@@ -194,7 +219,7 @@ export default function CitizenDashboard() {
                     <div className="flex items-center gap-3 self-start">
                       {!isResolved && (
                         <Button variant="secondary" size="sm" onClick={() => handleResolve(c.case_number)}>
-                          <CheckCircle2 className="w-4 h-4 mr-1.5" />
+                          <CheckCircle2 className="w-4 h-4 mr-1.5 text-success" />
                           Mark as Resolved
                         </Button>
                       )}
@@ -214,7 +239,7 @@ export default function CitizenDashboard() {
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className="text-sm font-medium text-ink">{c.assigned_phone}</p>
+                        <p className="text-sm font-semibold text-ink">{c.assigned_phone}</p>
                       </div>
                     </div>
                   )}

@@ -2,112 +2,111 @@
 @custom-variant dark (&:is(.dark *));
 
 /* ------------------------------------------------------------------
-   Digital Rakshak — "paper & moss" token layer.
-   Every color in the app must come from these variables.
-   Light = warm paper + sage. Dark = green-charcoal, never pure black.
+   Digital Rakshak — Premium Cybersecurity SaaS design tokens.
+   Modern high-contrast palette. Deep Navy, Saffron, and Slate-Blues.
 ------------------------------------------------------------------- */
 
 :root {
-  /* surfaces */
-  --bg: #f3f1e9;
-  --surface: #fbfaf5;
-  --surface-2: #e9eadf;
-  --surface-3: #dfe3d2;
-  --line: #dcdcd0;
+  /* Surface colors optimized for high-contrast enterprise light mode */
+  --bg: #f8fafc;
+  --surface: #ffffff;
+  --surface-2: #f1f5f9;
+  --surface-3: #e2e8f0;
+  --line: #cbd5e1;
 
-  /* ink */
-  --ink: #1e2a23;
-  --ink-2: #5a665e;
-  --ink-3: #8a948c;
+  /* Premium high-contrast text shades */
+  --ink: #08131A;
+  --ink-2: #475569;
+  --ink-3: #64748b;
 
-  /* accent — chartreuse, fills only in light mode */
-  --accent: #b8e92e;
-  --accent-hover: #a8d926;
-  --accent-ink: #182013;
-  --accent-text: #4e7a0e;
+  /* Primary Accent: Premium Amber/Saffron for Active Command Decisions */
+  --accent: #f59e0b;
+  --accent-hover: #f97316;
+  --accent-ink: #08131A;
+  --accent-text: #f97316;
 
-  /* support tones */
-  --lilac: #a99bd4;
-  --lilac-text: #66589a;
-  --peach: #d98e70;
-  --peach-text: #a4522f;
+  /* Soft utility brand shades */
+  --lilac: #818cf8;
+  --lilac-text: #4f46e5;
+  --peach: #f97316;
+  --peach-text: #ea580c;
 
-  /* semantic */
-  --success: #3e7a48;
-  --warning: #9a6b1f;
-  --danger: #b2452f;
-  --success-tint: #e2ecdd;
-  --warning-tint: #f0e6d0;
-  --danger-tint: #f2ded6;
+  /* Secure and action status colors */
+  --success: #00d9a3;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --success-tint: #ecfdf5;
+  --warning-tint: #fffbeb;
+  --danger-tint: #fef2f2;
 
-  /* chart series — validated for CVD + contrast vs light surface */
-  --chart-1: #4e7a0e;
-  --chart-2: #66589a;
-  --chart-3: #a4522f;
-  --chart-4: #0088FE;
-  --chart-5: #00C49F;
-  --chart-6: #FFBB28;
-  --chart-7: #FF8042;
-  --chart-8: #d63c5a;
-  --chart-9: #1dbfb7;
-  --chart-10: #d94b8e;
-  --chart-11: #7c449c;
-  --chart-12: #a2913e;
+  /* Accessible high-contrast chart palettes */
+  --chart-1: #f59e0b;
+  --chart-2: #00d9a3;
+  --chart-3: #f97316;
+  --chart-4: #818cf8;
+  --chart-5: #06b6d4;
+  --chart-6: #ec4899;
+  --chart-7: #84cc16;
+  --chart-8: #14b8a6;
+  --chart-9: #08131a;
+  --chart-10: #a855f7;
+  --chart-11: #f43f5e;
+  --chart-12: #eab308;
 
-  /* elevation */
-  --shadow-card: 0 1px 2px rgb(30 42 35 / 0.06), 0 8px 24px rgb(30 42 35 / 0.05);
-
-  /* motion */
-  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --shadow-card: 0 4px 6px -1px rgb(8 19 26 / 0.05), 0 10px 15px -3px rgb(8 19 26 / 0.03);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .dark {
-  --bg: #141813;
-  --surface: #1c211a;
-  --surface-2: #242b22;
-  --surface-3: #2d352a;
-  --line: #2e332b;
+  /* Rich, premium cybersecurity command-center dark-navy base */
+  --bg: #08131a;
+  --surface: #0c151b;
+  --surface-2: #17232a;
+  --surface-3: #253540;
+  --line: rgba(37, 53, 64, 0.4);
 
-  --ink: rgba(242, 241, 232, 0.92);
-  --ink-2: #a3ac9e;
-  --ink-3: #6e7769;
+  /* Highly legible high-contrast cybersecurity light texts */
+  --ink: #e7eef3;
+  --ink-2: #a7b4bd;
+  --ink-3: #64748b;
 
-  --accent: #c6f24e;
-  --accent-hover: #d3f76a;
-  --accent-ink: #161b10;
-  --accent-text: #c6f24e;
+  --accent: #f59e0b;
+  --accent-hover: #f97316;
+  --accent-ink: #08131a;
+  --accent-text: #f59e0b;
 
-  --lilac: #bdafe3;
-  --lilac-text: #bdafe3;
-  --peach: #e5a183;
-  --peach-text: #e5a183;
+  --lilac: #a5b4fc;
+  --lilac-text: #c7d2fe;
+  --peach: #ffedd5;
+  --peach-text: #f97316;
 
-  --success: #8cc98f;
-  --warning: #d9b36a;
-  --danger: #e08a75;
-  --success-tint: #22301f;
-  --warning-tint: #322a19;
-  --danger-tint: #33221b;
+  /* Status Colors mapped to command center specifications */
+  --success: #00d9a3; /* Secure / Resolved Teal */
+  --warning: #f59e0b; /* Action / Threat Orange */
+  --danger: #ef4444;  /* Critical Takedown Red */
+  
+  --success-tint: rgba(0, 217, 163, 0.08);
+  --warning-tint: rgba(245, 158, 11, 0.08);
+  --danger-tint: rgba(239, 68, 68, 0.08);
 
-  /* chart series — validated for CVD + contrast vs dark surface */
-  --chart-1: #7fa31e;
-  --chart-2: #7d63c4;
-  --chart-3: #c15f33;
-  --chart-4: #4eb0ff;
-  --chart-5: #2edebc;
-  --chart-6: #ffc954;
-  --chart-7: #ff9d6b;
-  --chart-8: #e65c79;
-  --chart-9: #45d4cd;
-  --chart-10: #f06ca8;
-  --chart-11: #9865b6;
-  --chart-12: #bead5c;
+  --chart-1: #f59e0b;
+  --chart-2: #00d9a3;
+  --chart-3: #f97316;
+  --chart-4: #a5b4fc;
+  --chart-5: #06b6d4;
+  --chart-6: #ec4899;
+  --chart-7: #84cc16;
+  --chart-8: #14b8a6;
+  --chart-9: #e7eef3;
+  --chart-10: #a855f7;
+  --chart-11: #f43f5e;
+  --chart-12: #eab308;
 
-  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.2);
+  --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.6);
 }
 
 @theme inline {
-  /* palette */
+  /* palette mapping */
   --color-bg: var(--bg);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
@@ -143,7 +142,7 @@
   --color-chart-11: var(--chart-11);
   --color-chart-12: var(--chart-12);
 
-  /* legacy aliases so not-yet-migrated pages keep rendering during the revamp */
+  /* system component aliases */
   --color-background: var(--bg);
   --color-foreground: var(--ink);
   --color-primary: var(--accent-text);
@@ -155,12 +154,12 @@
   --color-muted-foreground: var(--ink-2);
   --color-ring: var(--accent-text);
 
-  /* type */
+  /* clean sans fonts and display scales */
   --font-sans: var(--font-instrument), ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-archivo), var(--font-instrument), ui-sans-serif, sans-serif;
   --font-serif: var(--font-fraunces), ui-serif, Georgia, serif;
 
-  /* type scale: 12 / 14 / 16 / 20 / 28 / 40 / 64 */
+  /* tight, balanced typographic definitions */
   --text-xs: 0.75rem;
   --text-xs--line-height: 1rem;
   --text-sm: 0.875rem;
@@ -176,13 +175,12 @@
   --text-display: 4rem;
   --text-display--line-height: 4.25rem;
 
-  /* radius: cards 12, controls 8, pills full */
-  --radius-card: 12px;
+  /* secure modern geometric rounded controls */
+  --radius-card: 16px;
   --radius-control: 8px;
   --radius-pill: 999px;
 
   --shadow-card: var(--shadow-card);
-
   --ease-out-soft: var(--ease-out);
 }
 
@@ -198,27 +196,56 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Atmospheric Intelligence Command Background Grid Pattern */
+.dark body {
+  background-image: 
+    radial-gradient(circle at 50% -20%, rgba(245, 158, 11, 0.05) 0%, transparent 60%),
+    linear-gradient(rgba(37, 53, 64, 0.15) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(37, 53, 64, 0.15) 1px, transparent 1px);
+  background-size: 100% 100%, 48px 48px, 48px 48px;
+}
+
 ::selection {
   background: var(--accent);
   color: var(--accent-ink);
 }
 
-/* single focus treatment everywhere */
 :focus-visible {
-  outline: 2px solid var(--accent-text);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
-/* stats, balances, table figures always line up */
 .tabular {
   font-variant-numeric: tabular-nums;
 }
 
-/* entrance used by the motion pass — rise + fade, opacity-only under reduced motion */
+/* Custom micro-interaction focus and premium scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 999px;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(37, 53, 64, 0.5);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--ink-3);
+}
+
 @keyframes rise-in {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(12px);
   }
   to {
     opacity: 1;

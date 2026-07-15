@@ -7,17 +7,17 @@ type Size = "sm" | "md" | "lg";
 
 const variants: Record<Variant, string> = {
   primary:
-    "bg-accent text-accent-ink hover:bg-accent-hover active:bg-accent-hover font-semibold",
+    "bg-accent text-accent-ink hover:bg-accent-hover active:bg-accent-hover font-semibold shadow-md shadow-accent/15 border border-accent/25 hover:border-accent/40",
   secondary:
-    "bg-surface-2 text-ink hover:bg-surface-3 active:bg-surface-3 border border-line",
-  ghost: "text-ink-2 hover:bg-surface-2 hover:text-ink active:bg-surface-3",
-  danger: "bg-danger-tint text-danger hover:brightness-95 border border-danger/20",
+    "bg-surface-2 text-ink hover:bg-surface-3 active:bg-surface-3 border border-line/10 hover:border-line/25",
+  ghost: "text-ink-2 hover:bg-surface-3/40 hover:text-ink active:bg-surface-3",
+  danger: "bg-danger-tint text-danger hover:brightness-105 border border-danger/20 hover:border-danger/40",
 };
 
 const sizes: Record<Size, string> = {
-  sm: "h-8 px-3 text-sm gap-1.5",
-  md: "h-10 px-4 text-sm gap-2",
-  lg: "h-11 px-5 text-base gap-2",
+  sm: "h-8.5 px-3.5 text-xs gap-1.5 rounded-control",
+  md: "h-10 px-4.5 text-sm gap-2 rounded-control",
+  lg: "h-11.5 px-6 text-base gap-2 rounded-control",
 };
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -35,9 +35,9 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       ref={ref}
       disabled={disabled || loading}
       className={cn(
-        "inline-flex items-center justify-center rounded-control font-medium",
-        "transition-[background-color,filter,transform] duration-150 ease-out",
-        "active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none",
+        "inline-flex items-center justify-center font-semibold",
+        "transition-all duration-150 ease-out cursor-pointer select-none",
+        "active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none",
         variants[variant],
         sizes[size],
         className

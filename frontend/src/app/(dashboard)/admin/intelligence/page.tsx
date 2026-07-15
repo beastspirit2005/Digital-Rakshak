@@ -6,6 +6,7 @@ import axios from "axios";
 import { useAuthStore } from "@/lib/auth-store";
 import { RefreshCw } from "lucide-react";
 import { useReducedMotion } from "framer-motion";
+
 import {
   BarChart,
   Bar,
@@ -39,63 +40,130 @@ import {
 // Dynamic categorical assignment; loops through available colors if we have many slice types.
 const sliceColor = (index: number) => chartSeries[index % chartSeries.length];
 
-export default function PolicyMakerDashboard() {
+
+ export default function PolicyMakerDashboard() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
   const { token } = useAuthStore();
   const toast = useToast();
   const reduced = useReducedMotion();
   const drawIn = useDrawInOnce();
 
   const fetchAnalytics = async () => {
+    if (!token) return;
+
     try {
-      const res = await axios.get(api("/analytics/dashboard"), {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      setLoading(true);
+      setError(null);
+
+      const res = await axios.get(
+        api("/analytics/dashboard")
+      );
+
       setData(res.data);
     } catch (err) {
-      console.error("Failed to load analytics", err);
+      console.error(
+        "Failed to load analytics",
+        err
+      );
+
+      setData(null);
+      setError(
+        "National analytics couldn't be loaded."
+      );
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (token) fetchAnalytics();
+    if (token) {
+      fetchAnalytics();
+    }
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
   const handleOsintSync = async () => {
+    if (!token) return;
+
     setSyncing(true);
+
     try {
-      await axios.post(api("/admin/osint/sync"), {}, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      toast("success", "OSINT feeds synced. The AI now has the latest threat data.");
+      await axios.post(
+        api("/admin/osint/sync"),
+        {}
+      );
+
+      toast(
+        "success",
+        "OSINT feeds synced. The AI now has the latest threat data."
+      );
+
       await fetchAnalytics();
     } catch (err) {
-      toast("danger", "The OSINT feeds couldn't be synced.");
+      console.error(
+        "Failed to sync OSINT feeds",
+        err
+      );
+
+      toast(
+        "danger",
+        "The OSINT feeds couldn't be synced."
+      );
     } finally {
       setSyncing(false);
     }
   };
 
-  if (loading || !data) {
+  if (loading) {
     return (
       <div className="space-y-6 pt-2">
-        <PageHeader title="National analytics" sub="Live aggregated intelligence." />
+        <PageHeader
+          title="National analytics"
+          sub="Live aggregated intelligence."
+        />
+
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <StatSkeleton />
           <StatSkeleton />
           <StatSkeleton />
         </div>
+
         <Skeleton className="h-80 rounded-card" />
       </div>
     );
   }
 
-  const threatCritical = data.stats.threat_level === "CRITICAL";
+  if (error || !data) {
+    return (
+      <div className="space-y-6 pt-2">
+        <PageHeader
+          title="National analytics"
+          sub="Live aggregated intelligence."
+        />
+
+        <Card className="p-6">
+          <p className="text-sm text-danger">
+            {error || "Analytics data is unavailable."}
+          </p>
+
+          <Button
+            className="mt-4"
+            onClick={fetchAnalytics}
+          >
+            Try again
+          </Button>
+        </Card>
+      </div>
+    );
+  }
+
+  const threatCritical =
+    data.stats.threat_level === "CRITICAL";
 
   return (
     <div className="space-y-6 pt-2">
