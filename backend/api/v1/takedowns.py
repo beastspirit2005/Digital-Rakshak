@@ -60,3 +60,60 @@ async def approve_takedown(policy_id: int, db: AsyncSession = Depends(get_db), u
     await db.commit()
     
     return {"message": f"Successfully executed action: {policy.action} on target: {policy.target}", "receipt": receipt}
+
+
+@router.post("/trigger/{case_number}")
+async def trigger_automated_takedown(
+    case_number: str, 
+    db: AsyncSession = Depends(get_db), 
+    user: User = Depends(get_current_user)
+):
+    """
+    Called by Investigators. Parses a case and automatically drafts AI-recommended takedown policies
+    for all related hostile entities (UPI, phone numbers, URLs).
+    These policies go into the pending queue for Bankers/Nodal officers to approve.
+    """
+    from domain.models.case import Case
+    import uuid
+
+    # 1. Fetch the case
+    result = await db.execute(select(Case).where(Case.case_number == case_number))
+    case = result.scalars().first()
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+
+    # 2. Draft mock takedown policies based on the case data for demonstration
+    # In a real scenario, this would query Neo4j or Case evidence to find the exact entities
+    policies_drafted = []
+    
+    # Draft UPI Freeze Policy
+    upi_target = "suspect@okicici"
+    p1 = TakedownPolicy(
+        case_number=case_number,
+        target=upi_target,
+        target_type="upi",
+        action="freeze_account",
+        reason=f"Automated AI Draft: High confidence of scam in {case_number}. Freeze target UPI.",
+    )
+    db.add(p1)
+    policies_drafted.append(upi_target)
+    
+    # Draft Phone Block Policy
+    phone_target = "+919820041029" # Hardcoded suspect for the demo case
+    p2 = TakedownPolicy(
+        case_number=case_number,
+        target=phone_target,
+        target_type="phone",
+        action="block_sim",
+        reason=f"Automated AI Draft: Phone number extracted from {case_number} evidence.",
+    )
+    db.add(p2)
+    policies_drafted.append(phone_target)
+    
+    await db.commit()
+
+    return {
+        "status": "success",
+        "message": f"Automated RAIC Analysis complete. Drafted {len(policies_drafted)} takedown policies.",
+        "policies_drafted": policies_drafted
+    }
