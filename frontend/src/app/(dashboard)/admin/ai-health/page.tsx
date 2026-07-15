@@ -56,8 +56,6 @@ export default function AIHealthGovernanceDashboard() {
   const { token } = useAuthStore();
   const toast = useToast();
   const [loading, setLoading] = useState(false);
-  const [sovereignLock, setSovereignLock] = useState(false);
-  const [primaryEngine, setPrimaryEngine] = useState("groq-llama-3.3");
 
   const [models, setModels] = useState<ModelConfig[]>([
     {
@@ -120,25 +118,7 @@ export default function AIHealthGovernanceDashboard() {
     }
   ]);
 
-  const toggleSovereignLock = () => {
-    setSovereignLock((prev) => !prev);
-    if (!sovereignLock) {
-      toast("success", "Air-Gapped Sovereign Enforcement Mode ACTIVATED. External telemetry sealed.");
-    } else {
-      toast("info", "Air-Gapped mode disabled. Hybrid cloud-edge inference active.");
-    }
-  };
 
-  const handleSwitchPrimaryEngine = (engineId: string) => {
-    setPrimaryEngine(engineId);
-    setModels((prev) =>
-      prev.map((m) => ({
-        ...m,
-        is_active: m.id === engineId || m.id === "qwen-2.5-vl" || m.id === "whisper-v3"
-      }))
-    );
-    toast("success", `Switched primary reasoning tier to ${engineId}. RAIC weight matrix rebalanced.`);
-  };
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 p-4 md:p-6 space-y-6 font-sans">
@@ -164,34 +144,7 @@ export default function AIHealthGovernanceDashboard() {
             </p>
           </div>
         </div>
-
-        {/* Sovereign Enforcement Lock Toggle */}
-        <div className="flex items-center gap-3">
-          <button
-            onClick={toggleSovereignLock}
-            className={`px-4 py-2.5 rounded-xl font-mono text-xs font-bold transition-all flex items-center gap-2 border shadow-lg ${
-              sovereignLock
-                ? "bg-rose-950/80 border-rose-500 text-rose-300 animate-pulse"
-                : "bg-slate-900 border-slate-700 text-slate-300 hover:border-slate-600"
-            }`}
-          >
-            {sovereignLock ? <Lock className="w-4 h-4 text-rose-400" /> : <Unlock className="w-4 h-4 text-emerald-400" />}
-            {sovereignLock ? "AIR-GAPPED SOVEREIGN LOCK: ON" : "Enforce Air-Gapped Sovereign Mode"}
-          </button>
-        </div>
       </div>
-
-      {sovereignLock && (
-        <div className="p-4 rounded-xl bg-rose-950/50 border border-rose-500/60 text-rose-200 font-mono text-xs flex items-center justify-between shadow-xl">
-          <div className="flex items-center gap-2.5">
-            <Shield className="w-5 h-5 text-rose-400 shrink-0" />
-            <span>
-              <strong>CRITICAL SOVEREIGNTY PROTOCOL ACTIVE:</strong> All outgoing API calls to external cloud endpoints are currently disabled. Inference is restricted strictly to local self-hosted Qwen/Whisper instances and Redis internal memory queues.
-            </span>
-          </div>
-        </div>
-      )}
-
       {/* Model Grid & Version Switcher */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
@@ -246,27 +199,6 @@ export default function AIHealthGovernanceDashboard() {
                   </div>
                 )}
 
-                <div className="pt-2">
-                  <button
-                    onClick={() => handleSwitchPrimaryEngine(m.id)}
-                    disabled={m.is_active && m.id === primaryEngine}
-                    className={`w-full py-1.5 rounded text-[11px] font-bold transition-all flex items-center justify-center gap-1 ${
-                      m.is_active && m.id === primaryEngine
-                        ? "bg-cyan-950 text-cyan-300 border border-cyan-500/40 cursor-default"
-                        : "bg-slate-800 hover:bg-slate-700 text-slate-200"
-                    }`}
-                  >
-                    {m.is_active && m.id === primaryEngine ? (
-                      <>
-                        <CheckCircle2 className="w-3.5 h-3.5 text-cyan-400" /> Active Primary Tier
-                      </>
-                    ) : (
-                      <>
-                        <RefreshCw className="w-3.5 h-3.5" /> Set as Primary Tier
-                      </>
-                    )}
-                  </button>
-                </div>
               </div>
             </div>
           ))}
