@@ -48,9 +48,9 @@ export function FormError({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function FormNotice({ children }: { children: React.ReactNode }) {
+export function FormNotice({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className="rounded-control border border-success/20 bg-success-tint px-3.5 py-3 text-sm text-success">
+    <div className={cn("rounded-control border border-success/20 bg-success-tint px-3.5 py-3 text-sm text-success", className)}>
       {children}
     </div>
   );
