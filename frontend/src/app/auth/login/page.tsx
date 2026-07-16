@@ -131,13 +131,12 @@
           </Link>
         </p>
 
-        <AnimatePresence mode="wait" initial={false}>
+        <div className="relative">
           {step === "email" ? (
             <motion.form
               key="email-form"
               initial={{ opacity: 0, y: reduced ? 0 : 8 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
               transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
               onSubmit={handleLogin}
               className="space-y-6"
@@ -256,7 +255,6 @@
               key="otp-form"
               initial={{ opacity: 0, y: reduced ? 0 : 8 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
               transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
               onSubmit={handleVerifyOTP}
               className="space-y-6"
@@ -325,7 +323,7 @@
               </motion.div>
             </motion.form>
           )}
-        </AnimatePresence>
+        </div>
       </div>
     );
   }
