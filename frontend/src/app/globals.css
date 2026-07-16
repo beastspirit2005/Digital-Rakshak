@@ -188,21 +188,94 @@ html {
   scroll-behavior: smooth;
 }
 
-body {
-  background-color: var(--bg);
+body{
+  background: var(--bg);
   color: var(--ink);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition:
+    background .35s ease,
+    color .35s ease;
 }
 
 /* Atmospheric Intelligence Command Background Grid Pattern */
-.dark body {
-  background-image: 
-    radial-gradient(circle at 50% -20%, rgba(245, 158, 11, 0.05) 0%, transparent 60%),
-    linear-gradient(rgba(37, 53, 64, 0.15) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(37, 53, 64, 0.15) 1px, transparent 1px);
-  background-size: 100% 100%, 48px 48px, 48px 48px;
+.dark body{
+
+background:
+radial-gradient(circle at 20% 25%,
+rgba(56,189,248,.14),
+transparent 35%),
+
+radial-gradient(circle at 85% 30%,
+rgba(245,158,11,.12),
+transparent 40%),
+
+linear-gradient(
+180deg,
+#08131A 0%,
+#091722 100%
+);
+
+background-image:
+
+radial-gradient(circle at 20% 25%,
+rgba(56,189,248,.14),
+transparent 35%),
+
+radial-gradient(circle at 85% 30%,
+rgba(245,158,11,.12),
+transparent 40%),
+
+linear-gradient(rgba(255,255,255,.03) 1px, transparent 1px),
+
+linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px);
+
+background-size:
+100% 100%,
+100% 100%,
+40px 40px,
+40px 40px;
+
+}
+body:not(.dark){
+
+background:
+
+radial-gradient(circle at 18% 25%,
+rgba(59,130,246,.10),
+transparent 35%),
+
+radial-gradient(circle at 82% 28%,
+rgba(245,158,11,.10),
+transparent 35%),
+
+linear-gradient(
+180deg,
+#F9FBFD 0%,
+#EDF5FC 100%
+);
+
+background-image:
+
+radial-gradient(circle at 18% 25%,
+rgba(59,130,246,.10),
+transparent 35%),
+
+radial-gradient(circle at 82% 28%,
+rgba(245,158,11,.10),
+transparent 35%),
+
+linear-gradient(rgba(120,144,156,.07) 1px, transparent 1px),
+
+linear-gradient(90deg, rgba(120,144,156,.07) 1px, transparent 1px);
+
+background-size:
+100% 100%,
+100% 100%,
+40px 40px,
+40px 40px;
+
 }
 
 ::selection {
@@ -269,5 +342,173 @@ body {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+/* ------------------------------------------------------------------
+   Digital Rakshak — Premium Security layout additions
+------------------------------------------------------------------- */
+
+/* Custom grid mesh rendering at 4% density */
+.bg-cyber-grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.04;
+  background-size: 32px 32px;
+  background-image: 
+    linear-gradient(to right, rgba(255, 255, 255, 0.5) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.5) 1px, transparent 1px);
+}
+
+/* --------------------------------------------------------
+   Premium Glass Card
+---------------------------------------------------------*/
+
+.glass-premium-card{
+
+background:
+rgba(255,255,255,.78);
+
+backdrop-filter:blur(22px);
+
+-webkit-backdrop-filter:blur(22px);
+
+border:1px solid rgba(148,163,184,.28);
+
+box-shadow:
+
+0 25px 70px rgba(15,23,42,.10),
+
+0 0 0 1px rgba(255,255,255,.45) inset;
+
+
+  position: relative;
+
+ 
+
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+
+  
+
+  border-radius: 28px;
+
+  box-shadow:
+      0 35px 90px rgba(15,23,42,.12),
+      inset 1px 0 0 rgba(56,189,248,.08),
+      inset -1px 0 0 rgba(245,158,11,.08);
+
+  transition: all .35s ease;
+}
+
+.dark .glass-premium-card{
+
+  background: rgba(15,23,42,.82);
+
+  border:1px solid rgba(255,255,255,.08);
+
+  box-shadow:
+      0 40px 90px rgba(0,0,0,.55),
+      inset 1px 0 0 rgba(56,189,248,.18),
+      inset -1px 0 0 rgba(245,158,11,.18);
+}
+
+/* Modern segmented control styling matching Vercel */
+.vercel-segmented, .Segmented {
+  background: rgba(15, 23, 42, 0.60) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 12px !important;
+  padding: 4px !important;
+  display: flex !important;
+  width: 100% !important; 
+}
+
+.vercel-segmented button,
+.Segmented button {
+  border-radius: 8px !important;
+  font-size: 0.875rem !important;
+  font-weight: 500 !important;
+  padding: 8px 12px !important;
+  flex: 1 !important;
+  text-align: center !important;
+  color:var(--ink-2) !important;
+  background: transparent !important;
+  border: none !important;
+  cursor: pointer !important;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+/* Active segmented control blue glow option */
+.vercel-segmented button[aria-selected="true"],
+.Segmented button[aria-selected="true"] {
+  color: #38BDF8 !important;
+  background: transparent !important;
+border:none !important;
+ box-shadow:none !important;
+}
+
+/* Custom premium hover and focus styles on auth inputs */
+.glass-premium-card input {
+  transition: all 0.30s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.glass-premium-card input:focus {
+  border-color: #F59E0B !important;
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.25) !important;
+  outline: none !important;
+}
+
+/* OTP textboxes styles override */
+.otp-input-centered-wrapper input,
+.otp-input-centered-wrapper [class*="OtpInput"] input,
+input[type="text"][maxlength="1"] {
+  background-color: #111827 !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 12px !important;
+  color: #ffffff !important;
+  font-size: 1.25rem !important;
+  font-weight: 600 !important;
+  text-align: center !important;
+  transition: all 0.2s ease !important;
+}
+
+.otp-input-centered-wrapper input:focus,
+input[type="text"][maxlength="1"]:focus {
+  border-color: #F59E0B !important;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.25) !important;
+  outline: none !important;
+}
+
+/* Layout animations */
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.75s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Custom design alerts fallback */
+.form-error, [data-testid="form-error"] {
+  background-color: rgba(239, 68, 68, 0.1) !important;
+  border: 1px solid rgba(239, 68, 68, 0.2) !important;
+  color: #ef4444 !important;
+  border-radius: 12px !important;
+  padding: 12px 16px !important;
+}
+
+/* Motion system overrides */
+@media (prefers-reduced-motion: reduce) {
+  .animate-slide-up {
+    animation: none !important;
+    transform: none !important;
+    opacity: 1 !important;
   }
 }

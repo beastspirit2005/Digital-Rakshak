@@ -20,6 +20,7 @@ import { useState, useEffect } from "react";
 import { BrandIdentity } from "@/components/brand-identity";
 import { BrandLogo } from "@/components/brand-logo";
 import { AnimatedCounter } from "@/components/animated-counter";
+
 const STEPS = [
   {
     stepNumber: "01",
@@ -85,12 +86,12 @@ export default function LandingPage() {
       <nav className="sticky top-0 z-50 bg-[#08131A]/95 border-b border-[#253540]/30 backdrop-blur-md">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="hidden sm:block">
-  <BrandIdentity fixedDark />
-</div>
+            <BrandIdentity fixedDark />
+          </div>
 
-<div className="sm:hidden">
-  <BrandIdentity compact fixedDark />
-</div>
+          <div className="sm:hidden">
+            <BrandIdentity compact fixedDark />
+          </div>
           
           <div className="hidden md:flex items-center gap-8">
             <a href="#about" className="text-sm font-medium text-[#A7B4BD] hover:text-[#E7EEF3] transition-colors">
@@ -118,129 +119,62 @@ export default function LandingPage() {
 
       <main>
         {/* Dark Navy Cybersecurity Hero */}
-        <section id="about" className="bg-[#08131A] text-[#E7EEF3] relative overflow-hidden border-b border-[#253540]/20 pt-16 pb-24 sm:pt-28 sm:pb-32">
+        <section 
+          id="about" 
+          className="bg-[#020617] text-[#E7EEF3] relative overflow-hidden border-b border-[#253540]/20 pt-16 pb-24 sm:pt-28 sm:pb-32"
+        >
+          {/* Cyber security command center background layout */}
+          <div 
+            className="absolute inset-0 bg-[position:right_center] bg-cover bg-no-repeat pointer-events-none"
+            style={{ 
+              backgroundImage: "url('/hackerimg.png')",
+              opacity: 1.2
+            }} 
+          />
+
+          {/* Premium customized 5-stop cinematic gradient overlay */}
+          <div 
+            className="absolute inset-0 pointer-events-none" 
+            style={{
+  background: `
+    linear-gradient(
+      90deg,
+      rgba(2,6,23,0.98) 0%,
+      rgba(4,14,32,0.92) 20%,
+      rgba(8,20,40,0.65) 45%,
+      rgba(255,153,51,0.18) 70%,
+      rgba(255,153,51,0.08) 100%
+    )
+  `,
+}}/>
+
+          {/* Soft ambient lighting and glows */}
+          <div className="absolute right-0 top-1/4 w-[600px] h-[600px] rounded-full bg-[radial-gradient(circle_at_center,rgba(245,158,11,0.22)_0%,transparent_70%)] pointer-events-none mix-blend-screen" />
+          <div className="absolute left-1/4 bottom-1/4 w-[500px] h-[500px] rounded-full bg-[radial-gradient(circle_at_center,rgba(14,165,233,0.08)_0%,transparent_70%)] pointer-events-none" />
+          
           {/* Subtle vector grid effect */}
           <div className="absolute inset-0 bg-[linear-gradient(rgba(37,53,64,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(37,53,64,0.05)_1px,transparent_1px)] bg-[size:40px_40px] pointer-events-none" />
           
-          <div className="max-w-6xl mx-auto px-6 relative z-10 grid lg:grid-cols-12 gap-12 lg:gap-8 items-center">
-            <motion.div
-  initial={reduced ? {} : "hidden"}
-  animate={reduced ? undefined : "visible"}
-  variants={{
-    hidden: {},
-    visible: {
-      transition: {
-        staggerChildren: 0.09,
-      },
-    },
-  }}
-  className="lg:col-span-7"
->
-             <motion.div
-  variants={{
-    hidden: { opacity: 0, y: 10 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: {
-        duration: 0.4,
-        ease: [0.16, 1, 0.3, 1],
-      },
-    },
-  }}
-  className="inline-flex items-center gap-2 bg-[#17232A] border border-[#253540] px-3.5 py-1.5 rounded-pill text-xs font-semibold text-[#F59E0B] tracking-wide mb-6 uppercase"
->
-                <span className="flex h-1.5 w-1.5 relative">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#00D9A3] opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[#00D9A3]"></span>
-                </span>
-                Cyber threat intelligence for India
-              </motion.div>
-              
-              <motion.h1
-  variants={{
-    hidden: { opacity: 0, y: 16 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: {
-        duration: 0.5,
-        ease: [0.16, 1, 0.3, 1],
-      },
-    },
-  }}
-  className="font-display font-bold text-2xl sm:text-[2.75rem] leading-[1.1] tracking-tight text-[#E7EEF3]"
->
-                One report can <br className="hidden sm:inline" />
-                take down an entire <br className="hidden sm:inline" />
-                <span className="text-[#F59E0B] drop-shadow-[0_4px_12px_rgba(245,158,11,0.15)]">scam network.</span>
-              </motion.h1>
-              
-              <motion.p
-  variants={{
-    hidden: { opacity: 0, y: 14 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: {
-        duration: 0.45,
-        ease: [0.16, 1, 0.3, 1],
-      },
-    },
-  }}
-  className="text-base sm:text-lg text-[#A7B4BD] mt-6 max-w-xl leading-relaxed font-sans"
->
-             Digital Rakshak analyzes cyber threat signals with AI, connects related cases across India, and turns scattered reports into actionable intelligence.
-              </motion.p>
-              
-              <motion.div
-  variants={{
-    hidden: { opacity: 0, y: 14 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: {
-        duration: 0.45,
-        ease: [0.16, 1, 0.3, 1],
-      },
-    },
-  }}
-  className="flex flex-col sm:flex-row gap-4 mt-8"
->
-                <Link
-                  href={getHref("/report")}
-                  className="inline-flex items-center justify-center h-12 px-6 rounded-control bg-[#F59E0B] text-[#08131A] font-bold text-sm hover:bg-[#F97316] hover:shadow-[0_4px_20px_rgba(245,158,11,0.25)] transition-all duration-150 active:scale-[0.98] group"
-                >
-                  Report a scam
-                  <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-0.5 transition-transform" />
-                </Link>
-                <Link
-                  href={getHref("/prevention")}
-                  className="inline-flex items-center justify-center h-12 px-6 rounded-control bg-[#17232A] text-[#E7EEF3] border border-[#253540] font-semibold text-sm hover:bg-[#1b282f] hover:border-[#33414a] transition-colors duration-150"
-                >
-                  Check a suspicious link
-                </Link>
-              </motion.div>
-            </motion.div>
-
-            {/* Premium Laptop (Dark Frame) + Light Dashboard Screen Showcase */}
-            <div className="lg:col-span-5 w-full flex items-center justify-center relative mt-12 lg:mt-0 select-none">
-              <div className="absolute w-[320px] h-[320px] bg-[#F59E0B]/5 blur-[80px] rounded-full pointer-events-none animate-pulse" />
+          <div className="max-w-[1550px] mx-auto px-8 relative z-10 grid lg:grid-cols-12 gap-8 items-center">
+            
+            {/* LEFT (35% on Desktop) - Device Mockups */}
+                          <div className="lg:col-span-5 w-full flex items-center justify-start ml-6 relative">
+                          <div className="absolute w-[320px] h-[320px] bg-[#F59E0B]/5 blur-[80px] rounded-full pointer-events-none animate-pulse" />
               
               <motion.div 
                 initial={reduced ? {} : { opacity: 0, y: 30 }}
                 animate={reduced ? {} : { opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-                className="relative w-full max-w-[460px] sm:max-w-[500px]"
+                className="relative w-full max-w-[600px] sm:max-w-[650px]"
               >
-                {/* LAPTOP HARDWARE (Chassis remains dark slate) */}
+                {/* LAPTOP HARDWARE */}
                 <div className="relative w-full bg-[#121F26] rounded-t-2xl border-t border-x border-[#33414A] p-1 shadow-2xl">
                   {/* Laptop Screen Bezel */}
                   <div className="relative w-full bg-black rounded-t-[10px] p-1.5 sm:p-2.5 overflow-hidden">
                     {/* Centered Camera */}
                     <div className="absolute top-1.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-[#17232A] rounded-full z-20" />
                     
-                    {/* Laptop Screen Display (Now Premium Light Theme) */}
+                    {/* Laptop Screen Display */}
                     <div className="w-full aspect-[16/10] bg-[#F8FAFC] rounded-md p-2.5 sm:p-3 relative overflow-hidden flex flex-col justify-between border border-[#E2E8F0]">
                       {/* Grid Telemetry Map overlay */}
                       <div className="absolute inset-0 bg-[linear-gradient(rgba(226,232,240,0.5)_1px,transparent_1px),linear-gradient(90deg,rgba(226,232,240,0.5)_1px,transparent_1px)] bg-[size:16px_16px] pointer-events-none" />
@@ -251,7 +185,7 @@ export default function LandingPage() {
                           <BrandLogo size={20} />
                           <div>
                             <p className="font-display font-black text-[8.5px] sm:text-[9.5px] text-[#0F172A] leading-none tracking-tight">
-                              DIGITAL RAKSHAK <span className="text-[#F59E0B]">CIII</span>
+                              DIGITAL RAKSHAK 
                             </p>
                             <p className="text-[5px] sm:text-[6px] tracking-widest text-[#64748B] uppercase font-mono font-bold mt-0.5">
                               Threat Command Panel
@@ -263,49 +197,49 @@ export default function LandingPage() {
                         </span>
                       </div>
 
-                      {/* Command Statistics Row (White Cards with Slate Borders) */}
+                      {/* Command Statistics Row */}
                       <div className="relative z-10 grid grid-cols-4 gap-1.5 mt-2">
                         <div className="bg-white border border-[#E2E8F0] rounded p-1 shadow-sm">
                           <span className="block font-mono text-[5px] sm:text-[5.5px] font-bold text-[#64748B] tracking-wider uppercase">THREATS</span>
-                         <span className="block font-display font-extrabold text-[10px] sm:text-[11px] text-[#0F172A] mt-0.5">
-  <AnimatedCounter
-    value={1.2}
-    decimals={1}
-    suffix="M+"
-    duration={700}
-  />
-</span>
+                          <span className="block font-display font-extrabold text-[10px] sm:text-[11px] text-[#0F172A] mt-0.5">
+                            <AnimatedCounter
+                              value={1.2}
+                              decimals={1}
+                              suffix="M+"
+                              duration={700}
+                            />
+                          </span>
                         </div>
                         <div className="bg-white border border-[#E2E8F0] rounded p-1 shadow-sm">
                           <span className="block font-mono text-[5px] sm:text-[5.5px] font-bold text-[#64748B] tracking-wider uppercase">ACCURACY</span>
                           <span className="block font-display font-extrabold text-[10px] sm:text-[11px] text-[#00D9A3] mt-0.5">
-  <AnimatedCounter
-    value={98.7}
-    decimals={1}
-    suffix="%"
-    duration={800}
-  />
-</span>
+                            <AnimatedCounter
+                              value={98.7}
+                              decimals={1}
+                              suffix="%"
+                              duration={800}
+                            />
+                          </span>
                         </div>
                         <div className="bg-white border border-[#E2E8F0] rounded p-1 shadow-sm">
                           <span className="block font-mono text-[5px] sm:text-[5.5px] font-bold text-[#64748B] tracking-wider uppercase">INVESTIGATED</span>
                           <span className="block font-display font-extrabold text-[10px] sm:text-[11px] text-[#0F172A] mt-0.5">
-  <AnimatedCounter
-    value={50}
-    suffix="K+"
-    duration={750}
-  />
-</span>
+                            <AnimatedCounter
+                              value={50}
+                              suffix="K+"
+                              duration={750}
+                            />
+                          </span>
                         </div>
                         <div className="bg-white border border-[#E2E8F0] rounded p-1 shadow-sm">
                           <span className="block font-mono text-[5px] sm:text-[5.5px] font-bold text-[#64748B] tracking-wider uppercase">COVERAGE</span>
-                        <span className="block font-display font-extrabold text-[10px] sm:text-[11px] text-[#F59E0B] mt-0.5">
-  <AnimatedCounter
-    value={28}
-    suffix=" STATES"
-    duration={650}
-  />
-</span>
+                          <span className="block font-display font-extrabold text-[10px] sm:text-[11px] text-[#F59E0B] mt-0.5">
+                            <AnimatedCounter
+                              value={28}
+                              suffix=" STATES"
+                              duration={650}
+                            />
+                          </span>
                         </div>
                       </div>
 
@@ -317,7 +251,6 @@ export default function LandingPage() {
                             <TrendingUp className="w-2.5 h-2.5 text-[#F59E0B]" />
                             Threat Activity
                           </span>
-                          {/* Lightweight Responsive SVG Line Graph */}
                           <div className="flex-1 w-full flex items-center justify-center pt-1.5">
                             <svg className="w-full h-full min-h-[30px]" viewBox="0 0 100 30" preserveAspectRatio="none">
                               <defs>
@@ -329,19 +262,19 @@ export default function LandingPage() {
                               <line x1="0" y1="10" x2="100" y2="10" stroke="#F1F5F9" strokeWidth="0.5" />
                               <line x1="0" y1="20" x2="100" y2="20" stroke="#F1F5F9" strokeWidth="0.5" />
                               <motion.path
-  d="M 0,25 C 20,20 30,10 50,15 C 70,20 80,5 100,8"
-  fill="none"
-  stroke="#F59E0B"
-  strokeWidth="1.5"
-  strokeLinecap="round"
-  initial={reduced ? {} : { pathLength: 0, opacity: 0 }}
-  animate={reduced ? {} : { pathLength: 1, opacity: 1 }}
-  transition={{
-    delay: 0.45,
-    duration: 0.9,
-    ease: [0.16, 1, 0.3, 1],
-  }}
-/>
+                                d="M 0,25 C 20,20 30,10 50,15 C 70,20 80,5 100,8"
+                                fill="none"
+                                stroke="#F59E0B"
+                                strokeWidth="1.5"
+                                strokeLinecap="round"
+                                initial={reduced ? {} : { pathLength: 0, opacity: 0 }}
+                                animate={reduced ? {} : { pathLength: 1, opacity: 1 }}
+                                transition={{
+                                  delay: 0.45,
+                                  duration: 0.9,
+                                  ease: [0.16, 1, 0.3, 1],
+                                }}
+                              />
                               <path 
                                 d="M 0,25 C 20,20 30,10 50,15 C 70,20 80,5 100,8 L 100,30 L 0,30 Z" 
                                 fill="url(#chartGlow)"
@@ -352,7 +285,7 @@ export default function LandingPage() {
                           </div>
                         </div>
 
-                        {/* Live telemetry alert cluster (White Card with Slate Borders) */}
+                        {/* Live telemetry alert cluster */}
                         <div className="col-span-2 bg-white border border-[#E2E8F0] rounded p-1.5 flex flex-col justify-between shadow-sm">
                           <span className="font-mono text-[5px] sm:text-[6px] tracking-wider text-[#64748B] uppercase font-bold">Live Streams</span>
                           <div className="space-y-1 mt-1 text-[5px] sm:text-[6px] leading-tight">
@@ -374,14 +307,13 @@ export default function LandingPage() {
                     </div>
                   </div>
 
-                  {/* Laptop Key Base chassis (Hardware remains dark slate) */}
+                  {/* Laptop Key Base chassis */}
                   <div className="w-[106%] h-2.5 bg-[#33414A] rounded-b-lg border-b border-x border-[#253540] absolute bottom-[-10px] left-1/2 -translate-x-1/2 flex items-center justify-center">
-                    {/* Subtle notch detail */}
                     <div className="w-14 h-0.5 bg-black/60 rounded-b" />
                   </div>
                 </div>
 
-                {/* PHONE COMPONENT (Secure Client Protection Overlay - Frame remains dark) */}
+                {/* PHONE COMPONENT */}
                 <motion.div 
                   initial={reduced ? {} : { opacity: 0, x: 20 }}
                   animate={reduced ? {} : { opacity: 1, x: 0 }}
@@ -393,7 +325,7 @@ export default function LandingPage() {
                     <div className="w-4 h-0.5 bg-[#17232A] rounded-full" />
                   </div>
 
-                  {/* Smartphone screen contents (Now Light themed) */}
+                  {/* Smartphone screen contents */}
                   <div className="flex-1 bg-[#F8FAFC] pt-4.5 px-2 pb-2 flex flex-col gap-1.5 select-none text-[8px] relative border border-[#E2E8F0] rounded-[18px]">
                     <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-1">
                       <div className="flex items-center gap-1">
@@ -406,7 +338,7 @@ export default function LandingPage() {
                       </span>
                     </div>
 
-                    {/* App protected details card (White Card with Slate Border) */}
+                    {/* App protected details card */}
                     <div className="bg-white border border-[#E2E8F0] rounded p-1.5 flex flex-col gap-0.5 shadow-sm">
                       <p className="text-[6.5px] tracking-wider text-[#64748B] font-mono font-bold uppercase">Recent Analysis</p>
                       <p className="text-[11px] font-black text-[#00D9A3] tracking-tight font-display leading-none">99% Secure</p>
@@ -415,7 +347,7 @@ export default function LandingPage() {
                       </p>
                     </div>
 
-                    {/* App history logs feed (White Card with Slate Border) */}
+                    {/* App history logs feed */}
                     <div className="bg-white border border-[#E2E8F0] rounded p-1.5 flex-1 overflow-hidden flex flex-col justify-between shadow-sm">
                       <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-0.5">
                         <span className="font-bold text-[#0F172A] text-[7px] tracking-wide">Action History</span>
@@ -458,67 +390,171 @@ export default function LandingPage() {
                 </motion.div>
               </motion.div>
             </div>
+
+            {/* CENTER (30% on Desktop) - Text Content Block */}
+            <motion.div
+              initial={reduced ? {} : "hidden"}
+              animate={reduced ? undefined : "visible"}
+              variants={{
+                hidden: {},
+                visible: {
+                  transition: {
+                    staggerChildren: 0.09,
+                  },
+                },
+              }}
+              className="lg:col-span-6 lg:col-start-7 flex flex-col justify-center order-1 lg:order-2 pl-6"
+              >
+              <motion.div
+                variants={{
+                  hidden: { opacity: 0, y: 10 },
+                  visible: {
+                    opacity: 1.3,
+                    y: 0,
+                    transition: {
+                      duration: 0.4,
+                      ease: [0.16, 1, 0.3, 1],
+                    },
+                  },
+                }}
+                className="inline-flex items-center gap-2 bg-[#17232A] border border-[#253540] px-3.5 py-1.5 rounded-pill text-xs font-semibold text-[#F59E0B] tracking-wide mb-6 uppercase w-fit"
+              >
+                <span className="flex h-1.5 w-1.5 relative">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#00D9A3] opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[#00D9A3]"></span>
+                </span>
+                Cyber threat intelligence for India
+              </motion.div>
+              
+              <motion.h1
+                variants={{
+                  hidden: { opacity: 0, y: 16 },
+                  visible: {
+                    opacity: 1,
+                    y: 0,
+                    transition: {
+                      duration: 0.5,
+                      ease: [0.16, 1, 0.3, 1],
+                    },
+                  },
+                }}
+                className="font-display font-bold text-2xl sm:text-[2.75rem] leading-[1] tracking-tight text-[#E7EEF3]"
+              >
+                One report can <br className="hidden sm:inline" />
+                take down an entire <br className="hidden sm:inline" />
+                <span className="text-[#F59E0B] drop-shadow-[0_4px_12px_rgba(245,158,11,0.15)]">scam network.</span>
+              </motion.h1>
+              
+              <motion.p
+                variants={{
+                  hidden: { opacity: 0, y: 14 },
+                  visible: {
+                    opacity: 1,
+                    y: 0,
+                    transition: {
+                      duration: 0.45,
+                      ease: [0.16, 1, 0.3, 1],
+                    },
+                  },
+                }}
+                className="text-base sm:text-lg text-[#A7B4BD] mt-6 max-w-[700px] leading-relaxed font-sans"
+              >
+                Digital Rakshak analyzes cyber threat signals with AI, connects related cases across India, and turns scattered reports into actionable intelligence.
+              </motion.p>
+              
+              <motion.div
+                variants={{
+                  hidden: { opacity: 0, y: 14 },
+                  visible: {
+                    opacity: 1,
+                    y: 0,
+                    transition: {
+                      duration: 0.45,
+                      ease: [0.16, 1, 0.3, 1],
+                    },
+                  },
+                }}
+                className="flex flex-row gap-4 mt-8 flex-wrap"
+              >
+                <Link
+                  href={getHref("/report")}
+                  className="inline-flex items-center justify-center h-12 px-6 rounded-control bg-[#F59E0B] text-[#08131A] font-bold text-sm hover:bg-[#F97316] hover:shadow-[0_4px_20px_rgba(245,158,11,0.25)] transition-all duration-150 active:scale-[0.98] group shrink-0"
+                >
+                  Report a scam
+                  <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-0.5 transition-transform" />
+                </Link>
+                <Link
+                  href={getHref("/prevention")}
+                  className="inline-flex items-center justify-center h-12 px-6 rounded-control bg-[#17232A] text-[#E7EEF3] border border-[#253540] font-semibold text-sm hover:bg-[#1b282f] hover:border-[#33414a] transition-colors duration-150 shrink-0"
+                >
+                  Check a suspicious link
+                </Link>
+              </motion.div>
+            </motion.div>
+
+           
+
           </div>
         </section>
 
         {/* Animated Enterprise Trust Statistics */}
-<section
-  id="features"
-  className="bg-[#F8FAFC] border-y border-[#E2E8F0] py-14"
->
-  <div className="max-w-6xl mx-auto px-6">
-    <motion.div
-      initial={reduced ? {} : "hidden"}
-      whileInView={reduced ? undefined : "visible"}
-      viewport={{ once: true, amount: 0.35 }}
-      variants={{
-        hidden: {},
-        visible: {
-          transition: {
-            staggerChildren: 0.08,
-          },
-        },
-      }}
-      className="grid grid-cols-2 md:grid-cols-4 gap-8"
-    >
-      {STATS.map((stat) => (
-        <motion.div
-          key={stat.label}
-          variants={{
-            hidden: {
-              opacity: 0,
-              y: 14,
-            },
-            visible: {
-              opacity: 1,
-              y: 0,
-              transition: {
-                duration: 0.4,
-                ease: [0.16, 1, 0.3, 1],
-              },
-            },
-          }}
-          className="border-l-2 border-[#E2E8F0] pl-5 py-1"
+        <section
+          id="features"
+          className="bg-[#F8FAFC] border-y border-[#E2E8F0] py-14"
         >
-          <p className="font-display font-extrabold text-2xl sm:text-3xl tracking-tight text-[#08131A] tabular">
-            <AnimatedCounter
-              value={stat.value}
-              decimals={stat.decimals}
-              suffix={stat.suffix}
-              duration={850}
-            />
-          </p>
+          <div className="max-w-[1500px] mx-auto px-6">
+            <motion.div
+              initial={reduced ? {} : "hidden"}
+              whileInView={reduced ? undefined : "visible"}
+              viewport={{ once: true, amount: 0.35 }}
+              variants={{
+                hidden: {},
+                visible: {
+                  transition: {
+                    staggerChildren: 0.08,
+                  },
+                },
+              }}
+              className="grid grid-cols-2 md:grid-cols-4 gap-8"
+            >
+              {STATS.map((stat) => (
+                <motion.div
+                  key={stat.label}
+                  variants={{
+                    hidden: {
+                      opacity: 0,
+                      y: 14,
+                    },
+                    visible: {
+                      opacity: 1,
+                      y: 0,
+                      transition: {
+                        duration: 0.4,
+                        ease: [0.16, 1, 0.3, 1],
+                      },
+                    },
+                  }}
+                  className="border-l-2 border-[#E2E8F0] pl-5 py-1"
+                >
+                  <p className="font-display font-extrabold text-2xl sm:text-3xl tracking-tight text-[#08131A] tabular">
+                    <AnimatedCounter
+                      value={stat.value}
+                      decimals={stat.decimals}
+                      suffix={stat.suffix}
+                      duration={850}
+                    />
+                  </p>
 
-          <p className="text-xs font-semibold text-[#64748B] uppercase tracking-wider mt-1">
-            {stat.label}
-          </p>
-        </motion.div>
-      ))}
-    </motion.div>
-  </div>
-</section>
+                  <p className="text-xs font-semibold text-[#64748B] uppercase tracking-wider mt-1">
+                    {stat.label}
+                  </p>
+                </motion.div>
+              ))}
+            </motion.div>
+          </div>
+        </section>
 
-        {/* How it Works Section (Light / Clean Grid Theme) */}
+        {/* How it Works Section */}
         <section id="how-it-works" className="bg-white py-20 sm:py-28">
           <div className="max-w-6xl mx-auto px-6">
             <div className="text-center max-w-2xl mx-auto mb-16">
