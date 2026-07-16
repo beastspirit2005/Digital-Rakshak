@@ -34,6 +34,9 @@ As banks and police verify the data, the system uses Continuous Learning (RLHF) 
 ### 5. Empathic AI Voice Copilot
 Victims of financial fraud are often panicked. Instead of forcing them to navigate complex dropdown menus, they can simply **talk** to our AI Copilot. The system parses their voice, extracts the malicious UPIs and phone numbers, and fills out the intelligence report automatically.
 
+### 6. Command Center & Hardware Telemetry
+The platform provides a real-time Tactical Command Center powered by dynamic PostgreSQL aggregations (calculating true financial exposure and active threat hubs) rather than static data. It also features a Live AI Health Governance Desk that monitors actual CPU/GPU hardware loads natively via `psutil`, dynamically adapting to whether it's running on Cloud Serverless architectures or Local Workstations.
+
 ---
 
 ## System Architecture
@@ -174,8 +177,9 @@ docker run -d -p 3000:3000 --env-file ./frontend/.env.local --name dr-frontend 1
 
 ## Contributors
 
-* **beastspirit2005** - Backend and System Design
-* **Pranika** - Frontend Design
+* **beastspirit2005 (Harshit Sharma)** - Backend and System Design
+* **pranikaK17 (Pranika)** - Frontend Design
+* **DikshaChopra2007 (RuntimeTerror)** - Frontend Design
 
 ---
 
