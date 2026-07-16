@@ -38,25 +38,35 @@ You MUST output your analysis in raw JSON format matching this exact schema:
         from core.config import settings
         resolved_mode = ai_mode if ai_mode != "auto" else settings.DEFAULT_AI_MODE
         
-        # OFFLINE MODE (Local PyTorch)
+        # OFFLINE MODE (Local PyTorch) — with auto-fallback to Cloud if PyTorch is unavailable (e.g. Vercel)
         if resolved_mode == "ollama" or settings.FORCE_LOCAL_INFERENCE:
-            if analyze_type == "counterfeit":
-                from infrastructure.ai.ml_client import RakshakVisionClient
-                client = RakshakVisionClient()
-                client.load_model()
-                return client.detect_counterfeit(image_path)
-            else:
-                # Default OCR fallback for offline scam analysis
-                from infrastructure.ai.ml_client import RakshakVisionClient
-                client = RakshakVisionClient()
-                client.load_model()
-                extracted = client.extract_text(image_path)
-                return {
-                    "decision": "Manual Review Required (Offline OCR)",
-                    "score": 0.5,
-                    "extracted_text": extracted,
-                    "evidence": ["Image analyzed via offline EasyOCR."]
-                }
+            try:
+                if analyze_type == "counterfeit":
+                    from infrastructure.ai.ml_client import RakshakVisionClient, ML_AVAILABLE
+                    if not ML_AVAILABLE:
+                        raise ImportError("PyTorch not available in this environment")
+                    client = RakshakVisionClient()
+                    client.load_model()
+                    if not client.model_loaded:
+                        raise RuntimeError("Counterfeit model not loaded")
+                    return client.detect_counterfeit(image_path)
+                else:
+                    # Default OCR fallback for offline scam analysis
+                    from infrastructure.ai.ml_client import RakshakVisionClient, ML_AVAILABLE
+                    if not ML_AVAILABLE:
+                        raise ImportError("PyTorch not available in this environment")
+                    client = RakshakVisionClient()
+                    client.load_model()
+                    extracted = client.extract_text(image_path)
+                    return {
+                        "decision": "Manual Review Required (Offline OCR)",
+                        "score": 0.5,
+                        "extracted_text": extracted,
+                        "evidence": ["Image analyzed via offline EasyOCR."]
+                    }
+            except (ImportError, RuntimeError) as e:
+                print(f"Local inference unavailable ({e}), falling back to Groq Cloud...")
+                # Fall through to Cloud Mode below
                 
         # CLOUD MODE (Groq Vision)
         try:
