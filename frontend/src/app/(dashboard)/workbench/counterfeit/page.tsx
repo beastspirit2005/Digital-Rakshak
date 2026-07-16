@@ -48,7 +48,7 @@ export default function CounterfeitIntelligenceHubPage() {
   }, [token]);
 
   const isOffline = platformSettings?.force_local_inference || platformSettings?.default_ai_mode === 'ollama';
-  const engineName = isOffline ? 'Native PyTorch MobileNetV3' : 'Groq Llama-3.2-90B-Vision';
+  const engineName = isOffline ? 'Native PyTorch MobileNetV3' : 'Groq Llama-4-Scout-17B-Vision';
   const engineType = isOffline ? 'Strictly Offline PyTorch Core' : 'Cloud Vision Engine';
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {

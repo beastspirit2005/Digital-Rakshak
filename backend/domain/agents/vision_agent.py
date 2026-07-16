@@ -10,7 +10,7 @@ class VisionAgent:
     """
     
     def __init__(self):
-        self.model = "llama-3.2-90b-vision-preview"
+        self.model = "meta-llama/llama-4-scout-17b-16e-instruct"
         self.system_prompt = """You are an elite Cyber Threat Intelligence Vision AI.
 Analyze the provided image (screenshot of a WhatsApp chat, bank transfer, email, etc.) for signs of a scam or digital fraud.
 You MUST extract any text in the image.
