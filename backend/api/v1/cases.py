@@ -195,7 +195,8 @@ async def submit_case(
     
     # 1.5 Save uploaded file if any
     if file and file_bytes:
-        upload_dir = os.path.join(os.getcwd(), "uploads")
+        import tempfile
+        upload_dir = os.path.join(tempfile.gettempdir(), "rakshak_uploads")
         os.makedirs(upload_dir, exist_ok=True)
         file_ext = os.path.splitext(file.filename)[1].lower()
         
