@@ -214,7 +214,7 @@ export default function ReportPage() {
             <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
               <FormError>{error}</FormError>
 
-              <AnimatePresence mode="wait">
+              <>
                 {activeStep === 1 && (
                   <motion.div
                     key="step-1"
@@ -554,7 +554,7 @@ export default function ReportPage() {
                     </div>
                   </motion.div>
                 )}
-              </AnimatePresence>
+              </>
             </form>
           </div>
         ) : (
