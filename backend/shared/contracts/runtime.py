@@ -23,3 +23,15 @@ class IVisionRuntime(IRuntime):
 
 class IVoiceRuntime(IRuntime):
     pass
+
+class IBehaviourRuntime(IRuntime):
+    pass
+
+class IEmbeddingRuntime(IRuntime):
+    pass
+
+class INERRuntime(IRuntime):
+    pass
+
+class IReasoningRuntime(IRuntime):
+    pass
