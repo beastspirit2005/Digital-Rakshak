@@ -857,16 +857,18 @@ async def complete_investigation(
         
     attachment_url = None
     if file:
-        from core.supabase import supabase
+        from core.config import settings
+        from supabase import create_client
         import uuid
         file_ext = file.filename.split('.')[-1] if file.filename else 'bin'
         file_name = f"{case_number}_{uuid.uuid4().hex[:8]}.{file_ext}"
         try:
+            supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
             content = await file.read()
             res = supabase.storage.from_("evidence").upload(file_name, content, {"content-type": file.content_type})
             attachment_url = supabase.storage.from_("evidence").get_public_url(file_name)
         except Exception as e:
-            pass # ignore upload error for now
+            print(f"Investigation attachment upload failed: {e}")
             
     case.status = CaseStatus.investigation_completed.value
     
