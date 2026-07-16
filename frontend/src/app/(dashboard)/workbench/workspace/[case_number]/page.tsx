@@ -88,7 +88,8 @@ export default function InvestigatorWorkspacePage() {
   const [correctionNote, setCorrectionNote] = useState<string>("");
   const [actionStatus, setActionStatus] = useState<string | null>(null);
 
-  const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/v1";
+  const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+  const apiBase = process.env.NEXT_PUBLIC_API_URL || (isLocal ? "http://127.0.0.1:8000/v1" : "/api/v1");
 
   const fetchCaseDetails = async () => {
     if (!caseNumber) return;
