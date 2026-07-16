@@ -41,7 +41,8 @@ export function RAICExecutionMonitor({
     let reconnectTimeout: NodeJS.Timeout;
 
     const connect = () => {
-      const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/v1";
+      const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+      const apiBase = process.env.NEXT_PUBLIC_API_URL || (isLocal ? "http://127.0.0.1:8000/v1" : "/api/v1");
       eventSource = new EventSource(`${apiBase}/stream/events`);
 
       eventSource.addEventListener("connected", (e) => {
