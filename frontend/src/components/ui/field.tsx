@@ -72,7 +72,7 @@ export function OtpInput({
   const active = Math.min(value.length, length - 1);
 
   return (
-    <div className="relative cursor-text" onClick={() => ref.current?.focus()}>
+    <div className="relative cursor-text w-full" onClick={() => ref.current?.focus()}>
       <input
         ref={ref}
         id={id}
@@ -88,7 +88,7 @@ export function OtpInput({
           <div
             key={i}
             className={cn(
-              "h-13 flex-1 rounded-control border bg-surface flex items-center justify-center",
+              "h-12 w-12 sm:h-14 sm:w-14 flex-1 rounded-control border bg-surface flex items-center justify-center",
               "font-display text-lg tabular",
               i === active && value.length < length
                 ? "border-accent-text ring-1 ring-accent-text/30"
