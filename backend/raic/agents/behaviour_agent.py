@@ -1,0 +1,39 @@
+from backend.shared.contracts.agent import IAgent
+from backend.shared.contracts.capability import ICapability
+from backend.shared.contexts.investigation import AgentContext
+from backend.shared.results.agent_result import AgentResult
+
+class BehaviourAgent(IAgent):
+    def __init__(self, capability: ICapability):
+        self._capability = capability
+
+    async def execute(self, context: AgentContext) -> AgentResult:
+        evidence = context.evidence_target
+        text = evidence.raw_data
+
+        if not text:
+            return AgentResult(
+                status="FAILED",
+                confidence=0.0,
+                execution_time_ms=0,
+                errors=["No raw_data provided in EvidenceContext for BehaviourAgent"]
+            )
+
+        try:
+            cap_result = await self._capability.invoke({"text": text})
+            
+            return AgentResult(
+                status="SUCCESS",
+                confidence=cap_result["confidence"],
+                execution_time_ms=cap_result["execution_time_ms"],
+                findings=[f"Detected {len(cap_result['raw_behaviors'])} social engineering indicators."],
+                evidence_links=cap_result["behaviors"], # Using evidence_links to store mapped behaviours temporarily
+                metadata=cap_result["metadata"]
+            )
+        except Exception as e:
+            return AgentResult(
+                status="FAILED",
+                confidence=0.0,
+                execution_time_ms=0,
+                errors=[f"BehaviourCapability execution failed: {str(e)}"]
+            )
