@@ -89,7 +89,7 @@ export default function AdminUsersPage() {
     setFormError("");
   
     try {
-      await axios.post(api("/users/"), formData, {
+      await axios.post(api("/users"), formData, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setIsCreateModalOpen(false);

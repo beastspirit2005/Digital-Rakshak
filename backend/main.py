@@ -49,19 +49,24 @@ except ImportError:
 import os
 _cors_origins_env = os.getenv("CORS_ORIGINS", "")
 _cors_origins = [o.strip() for o in _cors_origins_env.split(",") if o.strip()] if _cors_origins_env else []
-_cors_origins += ["http://localhost:3000", "http://localhost:3001", "http://127.0.0.1:3000", "http://127.0.0.1:3001"]
+_cors_origins += [
+    "http://localhost:3000", 
+    "http://localhost:3001", 
+    "http://127.0.0.1:3000", 
+    "http://127.0.0.1:3001",
+    os.getenv("FRONTEND_URL", "http://localhost:3000")
+]
 
 # Build origin regex: strictly match allowed Vercel preview domains if needed
-_origin_patterns = [r"^https://[a-zA-Z0-9-]+\.vercel\.app$"]
-# DO NOT blindly allow all http:// origins even in development to prevent local CSRF/SSRF style pivoting
+_origin_patterns = [r"^https://[a-zA-Z0-9-]+\.vercel\.app$", r"^http://.*:3000$", r"^http://.*:3001$"]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
     allow_origin_regex="|".join(f"({p})" for p in _origin_patterns),
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-    allow_headers=["Authorization", "Content-Type", "Accept"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 from infrastructure.db.session import engine, Base
@@ -82,6 +87,11 @@ from api.v1.settings import router as settings_router
 from api.v1.osint import router as osint_router
 from api.v1.support import router as support_router
 from api.v1.help_chat import router as help_chat_router
+from api.v1.mock_apis import router as mock_apis_router
+from api.v1.evidence import router as evidence_router
+from api.v1.stream_router import router as stream_router
+from api.v1.entities import router as entities_router
+from api.v1.cache_router import router as cache_router
 
 app.include_router(auth_router, prefix=f"{settings.API_V1_STR}/auth", tags=["auth"])
 app.include_router(users_router, prefix=f"{settings.API_V1_STR}/users", tags=["users"])
@@ -97,9 +107,18 @@ app.include_router(settings_router, prefix=f"{settings.API_V1_STR}/admin", tags=
 app.include_router(osint_router, prefix=f"{settings.API_V1_STR}/admin/osint", tags=["osint"])
 app.include_router(support_router, prefix=f"{settings.API_V1_STR}")
 app.include_router(help_chat_router, prefix=f"{settings.API_V1_STR}/help")
+app.include_router(mock_apis_router, prefix=f"{settings.API_V1_STR}/mock-apis", tags=["mock_apis"])
+app.include_router(evidence_router, prefix=f"{settings.API_V1_STR}")
+app.include_router(stream_router, prefix=f"{settings.API_V1_STR}")
+app.include_router(entities_router, prefix=f"{settings.API_V1_STR}")
+app.include_router(cache_router, prefix=f"{settings.API_V1_STR}")
+
+
+
+
 
 def _run_migrations_sync():
-    if os.getenv("RUN_MIGRATIONS", "true").lower() != "true":
+    if os.getenv("RUN_MIGRATIONS", "false").lower() != "true":
         logger.info("Skipping migrations. Set RUN_MIGRATIONS=true to run them.")
         return
         

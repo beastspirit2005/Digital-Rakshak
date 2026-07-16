@@ -62,7 +62,7 @@ const caseColumns: Column<CaseRow>[] = [
     header: "Case",
     mobile: "title",
     render: (c) => (
-      <Link href="/workbench/reports" className="font-medium text-ink hover:text-accent-text tabular">
+      <Link href={`/workbench/workspace/${c.case_number}`} className="font-medium text-emerald-400 hover:text-emerald-300 tabular underline decoration-emerald-500/40 underline-offset-4">
         {c.case_number}
       </Link>
     ),
@@ -196,7 +196,7 @@ export default function WorkbenchDashboard() {
                     </linearGradient>
                   </defs>
                   <XAxis
-                    dataKey="name"
+                    dataKey="date"
                     axisLine={false}
                     tickLine={false}
                     tick={axisTick}

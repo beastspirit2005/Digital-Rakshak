@@ -1,10 +1,7 @@
 from sqlalchemy import Column, String, Integer, Text, select
-from sqlalchemy.orm import declarative_base
 from pgvector.sqlalchemy import Vector
-import ollama
 import logging
-
-Base = declarative_base()
+from infrastructure.db.session import Base
 logger = logging.getLogger(__name__)
 
 class RegulatoryGuideline(Base):
@@ -39,17 +36,23 @@ class FraudPattern(Base):
     embedding = Column(Vector(384))
 
 import asyncio
-from sentence_transformers import SentenceTransformer
+try:
+    from sentence_transformers import SentenceTransformer
+except ImportError:
+    SentenceTransformer = None
 
 class KnowledgeBase:
     def __init__(self):
-        # We load a small, fast local embedding model (runs purely on CPU)
-        self.model = SentenceTransformer("all-MiniLM-L6-v2")
+        if SentenceTransformer:
+            self.model = SentenceTransformer("all-MiniLM-L6-v2")
+        else:
+            self.model = None
         
     async def get_embedding(self, text: str) -> list[float]:
         try:
-            # We run the embedding synchronously but wrap it in an async-friendly way if needed
-            # For this prototype, we'll just run it directly as it's very fast
+            if not self.model:
+                logger.warning("SentenceTransformer not installed. Returning dummy embeddings.")
+                return [0.0] * 384
             embedding = self.model.encode(text)
             return embedding.tolist()
         except Exception as e:

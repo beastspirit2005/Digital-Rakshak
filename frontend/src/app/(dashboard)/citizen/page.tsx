@@ -16,6 +16,7 @@ import { StatSkeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Rise } from "@/components/ui/motion";
 import { useToast } from "@/components/ui/toast";
+import { CaseActivityTimeline } from "@/components/case/CaseActivityTimeline";
 
 interface Case {
   id: string | number;
@@ -26,13 +27,14 @@ interface Case {
   priority: string;
   status: string;
   assigned_phone?: string;
+  timeline_events?: any[];
 }
 
 const normalizeStatus = (status: string) => (status || "").toLowerCase().replace(/_/g, " ");
 
 function CaseStepper({ status }: { status: string }) {
   const s = normalizeStatus(status);
-  const steps = ["submitted", "assigned", "investigating", "resolved"];
+  const steps = ["submitted", "assigned", "investigating", "investigation completed", "resolved"];
   const currentIndex = steps.indexOf(s);
   
   return (
@@ -109,11 +111,10 @@ if (!token) return;
    
 
     try {
-      await axios.post(
-        api(`/cases/${caseNumber}/resolve`),
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      await axios.post(api(`/cases/${caseNumber}/resolve`), {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      pushToast("success", "Case resolved successfully.");
       fetchCases();
     } catch (err) {
       console.error(err);
@@ -121,9 +122,25 @@ if (!token) return;
     }
   };
 
+  const handleReopen = async (caseNumber: string) => {
+    const reason = window.prompt("Please provide a reason for reopening this case:");
+    if (!reason) return;
+    
+    try {
+      await axios.post(api(`/cases/${caseNumber}/reopen`), { reason }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      pushToast("success", "Follow-up requested. Case reopened.");
+      fetchCases();
+    } catch (err) {
+      console.error(err);
+      pushToast("danger", "Failed to reopen case.");
+    }
+  };
+
   const totalReports = cases.length;
   const underReview = cases.filter((c) =>
-    ["under review", "pending", "submitted", "analyzing", "assigned", "investigating"].includes(normalizeStatus(c.status))
+    ["under review", "pending", "submitted", "analyzing", "assigned", "investigating", "investigation_completed"].includes(normalizeStatus(c.status))
   ).length;
   const resolved = cases.filter((c) =>
     ["resolved", "closed", "completed"].includes(normalizeStatus(c.status))
@@ -199,6 +216,7 @@ if (!token) return;
             {cases.map((c) => {
               const isResolved = normalizeStatus(c.status) === "resolved";
               const isInvestigating = normalizeStatus(c.status) === "investigating";
+              const isCompleted = normalizeStatus(c.status) === "investigation_completed" || normalizeStatus(c.status) === "investigation completed";
               
               return (
                 <Card key={c.id} className="p-6 transition-all hover:border-[#253540] hover:shadow-card">
@@ -217,7 +235,18 @@ if (!token) return;
                     </div>
                     
                     <div className="flex items-center gap-3 self-start">
-                      {!isResolved && (
+                      {isCompleted && (
+                        <>
+                          <Button variant="secondary" size="sm" onClick={() => handleReopen(c.case_number)}>
+                            Request Follow-up
+                          </Button>
+                          <Button variant="primary" size="sm" className="bg-success hover:bg-success/90 text-white" onClick={() => handleResolve(c.case_number)}>
+                            <CheckCircle2 className="w-4 h-4 mr-1.5" />
+                            Accept & Resolve
+                          </Button>
+                        </>
+                      )}
+                      {!isCompleted && !isResolved && (
                         <Button variant="secondary" size="sm" onClick={() => handleResolve(c.case_number)}>
                           <CheckCircle2 className="w-4 h-4 mr-1.5 text-success" />
                           Mark as Resolved
@@ -241,6 +270,13 @@ if (!token) return;
                       <div className="text-right">
                         <p className="text-sm font-semibold text-ink">{c.assigned_phone}</p>
                       </div>
+                    </div>
+                  )}
+
+                  {c.timeline_events && c.timeline_events.length > 0 && (
+                    <div className="mt-8 border-t border-line pt-6">
+                      <h3 className="text-sm font-medium text-ink mb-4">Case Activity</h3>
+                      <CaseActivityTimeline events={c.timeline_events} />
                     </div>
                   )}
                 </Card>

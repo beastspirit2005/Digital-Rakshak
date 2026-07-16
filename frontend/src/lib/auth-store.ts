@@ -13,6 +13,7 @@ export interface User {
   email: string;
   role: UserRole;
   full_name?: string;
+  station_phone_number?: string;
 }
 
 interface AuthState {

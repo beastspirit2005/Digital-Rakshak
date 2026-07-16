@@ -5,6 +5,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 class WhisperAgent:
+    """
     Analyzes audio evidence (MP3, WAV) via local Whisper model.
     Falls back to Groq Audio if ffmpeg is not installed.
     """

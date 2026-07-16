@@ -9,6 +9,7 @@ from core.config import settings
 from api.deps import get_current_user, get_current_admin
 from domain.models.user import User
 from domain.models.case import Case
+from api.deps import get_kb
 
 router = APIRouter(tags=["chat"])
 logger = logging.getLogger(__name__)
@@ -105,6 +106,24 @@ async def global_chatbot(
     ist = pytz.timezone('Asia/Kolkata')
     current_time_str = datetime.now(ist).strftime("%I:%M %p")
     
+    # Query the RAG Knowledge Base
+    kb = get_kb()
+    laws = await kb.search_relevant_laws(db, req.query, top_k=2)
+    patterns = await kb.search_fraud_patterns(db, req.query, top_k=1)
+    
+    rag_context = ""
+    if laws:
+        rag_context += "\nRELEVANT LAWS/GUIDELINES:\n"
+        for law in laws:
+            rag_context += f"- {law['title']} ({law['source']}): {law['content']}\n"
+    if patterns:
+        rag_context += "\nKNOWN FRAUD PATTERNS:\n"
+        for p in patterns:
+            rag_context += f"- {p['pattern']}: {p['description']}\n"
+            
+    if rag_context:
+        context += f"\n\n{rag_context}"
+
     system_prompt = f"""
     You are the Digital Rakshak Global AI Assistant, an elite cybercrime and platform assistant.
     You are speaking to a user with the role of '{role}'. 
@@ -177,12 +196,34 @@ async def case_copilot_chat(
     AI INTELLIGENCE DATA:
     {case.ai_decision}
     """
+    
+    # Query the RAG Knowledge Base
+    kb = get_kb()
+    
+    # We combine the investigator's query and the case text for semantic search
+    search_query = f"{req.query} {case.scam_text}"
+    laws = await kb.search_relevant_laws(db, search_query, top_k=2)
+    mistakes = await kb.search_past_mistakes(db, search_query, top_k=1)
+    
+    rag_context = ""
+    if laws:
+        rag_context += "\nRELEVANT LAWS/GUIDELINES:\n"
+        for law in laws:
+            rag_context += f"- {law['title']} ({law['source']}): {law['content']}\n"
+            
+    if mistakes:
+        rag_context += "\nPAST AI MISTAKES TO AVOID (RLHF Memory):\n"
+        for m in mistakes:
+            rag_context += f"- Original: {m['original_scam']}\n  AI Guessed: {m['ai_got_wrong']}\n  Human Corrected: {m['human_correction']}\n"
+            
+    if rag_context:
+        context += f"\n\n{rag_context}"
 
     system_prompt = """
     You are the Digital Rakshak Investigation Co-Pilot, an elite cybercrime assistant.
     The user is a police investigator asking about a specific case.
-    I have provided you with the CASE FACT SHEET.
-    Answer the investigator's query directly, accurately, and concisely based ONLY on the facts provided in the sheet.
+    I have provided you with the CASE FACT SHEET and relevant laws.
+    Answer the investigator's query directly, accurately, and concisely based ONLY on the facts provided in the sheet and the laws.
     If the fact sheet does not contain the answer, say "I don't have that information in the case file."
     Do not hallucinate external details. Maintain a highly professional, law-enforcement tone.
     """

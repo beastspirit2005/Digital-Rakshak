@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { ShieldCheck, AlertTriangle, Link as LinkIcon, QrCode, Smartphone, HandCoins, Camera } from "lucide-react";
 import axios from "axios";
 import { cn } from "@/lib/utils";
+import { api } from "@/lib/api";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
@@ -62,11 +63,10 @@ export default function PreventionSuite() {
     setLoading(true);
     setResult(null);
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api/v1";
       const payload =
         activeTab === "url" ? { url: text } : activeTab === "upi" ? { upi: text } : { text: text };
 
-      const res = await axios.get(`${apiUrl}/scan`, { params: payload });
+      const res = await axios.post(api("/scan"), payload);
       setResult({
         safe: res.data.is_safe,
         confidence: 0.95,
@@ -86,27 +86,27 @@ export default function PreventionSuite() {
     setLoading(true);
     setResult(null);
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api/v1";
-
       if (activeTab === "qr" && selectedFile) {
         const formData = new FormData();
         formData.append("file", selectedFile);
-        const res = await axios.post(`${apiUrl}/scan/qr`, formData);
+        const res = await axios.post(api("/scan/qr"), formData);
         setResult({
           safe: res.data.is_safe,
           confidence: 0.95,
           reason: res.data.reasons.join(" ") || "No threats found in the QR code.",
         });
       } else if (activeTab === "apk" && selectedFile) {
-        // APK scanning is simulated until a dedicated backend endpoint exists.
-        setTimeout(() => {
-          setResult({
-            safe: false,
-            confidence: 0.99,
-            reason: `Malicious APK profile: BIND_ACCESSIBILITY_SERVICE detected in ${selectedFile.name}.`,
-          });
-          setLoading(false);
-        }, 1500);
+        const formData = new FormData();
+        formData.append("file", selectedFile);
+        const res = await axios.post(api("/scan/apk"), formData, {
+          headers: { "Content-Type": "multipart/form-data" }
+        });
+        setResult({
+          safe: res.data.is_safe,
+          confidence: 0.95,
+          reason: res.data.reasons.join("\n") || "No dangerous permissions found.",
+        });
+        setLoading(false);
         return;
       } else {
         await scanTextPayload(inputValue);

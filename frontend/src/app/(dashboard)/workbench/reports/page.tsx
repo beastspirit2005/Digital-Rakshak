@@ -15,6 +15,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
 import { ZtivfMeters } from "@/components/ztivf-meters";
 import { useToast } from "@/components/ui/toast";
+import { CaseActivityTimeline } from "@/components/case/CaseActivityTimeline";
 
 function CaseDetail({
   c,
@@ -27,6 +28,8 @@ function CaseDetail({
   investigators,
   onAssign,
   onAccept,
+  onUndertake,
+  onCompleteInvestigation,
   token,
 }: {
   c: any;
@@ -35,14 +38,20 @@ function CaseDetail({
   chatHistory: { role: string; text: string }[];
   chatLoading: boolean;
   onChatSubmit: (e: React.FormEvent) => void;
-  userRole: string;
+  userRole?: string;
   investigators: any[];
   onAssign: (caseId: string, invId: string) => void;
-  onAccept: (caseId: string) => void;
+  onAccept?: (caseId: string) => void;
+  onUndertake?: (caseId: string) => void;
+  onCompleteInvestigation?: (caseId: string, formData: FormData) => void;
   token: string | null;
 }) {
   const [selectedInv, setSelectedInv] = useState("");
   const [evidenceUrl, setEvidenceUrl] = useState<string | null>(null);
+  const [osintFlags, setOsintFlags] = useState<any[] | null>(null);
+  const [scanningOsint, setScanningOsint] = useState(false);
+  const [remark, setRemark] = useState("");
+  const [attachment, setAttachment] = useState<File | null>(null);
   const pushToast = useToast();
   
   const loadEvidence = async () => {
@@ -67,6 +76,27 @@ function CaseDetail({
       pushToast("danger", "No evidence found or failed to load.");
     }
   };
+
+  const runOsintScan = async () => {
+    if (!token) return;
+    setScanningOsint(true);
+    try {
+      const res = await axios.get(api(`/admin/osint/scan-case/${c.case_number}`), {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setOsintFlags(res.data.flags || []);
+      if (res.data.flags?.length > 0) {
+        pushToast("danger", `Found ${res.data.flags.length} global OSINT threat indicators!`);
+      } else {
+        pushToast("success", "No external OSINT threat indicators found for this case.");
+      }
+    } catch (err) {
+      pushToast("danger", "Failed to run OSINT scan.");
+    } finally {
+      setScanningOsint(false);
+    }
+  };
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 p-4 sm:p-6">
       <div className="lg:col-span-2 space-y-4">
@@ -95,14 +125,39 @@ function CaseDetail({
           </div>
         )}
         
-        <div className="pt-2">
+        <div className="pt-2 flex flex-wrap gap-2">
            <Button variant="secondary" size="sm" onClick={loadEvidence}>View Attached Evidence</Button>
-           {evidenceUrl && (
-             <div className="mt-4">
-               <a href={evidenceUrl} target="_blank" rel="noreferrer" className="text-accent-text text-sm underline">Open Evidence File</a>
-             </div>
-           )}
+           <Button variant="secondary" size="sm" onClick={runOsintScan} loading={scanningOsint} className="border-red-500/30 text-red-500 hover:bg-red-500/10 hover:text-red-600">
+             Scan OSINT Flags
+           </Button>
         </div>
+        
+        {evidenceUrl && (
+          <div className="mt-4">
+            <a href={evidenceUrl} target="_blank" rel="noreferrer" className="text-accent-text text-sm underline">Open Evidence File</a>
+          </div>
+        )}
+
+        {osintFlags && osintFlags.length > 0 && (
+          <div className="mt-4 p-4 border border-red-500/30 bg-red-500/5 rounded-md">
+            <p className="text-sm font-semibold text-red-500 mb-2">Global Threat Intelligence Hits</p>
+            <ul className="space-y-2">
+              {osintFlags.map((flag: any, i: number) => (
+                <li key={i} className="text-xs flex gap-2 items-center">
+                  <Badge tone="danger">ThreatIntel</Badge>
+                  <span className="text-ink">{flag.value}</span>
+                  <span className="text-ink-3">— Flagged by {flag.source} ({flag.threat_type})</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {osintFlags && osintFlags.length === 0 && (
+          <div className="mt-4">
+            <p className="text-xs text-ink-3">No OSINT threats detected for entities in this case.</p>
+          </div>
+        )}
       </div>
 
       <div className="space-y-4">
@@ -142,7 +197,7 @@ function CaseDetail({
         {/* Actions based on Role */}
         <Inset className="p-4">
           <p className="text-xs text-ink-3 mb-3">Case Actions</p>
-          {userRole === "admin" && c.status === "submitted" && (
+          {userRole === "admin" && (c.status === "submitted" || c.status === "under_review" || c.status === "escalated") && (
             <div className="space-y-3">
                <select 
                  className="w-full text-sm p-2 rounded-control bg-surface-2 border-transparent text-ink"
@@ -160,14 +215,55 @@ function CaseDetail({
             </div>
           )}
           {(userRole === "police" || userRole === "cyber_cell") && c.status === "assigned" && (
-             <Button size="sm" variant="primary" className="w-full" onClick={() => onAccept(c.case_number)}>
+             <Button variant="primary" className="w-full" onClick={() => onAccept?.(c.case_number)}>
                 Accept Case for Investigation
              </Button>
+          )}
+          {(userRole === "police" || userRole === "cyber_cell") && (c.status === "submitted" || c.status === "under_review" || c.status === "escalated") && (
+             <Button variant="primary" className="w-full" onClick={() => onUndertake?.(c.case_number)}>
+                Undertake Case
+             </Button>
+          )}
+          {(userRole === "police" || userRole === "cyber_cell") && c.status === "investigating" && (
+             <div className="space-y-3">
+               <textarea 
+                 placeholder="Investigation remarks (required)..." 
+                 value={remark} 
+                 onChange={(e) => setRemark(e.target.value)}
+                 className="w-full text-sm p-2 rounded-control bg-surface-2 border border-line text-ink resize-none h-20"
+               />
+               <input 
+                 type="file" 
+                 onChange={(e) => setAttachment(e.target.files?.[0] || null)}
+                 className="w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-medium file:bg-surface file:text-ink hover:file:bg-surface-2 text-ink-2"
+               />
+               <Button 
+                 size="sm" 
+                 variant="primary" 
+                 className="w-full bg-success hover:bg-success/90" 
+                 disabled={!remark.trim()}
+                 onClick={() => {
+                   const fd = new FormData();
+                   fd.append("remark", remark);
+                   if (attachment) fd.append("file", attachment);
+                   onCompleteInvestigation?.(c.case_number, fd);
+                 }}
+               >
+                  Complete Investigation
+               </Button>
+             </div>
           )}
           {userRole !== "admin" && userRole !== "police" && userRole !== "cyber_cell" && (
              <p className="text-xs text-ink-3">No actions available.</p>
           )}
         </Inset>
+
+        {c.timeline_events && c.timeline_events.length > 0 && (
+          <Inset className="p-4">
+            <p className="text-xs text-ink-3 mb-3">Case activity timeline</p>
+            <CaseActivityTimeline events={c.timeline_events} />
+          </Inset>
+        )}
 
         {/* per-case co-pilot */}
         <Inset className="p-4 flex flex-col h-72">
@@ -223,6 +319,7 @@ const [error, setError] = useState("");
   const [chatHistory, setChatHistory] = useState<{ role: string; text: string }[]>([]);
   const [chatLoading, setChatLoading] = useState(false);
   const [investigators, setInvestigators] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<"unassigned" | "assigned">("unassigned");
   const { token, user } = useAuthStore();
   const pushToast = useToast();
   const reduced = useReducedMotion();
@@ -315,6 +412,19 @@ useEffect(() => {
     }
   };
   
+  const handleUndertake = async (caseNumber: string) => {
+    if (!token) return;
+    try {
+      await axios.post(api(`/cases/${caseNumber}/undertake`), {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      pushToast("success", "Case Undertaken!");
+      fetchAllCases();
+    } catch (err) {
+      pushToast("danger", "Failed to undertake case.");
+    }
+  };
+
   const handleAccept = async (caseNumber: string) => {
     try {
       await axios.post(api(`/cases/${caseNumber}/accept`), {}, {
@@ -327,16 +437,35 @@ useEffect(() => {
     }
   };
 
+  const handleCompleteInvestigation = async (caseNumber: string, formData: FormData) => {
+    try {
+      await axios.post(api(`/cases/${caseNumber}/complete_investigation`), formData, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      pushToast("success", "Investigation Completed!");
+      fetchAllCases();
+    } catch (err) {
+      pushToast("danger", "Failed to complete investigation.");
+    }
+  };
+
   const visibleCases = useMemo(() => {
+    let result = cases;
+    if (activeTab === "assigned") {
+      result = result.filter((c) => c.assigned_to === user?.id || c.assigned_phone === user?.station_phone_number);
+    } else if (activeTab === "unassigned") {
+      result = result.filter((c) => !c.assigned_to && !c.assigned_phone);
+    }
     const q = search.trim().toLowerCase();
-    if (!q) return cases;
-    return cases.filter(
+    if (!q) return result;
+    return result.filter(
       (c) =>
         (c.case_number || "").toLowerCase().includes(q) ||
         (c.scam_type_code || "").toLowerCase().includes(q) ||
-        (c.city || "").toLowerCase().includes(q)
+        (c.city || "").toLowerCase().includes(q) ||
+        (c.scam_text || "").toLowerCase().includes(q)
     );
-  }, [cases, search]);
+  }, [cases, search, activeTab, user]);
 
   const toggleExpanded = (id: string) => {
     setExpandedId(expandedId === id ? null : id);
@@ -374,19 +503,42 @@ useEffect(() => {
   return (
     <div className="space-y-6 pt-2">
       <PageHeader
-        title="Case register"
-        sub="Every report on file, with its full AI analysis."
+        title={user?.role === "admin" ? "Platform-wide Case Register" : "Case Register"}
+        sub={user?.role === "admin" ? "Browse, review, and assign cases to investigators." : "Review and manage cases in your jurisdiction."}
         actions={
-          <div className="relative">
-            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-3" />
-            <input
-              type="search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search case, type, or city"
-              className="h-10 pl-10 pr-4 w-full sm:w-72 rounded-pill bg-surface text-sm text-ink placeholder:text-ink-3 border border-transparent hover:border-line focus:border-accent-text focus:outline-none transition-colors"
-            />
-            
+          <div className="flex flex-col sm:flex-row items-center gap-4">
+            {(user?.role === "police" || user?.role === "cyber_cell") && (
+              <div className="flex bg-surface-2 p-1 rounded-control">
+                <button
+                  onClick={() => setActiveTab("unassigned")}
+                  className={cn(
+                    "px-4 py-1.5 text-sm font-medium rounded-control transition-all",
+                    activeTab === "unassigned" ? "bg-surface shadow-sm text-ink" : "text-ink-3 hover:text-ink"
+                  )}
+                >
+                  Unassigned Cases
+                </button>
+                <button
+                  onClick={() => setActiveTab("assigned")}
+                  className={cn(
+                    "px-4 py-1.5 text-sm font-medium rounded-control transition-all",
+                    activeTab === "assigned" ? "bg-surface shadow-sm text-ink" : "text-ink-3 hover:text-ink"
+                  )}
+                >
+                  Assigned to Me
+                </button>
+              </div>
+            )}
+            <div className="relative">
+              <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-3" />
+              <input
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search case, type, or city"
+                className="h-10 pl-10 pr-4 w-full sm:w-72 rounded-pill bg-surface text-sm text-ink placeholder:text-ink-3 border border-transparent hover:border-line focus:border-accent-text focus:outline-none transition-colors"
+              />
+            </div>
           </div>
         }
       />
@@ -450,7 +602,7 @@ useEffect(() => {
                           {c.city ? `${c.city}${c.state ? `, ${c.state}` : ""}` : "Unknown"}
                         </td>
                         <td className="px-6 py-4 text-right font-medium tabular">
-                          {(c.threat_confidence_score * 100).toFixed(1)}%
+                          {c.threat_confidence_score != null ? `${(c.threat_confidence_score * 100).toFixed(1)}%` : "N/A"}
                         </td>
                         <td className="px-6 py-4">
                           <PriorityBadge priority={c.priority} />
@@ -488,6 +640,8 @@ useEffect(() => {
                                   investigators={investigators}
                                   onAssign={handleAssign}
                                   onAccept={handleAccept}
+                                  onUndertake={handleUndertake}
+                                  onCompleteInvestigation={handleCompleteInvestigation}
                                   token={token}
                                 />
                               </motion.div>
@@ -543,6 +697,7 @@ useEffect(() => {
                           investigators={investigators}
                           onAssign={handleAssign}
                           onAccept={handleAccept}
+                          onUndertake={handleUndertake}
                           token={token}
                         />
                       </motion.div>

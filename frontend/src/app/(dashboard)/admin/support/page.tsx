@@ -1,222 +1,417 @@
 "use client";
 
 import { api } from "@/lib/api";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import axios from "axios";
 import { useAuthStore } from "@/lib/auth-store";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-
-import { Input } from "@/components/ui/field";
-import { MessageSquare, Mail, CheckCircle, Send, Users, AlertCircle } from "lucide-react";
+import { Input, Textarea } from "@/components/ui/field";
+import { MessageSquare, Mail, CheckCircle, Send, Users, AlertCircle, RefreshCw, UserCircle, Clock, FileText, ChevronRight } from "lucide-react";
 import { Rise } from "@/components/ui/motion";
 import { ChatBubble, ChatMessage } from "@/components/ui/chat-bubble";
+import { useToast } from "@/components/ui/toast";
 
 export default function AdminSupportPage() {
   const [tickets, setTickets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const { token, user } = useAuthStore();
+  const pushToast = useToast();
   
-  // WS State
-  const [ws, setWs] = useState<WebSocket | null>(null);
+  // View State
+  const [activeTab, setActiveTab] = useState<"live" | "async">("live");
+  
+  // Chat State
+  const [escalatedSessions, setEscalatedSessions] = useState<any[]>([]);
   const [activeChats, setActiveChats] = useState<{ [clientId: string]: ChatMessage[] }>({});
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
+  const [currentTicketId, setCurrentTicketId] = useState<string | null>(null);
   const [inputMsg, setInputMsg] = useState("");
+  const [ticketReply, setTicketReply] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const fetchTickets = async () => {
-  
+    try {
+      const res = await axios.get(api("/support/tickets"), {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      // Filter out tickets that are just LIVE_CHAT proxies if we want, 
+      // but the original system keeps them as async tickets. Let's just show them.
+      setTickets(res.data.tickets || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  try {
-    const res = await axios.get(api("/support/tickets"), {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-
-    setTickets(res.data.tickets);
-  } catch (err) {
-    console.error(err);
-  } finally {
-    setLoading(false);
-  }
-};
-
-  useEffect(() => {
-    if (token) fetchTickets();
+  const fetchSessions = useCallback(async () => {
+    if (!token) return;
+    try {
+      const res = await axios.get(api("/help/admin/sessions"), {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setEscalatedSessions(res.data.sessions || []);
+    } catch (err) {
+      // Silently ignore polling errors
+    }
   }, [token]);
 
-  // Connect WebSocket for Admin
-useEffect(() => {
-  
-  if (!user) return;
-    
-    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api/v1";
-    let wsBase: string;
-    if (API_BASE_URL.startsWith("http")) {
-      wsBase = API_BASE_URL.replace(/^http/, "ws");
-    } else {
-      const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
-      wsBase = `${proto}//${window.location.hostname}:8000/api/v1`;
+  const fetchMessages = useCallback(async () => {
+    if (!token || !currentChatId) return;
+    try {
+      const res = await axios.get(api(`/help/admin/session/${currentChatId}/messages`), {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const msgs: ChatMessage[] = (res.data.messages || []).map((m: any) => ({
+        id: m.id,
+        type: m.role === "admin" ? "admin" : m.role === "system" ? "system" : "user",
+        content: m.content,
+        timestamp: new Date(m.created_at)
+      }));
+      setActiveChats(prev => ({ ...prev, [currentChatId]: msgs }));
+    } catch (err) {
+      // Silently ignore
     }
+  }, [token, currentChatId]);
+
+  // Unified Polling Interval
+  useEffect(() => {
+    if (!token) return;
     
-    const socket = new WebSocket(`${wsBase}/help/ws/admin/${user.id}`);
-    
-    socket.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      
-      if (data.type === "escalation_request") {
-        const clientId = data.client_id;
-        setActiveChats(prev => {
-          if (prev[clientId]) return prev;
-          return { ...prev, [clientId]: [{ id: Date.now().toString(), type: "system", content: `Citizen ${clientId} has requested live support.`, timestamp: new Date() }] };
-        });
-        if (!currentChatId) setCurrentChatId(clientId); // Auto-focus if none selected
-      } 
-      else if (data.type === "human_chat" && data.target_client_id) {
-        // Echo of our own message sent to a user
-         const clientId = data.target_client_id;
-         setActiveChats(prev => {
-            const chat = prev[clientId] || [];
-            return { ...prev, [clientId]: [...chat, { id: Date.now().toString(), type: "admin", content: data.content, timestamp: new Date() }] };
-         });
-      }
-      // Note: If the citizen replies while in human chat mode, we need to handle it. 
-      // The current backend routes citizen 'chat' type directly to AI. 
-      // We'll just show escalations for now and the admin can reply. A full robust system would track the state in DB.
+    const loadInitial = async () => {
+        await Promise.all([
+            fetchSessions(),
+            fetchTickets()
+        ]);
     };
+    loadInitial();
     
-    setWs(socket);
+    const pollInterval = setInterval(async () => {
+        try {
+            await Promise.all([
+                fetchSessions(),
+                currentChatId ? fetchMessages() : Promise.resolve(),
+                activeTab === "async" ? fetchTickets() : Promise.resolve()
+            ]);
+        } catch (err) {
+            console.error("Polling error:", err);
+        }
+    }, 3000);
     
-    return () => socket.close();
-  }, [user, currentChatId]);
+    return () => clearInterval(pollInterval);
+  }, [token, currentChatId, activeTab, fetchSessions, fetchMessages]);
 
   // Auto scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [activeChats, currentChatId]);
 
-  const sendAdminMessage = (e: React.FormEvent) => {
+  const sendAdminMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputMsg.trim() || !ws || !currentChatId) return;
+    if (!inputMsg.trim() || !currentChatId) return;
     
-    ws.send(JSON.stringify({ type: "admin_reply", content: inputMsg, target_client_id: currentChatId }));
+    const content = inputMsg;
     setInputMsg("");
+
+    // Optimistically render admin message
+    setActiveChats(prev => ({
+      ...prev,
+      [currentChatId]: [...(prev[currentChatId] || []), { id: `temp-${crypto.randomUUID()}`, type: "admin", content, timestamp: new Date() }]
+    }));
+    
+    try {
+      await axios.post(api("/help/admin-reply"), {
+        session_id: currentChatId,
+        message: content
+      }, { headers: { Authorization: `Bearer ${token}` } });
+      await fetchMessages();
+    } catch (err) {
+      console.error(err);
+      pushToast("danger", "Failed to send reply");
+    }
   };
 
+  const sendTicketReply = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!ticketReply.trim() || !currentTicketId) return;
+    try {
+      const fd = new FormData();
+      fd.append("admin_reply", ticketReply);
+      await axios.post(api(`/support/ticket/${currentTicketId}/reply`), fd, { headers: { Authorization: `Bearer ${token}` } });
+      setTicketReply("");
+      pushToast("success", "Reply sent");
+      await fetchTickets();
+    } catch (err) {
+      console.error(err);
+      pushToast("danger", "Failed to send ticket reply");
+    }
+  };
+
+  const selectedSessionDetails = escalatedSessions.find(s => s.session_id === currentChatId);
+  const selectedTicketDetails = tickets.find(t => t.id === currentTicketId);
+
   return (
-    <div className="space-y-6 pt-2 h-[calc(100vh-80px)] flex flex-col">
-      <Rise>
-        <PageHeader
-          title="Support Console"
-          sub="Manage tickets and handle live chat escalations from citizens."
-        />
-      </Rise>
-
-      <div className="flex gap-6 flex-1 min-h-0">
+    <div className="flex h-[calc(100vh-80px)] overflow-hidden bg-surface-2/20">
+      
+      {/* Left Pane - Inbox */}
+      <div className="w-80 border-r border-line bg-surface flex flex-col z-10 shadow-sm">
+        <div className="p-4 border-b border-line">
+           <h2 className="text-xl font-bold text-ink mb-4">Support Inbox</h2>
+           <div className="flex bg-surface-2 p-1 rounded-lg">
+              <button 
+                 className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-colors ${activeTab === 'live' ? 'bg-surface shadow text-ink' : 'text-ink-3 hover:text-ink-2'}`}
+                 onClick={() => setActiveTab('live')}
+              >
+                 Live Chats
+                 {escalatedSessions.length > 0 && <span className="ml-2 px-1.5 py-0.5 bg-red-100 text-red-600 rounded text-[10px]">{escalatedSessions.length}</span>}
+              </button>
+              <button 
+                 className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-colors ${activeTab === 'async' ? 'bg-surface shadow text-ink' : 'text-ink-3 hover:text-ink-2'}`}
+                 onClick={() => setActiveTab('async')}
+              >
+                 Tickets
+              </button>
+           </div>
+        </div>
         
-        {/* Left Column: Tickets & Active Escalations */}
-        <Rise index={1} className="w-1/3 flex flex-col gap-6 overflow-y-auto pr-2 pb-10">
-          
-          {Object.keys(activeChats).length > 0 && (
-            <div className="space-y-3">
-              <h3 className="font-semibold text-ink flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-accent" /> Active Live Chats
-              </h3>
-              {Object.keys(activeChats).map(clientId => (
-                <Card 
-                  key={clientId} 
-                  className={`p-4 cursor-pointer transition-colors ${currentChatId === clientId ? 'border-primary bg-primary/5' : 'hover:border-primary/50'}`}
-                  onClick={() => setCurrentChatId(clientId)}
-                >
-                  <div className="flex items-center gap-2">
-                    <Users className="w-4 h-4 text-primary" />
-                    <span className="font-medium text-sm text-ink truncate">Citizen {clientId.slice(0,8)}...</span>
-                  </div>
-                </Card>
-              ))}
-            </div>
-          )}
-
-          <div className="space-y-4">
-            <h3 className="font-semibold text-ink flex items-center gap-2 mt-4">
-               <Mail className="w-4 h-4 text-ink-2" /> Async Tickets
-            </h3>
-            {loading ? (
-              <p className="text-ink-3">Loading tickets...</p>
-            ) : tickets.length === 0 ? (
-              <Card className="p-8 text-center text-ink-3">
-                <CheckCircle className="w-8 h-8 mx-auto mb-3 opacity-50" />
-                <p>No open tickets.</p>
-              </Card>
-            ) : (
-              tickets.map((t) => (
-                <Card key={t.id} className="p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-medium text-ink flex items-center gap-2 truncate">
-                      {t.subject}
-                    </h4>
-                  </div>
-                  <div className="flex gap-2 mb-3">
-                     <span className="text-xs px-2 py-0.5 rounded-full bg-surface-2 text-ink-2 font-medium border border-line">{t.status}</span>
-                     <span className="text-xs text-ink-3 tabular-nums font-mono">{t.ticket_number}</span>
-                  </div>
-                  
-                  <p className="text-sm text-ink-2 mb-4 p-3 bg-surface-2 rounded-control border border-line whitespace-pre-wrap line-clamp-3">
-                    {t.message}
-                  </p>
-                  
-                  <div className="flex items-center gap-3">
-                     <Button variant="secondary" size="sm" className="w-full">
-                       <Mail className="w-4 h-4 mr-2" /> Reply via Email
-                     </Button>
-                  </div>
-                </Card>
-              ))
-            )}
-          </div>
-        </Rise>
-
-        {/* Right Column: Live Chat Interface */}
-        <Rise index={2} className="flex-1 flex flex-col min-h-0 bg-surface shadow-md border border-line rounded-3xl overflow-hidden">
-          {currentChatId ? (
-             <>
-                <div className="px-6 py-4 border-b border-line bg-surface flex items-center justify-between">
-                   <h3 className="font-semibold text-ink flex items-center gap-2">
-                     <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                     Live Chat: {currentChatId}
-                   </h3>
-                   <Button variant="secondary" size="sm" onClick={() => setCurrentChatId(null)}>Close</Button>
-                </div>
-                <div className="flex-1 overflow-y-auto p-6 bg-surface/50">
-                  {activeChats[currentChatId]?.map((msg) => (
-                    <ChatBubble key={msg.id} message={msg} />
-                  ))}
-                  <div ref={messagesEndRef} />
-                </div>
-                <div className="p-4 bg-surface border-t border-line">
-                  <form onSubmit={sendAdminMessage} className="flex gap-3">
-                    <Input
-                      className="flex-1 rounded-full px-6 bg-surface-2 border-transparent focus-visible:ring-primary/30"
-                      placeholder="Type your reply to the citizen..."
-                      value={inputMsg}
-                      onChange={(e) => setInputMsg(e.target.value)}
-                    />
-                    <Button type="submit" variant="primary" className="rounded-full aspect-square p-0 w-12 flex items-center justify-center" disabled={!inputMsg.trim()}>
-                      <Send className="w-5 h-5 -ml-1" />
-                    </Button>
-                  </form>
-                </div>
-             </>
+        <div className="flex-1 overflow-y-auto">
+          {activeTab === 'live' ? (
+             escalatedSessions.length === 0 ? (
+               <div className="p-8 text-center text-ink-3">
+                 <AlertCircle className="w-8 h-8 mx-auto mb-3 opacity-20" />
+                 <p className="text-sm">No active live chats.</p>
+               </div>
+             ) : (
+               <div className="divide-y divide-line">
+                 {escalatedSessions.map(session => (
+                   <div 
+                     key={session.session_id}
+                     onClick={() => { setCurrentChatId(session.session_id); setCurrentTicketId(null); }}
+                     className={`p-4 cursor-pointer hover:bg-surface-2 transition-colors ${currentChatId === session.session_id ? 'border-l-4 border-l-primary bg-primary/5' : 'border-l-4 border-transparent'}`}
+                   >
+                      <div className="flex justify-between items-start mb-1">
+                         <h4 className="font-semibold text-ink text-sm truncate pr-2">{session.citizen_name}</h4>
+                         <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse mt-1" />
+                      </div>
+                      <p className="text-xs text-ink-3 truncate">Escalated from AI</p>
+                   </div>
+                 ))}
+               </div>
+             )
           ) : (
-             <div className="flex-1 flex flex-col items-center justify-center text-ink-3 p-10 text-center">
-               <MessageSquare className="w-12 h-12 mb-4 opacity-20" />
-               <p className="text-lg font-medium text-ink-2">No Active Live Chat Selected</p>
-               <p className="max-w-xs mt-2">When a citizen requests human support, they will appear in the left sidebar.</p>
-             </div>
+             tickets.length === 0 ? (
+               <div className="p-8 text-center text-ink-3">
+                 <CheckCircle className="w-8 h-8 mx-auto mb-3 opacity-20" />
+                 <p className="text-sm">Inbox Zero! All tickets resolved.</p>
+               </div>
+             ) : (
+               <div className="divide-y divide-line">
+                 {tickets.map(t => (
+                   <div 
+                     key={t.id}
+                     onClick={() => { setCurrentTicketId(t.id); setCurrentChatId(null); }}
+                     className={`p-4 cursor-pointer hover:bg-surface-2 transition-colors ${currentTicketId === t.id ? 'border-l-4 border-l-primary bg-primary/5' : 'border-l-4 border-transparent'}`}
+                   >
+                      <div className="flex justify-between items-start mb-1">
+                         <h4 className="font-semibold text-ink text-sm truncate pr-2">{t.subject}</h4>
+                      </div>
+                      <div className="flex justify-between items-center mt-2">
+                         <span className="text-[10px] px-1.5 py-0.5 rounded-sm bg-surface-2 border border-line font-medium text-ink-2">{t.status}</span>
+                         <span className="text-[10px] text-ink-3 font-mono">{t.ticket_number}</span>
+                      </div>
+                   </div>
+                 ))}
+               </div>
+             )
           )}
-        </Rise>
-        
+        </div>
       </div>
+
+      {/* Middle Pane - Main Workspace */}
+      <div className="flex-1 flex flex-col bg-surface min-w-0 relative">
+        {currentChatId ? (
+           // --- LIVE CHAT VIEW ---
+           !activeChats[currentChatId] ? (
+             <div className="flex-1 flex flex-col items-center justify-center gap-3 bg-surface/50">
+               <RefreshCw className="w-6 h-6 text-primary animate-spin" />
+               <p className="text-ink-2 text-sm">Loading chat history...</p>
+             </div>
+           ) : (
+           <>
+              <div className="px-6 py-4 border-b border-line bg-surface/80 backdrop-blur-md flex items-center justify-between">
+                 <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
+                       {selectedSessionDetails?.citizen_name?.charAt(0) || "C"}
+                    </div>
+                    <div>
+                       <h3 className="font-semibold text-ink leading-tight">{selectedSessionDetails?.citizen_name || "Citizen"}</h3>
+                       <p className="text-xs text-ink-3">Live Session: {currentChatId.substring(0,8)}</p>
+                    </div>
+                 </div>
+                 <Button variant="ghost" size="sm" onClick={() => setCurrentChatId(null)} className="text-ink-3 hover:text-ink">Close</Button>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto p-6 bg-surface-2/30">
+                 <div className="max-w-3xl mx-auto flex flex-col">
+                    {activeChats[currentChatId]?.map((msg) => (
+                       <ChatBubble key={msg.id} message={msg} />
+                    ))}
+                    <div ref={messagesEndRef} className="h-4" />
+                 </div>
+              </div>
+              
+              <div className="p-4 bg-surface border-t border-line">
+                 <form onSubmit={sendAdminMessage} className="max-w-3xl mx-auto flex gap-3">
+                   <Input
+                     className="flex-1 rounded-2xl py-6 px-6 bg-surface border-line shadow-sm focus-visible:ring-primary/20 text-base"
+                     placeholder="Type your reply to the citizen..."
+                     value={inputMsg}
+                     onChange={(e) => setInputMsg(e.target.value)}
+                   />
+                   <Button type="submit" variant="primary" className="rounded-2xl aspect-square p-0 w-14 flex items-center justify-center shadow-md transition-transform active:scale-95" disabled={!inputMsg.trim()}>
+                     <Send className="w-5 h-5 -ml-0.5" />
+                   </Button>
+                 </form>
+              </div>
+           </>
+           )
+        ) : currentTicketId && selectedTicketDetails ? (
+           // --- TICKET VIEW ---
+           <div className="flex-1 flex flex-col h-full overflow-hidden">
+              <div className="px-6 py-4 border-b border-line bg-surface flex items-center justify-between">
+                 <div>
+                    <div className="flex items-center gap-2 mb-1">
+                       <span className="text-[10px] px-2 py-0.5 rounded bg-surface-2 border border-line font-medium text-ink-2">{selectedTicketDetails.status}</span>
+                       <span className="text-xs text-ink-3 font-mono">{selectedTicketDetails.ticket_number}</span>
+                    </div>
+                    <h3 className="font-bold text-ink text-lg leading-tight">{selectedTicketDetails.subject}</h3>
+                 </div>
+                 <Button variant="ghost" size="sm" onClick={() => setCurrentTicketId(null)}>Close</Button>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto p-6 bg-surface-2/30">
+                 <div className="max-w-3xl mx-auto space-y-6">
+                    {/* Original Message */}
+                    <div className="bg-surface rounded-2xl border border-line p-5 shadow-sm">
+                       <div className="flex items-center gap-2 mb-3 pb-3 border-b border-line border-dashed">
+                          <UserCircle className="w-5 h-5 text-ink-3" />
+                          <span className="text-sm font-semibold text-ink">Citizen Request</span>
+                          <span className="text-xs text-ink-3 ml-auto">{new Date(selectedTicketDetails.created_at).toLocaleString()}</span>
+                       </div>
+                       <p className="text-sm text-ink whitespace-pre-wrap">{selectedTicketDetails.message}</p>
+                    </div>
+                    
+                    {/* History / Replies */}
+                    {selectedTicketDetails.history && selectedTicketDetails.history.map((msg: any, idx: number) => (
+                       <div key={idx} className={`rounded-2xl border p-5 shadow-sm ${msg.sender === 'admin' ? 'bg-primary/5 border-primary/20 ml-12' : 'bg-surface border-line mr-12'}`}>
+                          <div className="flex items-center gap-2 mb-2">
+                             <span className={`text-xs font-bold uppercase tracking-wider ${msg.sender === 'admin' ? 'text-primary' : 'text-ink-3'}`}>
+                                {msg.sender === 'admin' ? 'Admin' : 'Citizen'}
+                             </span>
+                             <span className="text-[10px] text-ink-3 ml-auto">{new Date(msg.timestamp).toLocaleString()}</span>
+                          </div>
+                          <p className="text-sm text-ink whitespace-pre-wrap">{msg.message}</p>
+                       </div>
+                    ))}
+                    
+                    {/* Reply Box */}
+                    <div className="bg-surface rounded-2xl border border-line p-5 shadow-sm mt-8">
+                       <h4 className="text-sm font-bold text-ink mb-3 flex items-center gap-2"><Send className="w-4 h-4 text-primary" /> Reply to Ticket</h4>
+                       <form onSubmit={sendTicketReply}>
+                          <Textarea 
+                             rows={4} 
+                             className="w-full bg-surface-2 border-line rounded-xl resize-none mb-3" 
+                             placeholder="Write your response..."
+                             value={ticketReply}
+                             onChange={(e) => setTicketReply(e.target.value)}
+                          />
+                          <div className="flex justify-end">
+                             <Button type="submit" variant="primary" disabled={!ticketReply.trim()}>Send Reply</Button>
+                          </div>
+                       </form>
+                    </div>
+                 </div>
+              </div>
+           </div>
+        ) : (
+           // --- EMPTY STATE ---
+           <div className="flex-1 flex flex-col items-center justify-center text-ink-3 p-10 text-center bg-surface-2/30">
+             <div className="w-24 h-24 rounded-full bg-surface shadow-sm border border-line flex items-center justify-center mb-6">
+                <MessageSquare className="w-10 h-10 text-ink-3 opacity-50" />
+             </div>
+             <p className="text-xl font-bold text-ink-2 mb-2">Select a conversation</p>
+             <p className="max-w-xs text-sm">Choose an active live chat or an async ticket from the left inbox to begin helping citizens.</p>
+           </div>
+        )}
+      </div>
+
+      {/* Right Pane - Citizen Context */}
+      <div className="w-80 border-l border-line bg-surface p-6 flex flex-col overflow-y-auto shadow-sm z-10">
+         <h3 className="text-sm font-bold text-ink-3 uppercase tracking-wider mb-6 flex items-center gap-2"><UserCircle className="w-4 h-4" /> Citizen Profile</h3>
+         
+         {currentChatId && selectedSessionDetails ? (
+            <div className="space-y-6">
+               <div className="text-center">
+                  <div className="w-20 h-20 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto mb-4 text-2xl font-bold">
+                     {selectedSessionDetails.citizen_name?.charAt(0) || "C"}
+                  </div>
+                  <h2 className="text-lg font-bold text-ink">{selectedSessionDetails.citizen_name}</h2>
+                  <p className="text-sm text-ink-2 truncate" title={selectedSessionDetails.email}>{selectedSessionDetails.email}</p>
+               </div>
+               
+               <div className="p-4 bg-surface-2 rounded-2xl border border-line space-y-4">
+                  <div>
+                     <p className="text-xs text-ink-3 font-semibold uppercase tracking-wider mb-1">User ID</p>
+                     <p className="text-xs text-ink font-mono bg-surface p-1.5 rounded border border-line truncate" title={selectedSessionDetails.user_id || "Anonymous"}>
+                        {selectedSessionDetails.user_id || "Anonymous"}
+                     </p>
+                  </div>
+                  <div>
+                     <p className="text-xs text-ink-3 font-semibold uppercase tracking-wider mb-1">Total Tickets</p>
+                     <p className="text-sm font-bold text-ink flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-primary" /> {selectedSessionDetails.ticket_count} submitted
+                     </p>
+                  </div>
+               </div>
+            </div>
+         ) : currentTicketId && selectedTicketDetails ? (
+            <div className="space-y-6">
+               <div className="text-center">
+                  <div className="w-20 h-20 rounded-full bg-accent/10 text-accent flex items-center justify-center mx-auto mb-4 text-2xl font-bold">
+                     <Mail className="w-8 h-8" />
+                  </div>
+                  <h2 className="text-lg font-bold text-ink">Ticket Details</h2>
+               </div>
+               
+               <div className="p-4 bg-surface-2 rounded-2xl border border-line space-y-4">
+                  <div>
+                     <p className="text-xs text-ink-3 font-semibold uppercase tracking-wider mb-1">Status</p>
+                     <p className="text-sm font-bold text-ink">{selectedTicketDetails.status}</p>
+                  </div>
+                  <div>
+                     <p className="text-xs text-ink-3 font-semibold uppercase tracking-wider mb-1">Created At</p>
+                     <p className="text-sm text-ink flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-accent" /> {new Date(selectedTicketDetails.created_at).toLocaleDateString()}
+                     </p>
+                  </div>
+                  <div>
+                     <p className="text-xs text-ink-3 font-semibold uppercase tracking-wider mb-1">User ID Reference</p>
+                     <p className="text-[10px] text-ink-2 font-mono bg-surface p-1.5 rounded border border-line truncate" title={selectedTicketDetails.user_id}>
+                        {selectedTicketDetails.user_id}
+                     </p>
+                  </div>
+               </div>
+            </div>
+         ) : (
+            <div className="text-center text-ink-3 py-10">
+               <UserCircle className="w-12 h-12 mx-auto mb-3 opacity-20" />
+               <p className="text-sm">Select a chat or ticket to view citizen details.</p>
+            </div>
+         )}
+      </div>
+
     </div>
   );
 }

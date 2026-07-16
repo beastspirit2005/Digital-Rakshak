@@ -18,6 +18,14 @@ class RegisterRequest(BaseModel):
     role: str = "citizen"
     password: str
     
+    @field_validator('role')
+    @classmethod
+    def validate_role(cls, v: str):
+        allowed_roles = {"citizen", "police", "cyber_cell", "bank_employee"}
+        if v not in allowed_roles:
+            raise ValueError(f"Invalid role. Allowed roles for registration: {', '.join(allowed_roles)}")
+        return v
+    
     @field_validator('email')
     @classmethod
     def lower_email(cls, v: str):
@@ -247,6 +255,11 @@ async def login_password(data: LoginPasswordRequest, request: Request, db: Async
     if not user.hashed_password:
         raise HTTPException(status_code=400, detail="This account does not have a password set. Please log in with OTP.")
         
+    if not user.is_approved:
+        raise HTTPException(status_code=403, detail="Account pending admin approval.")
+    if not user.is_active:
+        raise HTTPException(status_code=403, detail="Account is disabled.")
+        
     if not verify_password(data.password, user.hashed_password):
         user.otp_failed_attempts += 1
         if user.otp_failed_attempts >= 5:
@@ -256,11 +269,6 @@ async def login_password(data: LoginPasswordRequest, request: Request, db: Async
             raise HTTPException(status_code=429, detail="Too many failed attempts. Try again in 15 minutes.")
         await db.commit()
         raise HTTPException(status_code=401, detail="Invalid email or password")
-        
-    if not user.is_approved:
-        raise HTTPException(status_code=403, detail="Account pending admin approval.")
-    if not user.is_active:
-        raise HTTPException(status_code=403, detail="Account is disabled.")
 
     user.otp_failed_attempts = 0
     user.otp_lockout_count = 0
