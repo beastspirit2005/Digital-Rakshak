@@ -36,6 +36,21 @@ export default function CounterfeitIntelligenceHubPage() {
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [platformSettings, setPlatformSettings] = useState<any>(null);
+  
+  React.useEffect(() => {
+    fetch(api("/admin/settings"), {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    .then(res => res.json())
+    .then(data => setPlatformSettings(data))
+    .catch(err => console.error("Failed to load settings:", err));
+  }, [token]);
+
+  const isOffline = platformSettings?.force_local_inference || platformSettings?.default_ai_mode === 'ollama';
+  const engineName = isOffline ? 'Native PyTorch MobileNetV3' : 'Groq Llama-3.2-90B-Vision';
+  const engineType = isOffline ? 'Strictly Offline PyTorch Core' : 'Cloud Vision Engine';
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
@@ -108,7 +123,7 @@ export default function CounterfeitIntelligenceHubPage() {
               </span>
             </div>
             <p className="text-xs font-mono text-slate-400 mt-0.5 flex items-center gap-2">
-              <span>Model: Groq Llama-3.2-90B-Vision</span>
+              <span>Model: {engineName}</span>
               <span className="text-slate-600">•</span>
               <span className="text-emerald-400 font-semibold">Live Multi-Spectral Decomposition</span>
             </p>
@@ -164,7 +179,9 @@ export default function CounterfeitIntelligenceHubPage() {
           <div>
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <span className="font-mono text-xs font-bold text-slate-300 uppercase">Live Image Ingestion Buffer</span>
-              <span className="text-xs font-mono text-purple-400 font-bold">Cloud Vision Engine</span>
+              <span className={`text-xs font-mono font-bold ${isOffline ? 'text-emerald-400' : 'text-purple-400'}`}>
+                {engineType}
+              </span>
             </div>
 
             {/* Simulated Currency Note Visual Viewport */}
@@ -233,8 +250,8 @@ export default function CounterfeitIntelligenceHubPage() {
             </div>
           ) : analyzing ? (
             <div className="py-24 text-center text-slate-500 font-mono text-xs space-y-3">
-              <RefreshCw className="w-8 h-8 animate-spin mx-auto text-purple-400" />
-              <p>Groq Vision AI analyzing intaglio relief, OVI shift, and micro-lettering...</p>
+              <RefreshCw className={`w-8 h-8 animate-spin mx-auto ${isOffline ? 'text-emerald-400' : 'text-purple-400'}`} />
+              <p>{engineName} analyzing intaglio relief, OVI shift, and micro-lettering...</p>
             </div>
           ) : analyzed && visionResult ? (
             <div className="space-y-4 max-h-[300px] overflow-y-auto pr-1 font-mono text-xs">

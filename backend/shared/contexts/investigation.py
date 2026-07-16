@@ -13,31 +13,39 @@ class RuntimeContext(BaseModel):
     timeout_seconds: int = 30
     strict_mode: bool = False
 
-class ExecutionContext(BaseModel):
-    correlation_id: str
-    started_at: datetime = Field(default_factory=datetime.utcnow)
-    actor_id: str
+class TimelineEvent(BaseModel):
+    timestamp: datetime
+    description: str
+    source: str
+
+class Entity(BaseModel):
+    entity_id: str
+    entity_type: str
+    value: str
 
 class InvestigationMetadata(BaseModel):
+    source_system: str = "MANUAL"
     tags: List[str] = Field(default_factory=list)
-    confidence_score: float = 0.0
-    current_status: str = "OPEN"
+    created_at: datetime = Field(default_factory=datetime.utcnow)
 
 class InvestigationContext(BaseModel):
     """
-    The root composition object for an active investigation.
-    Instead of a God Object, it holds strictly scoped sub-contexts.
+    The immutable root composition object for an active investigation.
+    Represents the facts of the case that do not change during execution.
     """
     case_id: str
-    execution: ExecutionContext
     evidence: List[EvidenceContext] = Field(default_factory=list)
-    runtime: RuntimeContext = Field(default_factory=RuntimeContext)
+    entities: List[Entity] = Field(default_factory=list)
+    timeline: List[TimelineEvent] = Field(default_factory=list)
     metadata: InvestigationMetadata = Field(default_factory=InvestigationMetadata)
 
 class AgentContext(BaseModel):
     """
     Context passed explicitly to an agent execution instance.
+    Combines the immutable investigation facts with the current execution state.
     """
     investigation_id: str
-    evidence_target: EvidenceContext
+    correlation_id: str
+    evidence_target: Optional[EvidenceContext] = None
     runtime: RuntimeContext
+

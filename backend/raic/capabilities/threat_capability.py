@@ -1,30 +1,22 @@
 from typing import Any, Dict
 from backend.shared.contracts.capability import ICapability
-from backend.shared.contracts.runtime import IThreatRuntime
+from backend.shared.contracts.engine import IEngine
 
 class ThreatCapability(ICapability):
     """
-    Decouples the Threat Agent from the underlying runtime.
+    Decouples the Threat Agent from the underlying engine.
     Handles data validation and transformation.
     """
-    def __init__(self, runtime: IThreatRuntime):
-        self._runtime = runtime
+    def __init__(self, engine: IEngine):
+        self._engine = engine
 
     async def invoke(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         text = payload.get("text")
         if not text:
             raise ValueError("ThreatCapability requires 'text' in payload.")
             
-        # Execute the runtime inference
-        runtime_result = await self._runtime.infer({"text": text})
+        # Execute the engine analysis
+        engine_result = await self._engine.analyze({"text": text})
         
         # Standardize the output for the RAIC agent
-        return {
-            "threat_class": runtime_result["threat_class"],
-            "confidence": runtime_result["confidence"],
-            "execution_time_ms": runtime_result["execution_time_ms"],
-            "metadata": {
-                "engine": runtime_result["engine"],
-                "version": runtime_result["version"]
-            }
-        }
+        return engine_result

@@ -1,89 +1,97 @@
-import asyncio
-import logging
-from typing import Dict, Any, List
-from backend.shared.contexts.investigation import InvestigationContext, AgentContext
-from backend.shared.results.agent_result import AgentResult
-from backend.raic.agent_registry import AgentRegistry
-from backend.rie.runtimes.reasoning_runtime import RakshakReasoningRuntime
+import uuid
+from backend.core.logger import get_logger
+from backend.shared.contexts.investigation import InvestigationContext
+from backend.shared.contexts.execution_state import ExecutionState
+from backend.raic.planner import ExecutionPlanner
+from backend.raic.execution_engine import ExecutionEngine
+from backend.raic.decision.fusion import EvidenceFusion
+from backend.raic.decision.consensus import ConsensusEngine
+from backend.raic.decision.calibration import ConfidenceCalibration
+from backend.raic.decision.decision import DecisionEngine
+from backend.raic.decision.explainability import ExplainabilityEngine
+from backend.shared.events.investigation_events import InvestigationCreated, InvestigationClosed
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 class RAICOrchestrator:
     """
-    The heart of the v3 Architecture.
-    Takes an InvestigationContext, resolves agent dependencies, executes them concurrently in stages,
-    and uses the ReasoningRuntime to fuse their outputs into a final calibrated intelligence summary.
+    The orchestrator acts as the coordinator.
+    Delegates to the ExecutionPlanner to build the graph, the ExecutionEngine to traverse it,
+    and the Decision Core to fuse results. Emits Domain Events.
     """
-    def __init__(self, agent_registry: AgentRegistry, reasoning_runtime: RakshakReasoningRuntime):
-        self._registry = agent_registry
-        self._reasoning = reasoning_runtime
+    def __init__(
+        self, 
+        planner: ExecutionPlanner, 
+        engine: ExecutionEngine,
+        fusion: EvidenceFusion,
+        consensus: ConsensusEngine,
+        calibration: ConfidenceCalibration,
+        decision: DecisionEngine,
+        explainability: ExplainabilityEngine
+    ):
+        self._planner = planner
+        self._engine = engine
+        self._fusion = fusion
+        self._consensus = consensus
+        self._calibration = calibration
+        self._decision = decision
+        self._explainability = explainability
+        
+        # Simple event bus mock
+        self.events = []
 
-    async def execute_investigation(self, investigation: InvestigationContext) -> InvestigationContext:
+    def _emit(self, event):
+        self.events.append(event)
+        logger.info("Emitted Domain Event", event_type=event.__class__.__name__, event_id=event.event_id)
+
+    async def execute_investigation(self, investigation: InvestigationContext) -> ExecutionState:
         """
         Executes the entire multi-agent pipeline based on the provided investigation context.
         """
-        logger.info(f"Starting Investigation: {investigation.case_id}")
+        logger.info("Starting Investigation Orchestration", case_id=investigation.case_id)
+        
+        # Initialize execution state
+        state = ExecutionState(
+            case_id=investigation.case_id,
+            correlation_id=str(uuid.uuid4())
+        )
+        
+        self._emit(InvestigationCreated(
+            event_id=str(uuid.uuid4()),
+            correlation_id=state.correlation_id,
+            case_id=investigation.case_id,
+            triggered_by="API"
+        ))
         
         # Determine Execution Graph
-        try:
-            stages = self._registry.get_execution_graph()
-        except ValueError as e:
-            logger.error(str(e))
-            investigation.metadata.current_status = "FAILED"
-            return investigation
-
-        all_results: Dict[str, AgentResult] = {}
+        graph = self._planner.plan(investigation)
         
-        # Execute Agents by Topological Stage
-        for stage_idx, stage in enumerate(stages):
-            logger.info(f"Executing Stage {stage_idx + 1}: {stage}")
-            
-            tasks = []
-            agent_names = []
-            
-            for agent_name in stage:
-                agent = self._registry.get(agent_name)
-                # Build localized AgentContext
-                agent_context = AgentContext(
-                    investigation_id=investigation.case_id,
-                    evidence_target=investigation.evidence[0] if investigation.evidence else None, # Simplified for now
-                    runtime=investigation.runtime
-                )
-                tasks.append(agent.execute(agent_context))
-                agent_names.append(agent_name)
-                
-            # Run stage concurrently
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            
-            for name, res in zip(agent_names, results):
-                if isinstance(res, Exception):
-                    logger.error(f"Agent {name} threw unhandled exception: {res}")
-                elif isinstance(res, AgentResult):
-                    all_results[name] = res
-                    
-        # AI Fusion via Reasoning Runtime
-        await self._fuse_results(investigation, all_results)
-        return investigation
-
-    async def _fuse_results(self, investigation: InvestigationContext, results: Dict[str, AgentResult]):
-        """
-        Mathematical fusion of confidence and LLM synthesis of the final intelligence report.
-        """
-        valid_probs = [res.confidence for res in results.values() if res.status == "SUCCESS"]
+        # Execute Pipeline
+        await self._engine.execute(graph, investigation, state)
         
-        if not valid_probs:
-            investigation.metadata.confidence_score = 0.0
-            return
-            
-        # Independent probability fusion
-        inv_prod = 1.0
-        for p in valid_probs:
-            inv_prod *= (1.0 - p)
-            
-        fused_confidence = 1.0 - inv_prod
-        investigation.metadata.confidence_score = min(max(fused_confidence, 0.0), 0.99)
-        investigation.metadata.current_status = "COMPLETED"
+        # Decision Core Processing
+        # 1. Fuse evidence
+        fused_data = self._fusion.fuse(state)
         
-        # Here we would invoke self._reasoning.infer(...) to build the final English explanation.
-        # To minimize code for this iteration, we map it back to the metadata.
-        investigation.metadata.tags.extend([name for name in results.keys()])
+        # 2. Consensus
+        consensus_data = self._consensus.determine_consensus(state)
+        
+        # 3. Calibration
+        state.confidence_score = self._calibration.calibrate(state)
+        
+        # 4. Decision
+        decision_data = self._decision.make_decision(state)
+        state.decision = decision_data
+        
+        # 5. Explainability
+        explanation = self._explainability.generate_explanation(state, decision_data)
+        state.recommendations.append(explanation)
+        
+        self._emit(InvestigationClosed(
+            event_id=str(uuid.uuid4()),
+            correlation_id=state.correlation_id,
+            case_id=investigation.case_id,
+            final_status=decision_data["decision"]
+        ))
+        
+        return state
