@@ -5,6 +5,7 @@ import { AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const controlBase = cn(
+  "relative z-10",
   "w-full rounded-control border border-line bg-surface px-3.5 text-sm text-ink",
   "placeholder:text-ink-3 transition-colors duration-150",
   "hover:border-ink-3 focus:border-accent-text focus:outline-none focus:ring-1 focus:ring-accent-text/30",
