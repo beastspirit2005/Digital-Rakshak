@@ -12,17 +12,17 @@ We are empowering Law Enforcement Agencies (LEAs), nodal officers, and citizens 
 
 ## What Makes Digital Rakshak Unique?
 
-### ✨ New in v3.0: Enterprise Architecture Transformation
-In the latest **v3.0 Release**, the platform was upgraded to an enterprise-grade CTI design:
-*   **RAIC + RIE Composed Engine:** Separates business/agent logic from the underlying model runtimes using dynamic registries (`AgentRegistry` and `RuntimeRegistry`).
-*   **Topological Dependency Graphs:** Automatically calculates the optimal parallel execution order of dependent agents using **Kahn's Algorithm** (e.g., executing `CampaignAgent` only after `ThreatAgent` finishes, while running others concurrently).
-*   **Forensic Threat Ontology:** Implemented async SQLAlchemy repositories mapped to standardized relational schemas (`DBInvestigation`, `DBExecution`, `DBEvidence`).
-*   **Defense-in-Depth Security:** 
-    *   *Prompt Injection Protection:* Heuristic pattern-matching intercepts LLM overrides.
-    *   *Magic Byte Verification:* Strictly inspects file headers at the byte level to prevent disguised malware uploads.
-    *   *Immutable Audit Ledger:* Sequential SHA-256 blockchain-style event logging.
-    *   *Evidence Integrity:* Continuous SHA-256 checksum checks across the artifact lifecycle.
-*   **Production Ops Telemetry:** NVIDIA NVML hardware integration to monitor GPU memory allocation alongside asynchronous background queue workers.
+### Version 3.0: Enterprise Architecture Upgrade
+The latest release restructures the backend to improve scalability, reliability, and security when running in production environment profiles.
+*   **Decoupled Agent and Model Registry (RAIC + RIE):** Business logic is completely separated from machine learning runtimes. The registries handle model loading and execution configurations dynamically, removing hardcoded model dependencies.
+*   **Topological Swarm Execution:** Uses Kahn's algorithm to resolve dependencies between different analysis agents, allowing them to run concurrently where possible (e.g. running threat analysis first, then running campaign correlation only after the threat data is resolved).
+*   **Structured Threat Database (Ontology):** Implements an async repository pattern mapped to core entities like investigations, execution workflows, and raw evidence.
+*   **Strict Security Safeguards:**
+    *   *Prompt Injection Protection:* Checks incoming text for model-override attacks.
+    *   *Magic Byte Validation:* Inspects binary signatures of uploads directly to block disguised scripts or executables.
+    *   *Immutable Event Logs:* Implements sequential SHA-256 hashing to track case actions chronologically.
+    *   *Evidence Integrity:* Automatically recalculates and matches hashes throughout the case lifecycle.
+*   **Operations & Performance:** Integrates native NVML telemetry for tracking GPU VRAM usage and uses asynchronous task queues to keep heavy analysis steps off the main request thread.
 
 ### 1. The Multi-Agent Intelligence Swarm (MAIF)
 Most platforms use a single AI to answer questions. Digital Rakshak uses a swarm of **11 specialized AI subagents**. When a case is filed, agents immediately go to work in parallel:
