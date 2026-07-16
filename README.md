@@ -12,6 +12,18 @@ We are empowering Law Enforcement Agencies (LEAs), nodal officers, and citizens 
 
 ## What Makes Digital Rakshak Unique?
 
+### ✨ New in v3.0: Enterprise Architecture Transformation
+In the latest **v3.0 Release**, the platform was upgraded to an enterprise-grade CTI design:
+*   **RAIC + RIE Composed Engine:** Separates business/agent logic from the underlying model runtimes using dynamic registries (`AgentRegistry` and `RuntimeRegistry`).
+*   **Topological Dependency Graphs:** Automatically calculates the optimal parallel execution order of dependent agents using **Kahn's Algorithm** (e.g., executing `CampaignAgent` only after `ThreatAgent` finishes, while running others concurrently).
+*   **Forensic Threat Ontology:** Implemented async SQLAlchemy repositories mapped to standardized relational schemas (`DBInvestigation`, `DBExecution`, `DBEvidence`).
+*   **Defense-in-Depth Security:** 
+    *   *Prompt Injection Protection:* Heuristic pattern-matching intercepts LLM overrides.
+    *   *Magic Byte Verification:* Strictly inspects file headers at the byte level to prevent disguised malware uploads.
+    *   *Immutable Audit Ledger:* Sequential SHA-256 blockchain-style event logging.
+    *   *Evidence Integrity:* Continuous SHA-256 checksum checks across the artifact lifecycle.
+*   **Production Ops Telemetry:** NVIDIA NVML hardware integration to monitor GPU memory allocation alongside asynchronous background queue workers.
+
 ### 1. The Multi-Agent Intelligence Swarm (MAIF)
 Most platforms use a single AI to answer questions. Digital Rakshak uses a swarm of **11 specialized AI subagents**. When a case is filed, agents immediately go to work in parallel:
 *   **The Vision Agent** scans uploaded screenshots for phishing URLs.
