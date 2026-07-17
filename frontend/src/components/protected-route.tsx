@@ -46,7 +46,9 @@ export function ProtectedRoute({
   }, [isHydrated, hydrate]);
 
   useEffect(() => {
-    if (!isHydrated) return;
+    
+
+if (!isHydrated) return;
 
     if (!isAuthenticated || !token || !user) {
       router.replace(
@@ -81,16 +83,18 @@ export function ProtectedRoute({
     );
   }
 
-  if (!isAuthenticated || !token || !user) {
-    return null;
-  }
 
-  if (
-    allowedRoles &&
-    !allowedRoles.includes(user.role)
-  ) {
-    return null;
-  }
 
-  return <>{children}</>;
+if (!isAuthenticated || !token || !user) {
+  return null;
+}
+
+if (
+  allowedRoles &&
+  !allowedRoles.includes(user.role)
+) {
+  return null;
+}
+
+return <>{children}</>;
 }

@@ -10,12 +10,14 @@ import {
   UserCheck,
   Zap,
   Sliders,
-  FileText,
-  MapPin,
-  CheckSquare,
-  XCircle,
-  Eye,
-  Bot
+  Bot,
+  Cpu,
+  Lock,
+  ShieldCheck,
+  History,
+  CornerDownRight,
+  UserX,
+  Activity
 } from "lucide-react";
 import { useAuthStore } from "@/lib/auth-store";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -52,38 +54,8 @@ export default function AdminApprovalsPage() {
   const { token } = useAuthStore();
   const toast = useToast();
 
-  const [casesQueue, setCasesQueue] = useState<VerificationCase[]>([
-    {
-      case_number: "CASE-2026-8419",
-      scam_type: "DIGITAL_ARREST",
-      city: "Delhi NCR",
-      ai_confidence: 0.88,
-      ai_verdict: "CRITICAL THREAT (Borderline Consensus)",
-      flagged_reason: "RAIC 6-Factor confidence at 88%. Overseas SIP trunking node detected requiring manual Nodal freeze authorization.",
-      entities: ["+91 98200 41029", "trai-police@hdfcbank"],
-      status: "PENDING_REVIEW"
-    },
-    {
-      case_number: "CASE-2026-9182",
-      scam_type: "INVESTMENT_SCAM",
-      city: "Mumbai",
-      ai_confidence: 0.91,
-      ai_verdict: "CRITICAL THREAT",
-      flagged_reason: "High financial loss reported (₹82.1 Lakhs). Escalate to multi-bank NPCI freeze.",
-      entities: ["+91 88001 22931", "secure-invest-ipo.apk"],
-      status: "PENDING_REVIEW"
-    },
-    {
-      case_number: "CASE-2026-7491",
-      scam_type: "AI_DEEPFAKE",
-      city: "Bengaluru",
-      ai_confidence: 0.74,
-      ai_verdict: "SUSPICIOUS (Low Whisper Audio Confidence)",
-      flagged_reason: "Voice anomaly detected but audio SNR low. Officer review required before NTIR commit.",
-      entities: ["+91 91029 38471"],
-      status: "PENDING_REVIEW"
-    }
-  ]);
+ const [casesQueue, setCasesQueue] =
+useState<VerificationCase[]>([]);
 
   const [processingCase, setProcessingCase] = useState<string | null>(null);
   const [overrideModalCase, setOverrideModalCase] = useState<VerificationCase | null>(null);
@@ -94,9 +66,45 @@ export default function AdminApprovalsPage() {
     if (token && activeTab === "users") {
       fetchPendingUsers();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, activeTab]);
+useEffect(() => {
 
+if (!token) return;
+
+fetchPendingCases();
+
+}, [token]);
+const fetchPendingCases = async () => {
+
+try{
+
+const response = await fetch(
+api("/cases/pending"),
+{
+headers:{
+Authorization:`Bearer ${token}`
+}
+}
+);
+
+if(!response.ok)
+throw new Error();
+
+const data = await response.json();
+
+setCasesQueue(data);
+
+}
+
+catch(err){
+
+console.error(err);
+
+setCasesQueue([]);
+
+}
+
+};
   const fetchPendingUsers = async () => {
     try {
       setLoadingUsers(true);
@@ -107,9 +115,10 @@ export default function AdminApprovalsPage() {
         const data = await response.json();
         setUsers(data);
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error("Pending users load error:", err);
-    } finally {
+setUsers([]);
+     } finally {
       setLoadingUsers(false);
     }
   };
@@ -139,7 +148,7 @@ export default function AdminApprovalsPage() {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` }
       });
-      if (response.ok || true) { // Graceful mock local update if backend case ID not yet in test DB
+      if (response.ok) {
         setCasesQueue((prev) =>
           prev.map((c) => (c.case_number === caseNum ? { ...c, status: "NTIR_VERIFIED" } : c))
         );
@@ -168,7 +177,7 @@ export default function AdminApprovalsPage() {
           adjusted_weights: { qwen_weight: qwenWeight, threat_analysis_weight: 1 - qwenWeight }
         })
       });
-      if (response.ok || true) {
+      if (response.ok) {
         setCasesQueue((prev) =>
           prev.map((c) => (c.case_number === overrideModalCase.case_number ? { ...c, status: "OVERRIDDEN_CLEAN" } : c))
         );
@@ -187,18 +196,18 @@ export default function AdminApprovalsPage() {
       key: "name",
       header: "Name",
       mobile: "title",
-      render: (u) => <span className="font-medium text-ink">{u.full_name}</span>,
+      render: (u) => <span className="font-mono font-bold text-ink">{u.full_name}</span>,
     },
     {
       key: "email",
       header: "Email",
-      render: (u) => <span className="text-ink-2">{u.email}</span>,
+      render: (u) => <span className="font-mono text-ink-2 text-sm">{u.email}</span>,
     },
     {
       key: "registered",
       header: "Registered",
       render: (u) => (
-        <span className="text-ink-2">
+        <span className="font-mono text-ink-3 text-sm">
           {u.created_at ? new Date(u.created_at).toLocaleDateString("en-IN") : "—"}
         </span>
       ),
@@ -212,205 +221,407 @@ export default function AdminApprovalsPage() {
           size="sm"
           onClick={() => handleApproveUser(u.id)}
           disabled={approvingUserId === u.id}
-          className="bg-emerald-600 hover:bg-emerald-500 text-white"
+          className="bg-success hover:bg-success/85 text-black font-mono font-bold border-none rounded-control transition-all"
         >
-          {approvingUserId === u.id ? <RefreshCw className="w-4 h-4 animate-spin" /> : "Approve access"}
+          {approvingUserId === u.id ? <RefreshCw className="w-4 h-4 animate-spin" /> : "Grant Credentials"}
         </Button>
       ),
     },
   ];
 
-  return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 p-4 md:p-6 space-y-6 font-sans">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-800">
-        <div className="flex items-center gap-3">
-          <div className="p-3 rounded-xl bg-emerald-900/40 border border-emerald-500/40 text-emerald-400 shadow-xl flex items-center justify-center">
-            <CheckSquare className="w-7 h-7" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl md:text-3xl font-black font-mono tracking-tight text-white uppercase">
-                Human Verification & NTIR Feedback Desk
-              </h1>
-              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-                Sprint 7 Human-in-the-Loop
-              </span>
-            </div>
-            <p className="text-xs font-mono text-slate-400 mt-0.5 flex items-center gap-2">
-              <span>National Threat Intelligence Repository (`NTIR`) & RLHF Core</span>
-              <span className="text-slate-600">•</span>
-              <span className="text-emerald-400 font-semibold">Dual Governance Queue</span>
-            </p>
-          </div>
-        </div>
+  const pendingVerificationCount = casesQueue.filter((c) => c.status === "PENDING_REVIEW").length;
 
-        {/* Tab Switcher */}
-        <div className="flex items-center gap-2 bg-slate-900 p-1.5 rounded-xl border border-slate-800 font-mono text-xs">
-          <button
-            onClick={() => setActiveTab("ntir")}
-            className={`px-4 py-2 rounded-lg font-bold transition-all flex items-center gap-2 ${
-              activeTab === "ntir"
-                ? "bg-emerald-600 text-white shadow-lg"
-                : "text-slate-400 hover:text-white"
-            }`}
-          >
-            <ShieldAlert className="w-4 h-4" /> NTIR Threat Verification & RLHF Queue
-          </button>
-          <button
-            onClick={() => setActiveTab("users")}
-            className={`px-4 py-2 rounded-lg font-bold transition-all flex items-center gap-2 ${
-              activeTab === "users"
-                ? "bg-emerald-600 text-white shadow-lg"
-                : "text-slate-400 hover:text-white"
-            }`}
-          >
-            <UserCheck className="w-4 h-4" /> Nodal Officer Registrations ({users.length})
-          </button>
+  return (
+    <div className="min-h-screen bg-bg text-ink p-4 md:p-6 space-y-6 font-sans transition-colors duration-300">
+      
+      {/* Row 1: Tactical Header Panel */}
+      {/* ================= HEADER ================= */}
+    <div
+  className="
+    rounded-card
+    bg-surface
+    border
+    border-line/10
+    shadow-card
+    px-8
+    py-8
+    min-h-[280px]
+    xl:min-h-[320px]
+    w-full
+  "
+>
+        <div className="flex items-start justify-between gap-8">
+
+          {/* LEFT SECTION: Shield Icon + Text */}
+          <div className="flex items-start gap-5 flex-grow">
+            {/* Shield Icon */}
+            <div className="w-16 h-16 rounded-control bg-accent-text/10 border border-accent-text/20 flex items-center justify-center shrink-0">
+              <ShieldAlert className="w-8 h-8 text-accent-text" />
+            </div>
+
+            {/* Title & Subtitle */}
+            <div>
+              <h1 className="font-display font-black uppercase leading-[1.15] tracking-tight text-[26px] xl:text-[30px] max-w-[540px] text-ink">
+                HUMAN VERIFICATION & NTIR<br />FEEDBACK DESK
+              </h1>
+              <p className="mt-3 font-mono text-xs text-ink-2 max-w-[420px]">
+                National Threat Intelligence Repository (`NTIR`) & RLHF Core
+              </p>
+            </div>
+          </div>
+
+          {/* CENTER SECTION: Badges */}
+          <div className="w-[180px] flex-shrink-0 flex flex-col gap-3 pt-1 items-center">
+            <span className="w-full px-4 py-2 rounded-control bg-success-tint border border-success/20 font-mono text-[10px] font-bold uppercase text-center block whitespace-nowrap">
+              Sprint 7 Human-In-The-Loop
+            </span>
+            <span className="font-mono text-success font-bold text-xs text-center block whitespace-nowrap">
+              Dual Governance Queue
+            </span>
+          </div>
+
+          {/* RIGHT SECTION: Segmented Controls */}
+          <div className="w-[560px] flex-shrink-0">
+            <div className="rounded-xl bg-surface-2 border border-line/10 p-2 flex gap-1">
+              {/* Tab 1 */}
+              <button
+                onClick={() => setActiveTab("ntir")}
+                style={{ flex: "3 1 0%" }}
+                className={`rounded-lg py-3 transition flex items-center justify-center gap-3 shrink-0 ${
+                  activeTab === "ntir"
+                    ? "bg-success text-black"
+                    : "text-ink-3 hover:text-ink"
+                }`}
+              >
+                <ShieldAlert className="w-4 h-4 shrink-0" />
+                <div className="text-center">
+                  <div className="font-bold text-sm leading-tight">
+                    NTIR Threat Verification
+                  </div>
+                  <div className="font-bold text-xs opacity-90 leading-tight">
+                    & RLHF Queue
+                  </div>
+                </div>
+              </button>
+
+              {/* Tab 2 */}
+              <button
+                onClick={() => setActiveTab("users")}
+                style={{ flex: "2 1 0%" }}
+                className={`rounded-lg py-3 transition flex items-center justify-center gap-3 shrink-0 ${
+                  activeTab === "users"
+                    ? "bg-success text-black"
+                    : "text-ink-3 hover:text-ink"
+                }`}
+              >
+                <UserCheck className="w-4 h-4 shrink-0" />
+                <div className="text-center">
+                  <div className="font-bold text-sm leading-tight">
+                    Nodal Officer
+                  </div>
+                  <div className="font-bold text-xs opacity-90 leading-tight">
+                    Registrations ({users.length})
+                  </div>
+                </div>
+              </button>
+            </div>
+          </div>
+
         </div>
       </div>
 
-      {/* Tab 1: NTIR Threat Verification & RLHF Feedback Queue */}
-      {activeTab === "ntir" && (
-        <div className="space-y-6">
-          <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-between text-xs font-mono text-slate-300">
-            <div className="flex items-center gap-2">
-              <Bot className="w-5 h-5 text-emerald-400" />
-              <span>
-                Review borderline RAIC Consensus cases or high-impact syndicates. Verifying locks threat signatures into NTIR and triggers automated bank freeze.
-              </span>
+      {/* Row 2: Compact AI Recommendation Banner */}
+      <div className="p-3.5 rounded-card bg-surface-2 border-l-4 border-l-accent border border-line/15 shadow-sm relative overflow-hidden">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="p-1.5 rounded-control bg-accent-text/10 text-accent-text shrink-0">
+              <Bot className="w-4 h-4" />
             </div>
-            <span className="text-emerald-400 font-bold">{casesQueue.filter((c) => c.status === "PENDING_REVIEW").length} pending verification</span>
+            <div>
+              <p className="text-xs font-sans font-medium text-ink-2 leading-relaxed">
+                <span className="font-mono text-[10px] font-black uppercase tracking-wider text-accent-text mr-1">AI Automated Intel:</span>
+                Verify borderline RAIC consensus profiles to lock active signatures globally and invoke immediate bank grid preservation rules.
+              </p>
+            </div>
           </div>
+          <div className="px-2.5 py-1 rounded-control bg-surface-3/50 text-ink-2 font-mono text-[10px] font-bold shrink-0 self-start sm:self-center">
+            RAIC Core v2.5
+          </div>
+        </div>
+      </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {casesQueue.map((c) => (
-              <div
-                key={c.case_number}
-                className={`p-5 rounded-xl border transition-all flex flex-col justify-between space-y-4 ${
-                  c.status === "NTIR_VERIFIED"
-                    ? "bg-emerald-950/20 border-emerald-500/50"
-                    : c.status === "OVERRIDDEN_CLEAN"
-                    ? "bg-slate-900/30 border-slate-800 opacity-60"
-                    : "bg-slate-900/80 border-slate-800 shadow-xl"
-                }`}
-              >
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono text-sm font-black text-white">{c.case_number}</span>
-                    <span
-                      className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
-                        c.status === "NTIR_VERIFIED"
-                          ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
-                          : c.status === "OVERRIDDEN_CLEAN"
-                          ? "bg-slate-700 text-slate-300"
-                          : "bg-amber-500/20 text-amber-400 border border-amber-500/40"
-                      }`}
-                    >
-                      {c.status}
-                    </span>
-                  </div>
+      {/* Dynamic Tabs Content */}
+      {activeTab === "ntir" ? (
+        <div className="space-y-6">
+          
+          {/* Row 3: 3 Column Threat Verification Grid (Strict Equal Heights) */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
+            {casesQueue.map((c) => {
+              const isPending = c.status === "PENDING_REVIEW";
+              const isVerified = c.status === "NTIR_VERIFIED";
+              const isOverridden = c.status === "OVERRIDDEN_CLEAN";
 
-                  <div className="grid grid-cols-2 gap-2 text-xs font-mono text-slate-300">
-                    <div>
-                      <span className="text-slate-500 text-[10px] block uppercase">Type:</span>
-                      <strong className="text-white">{c.scam_type}</strong>
-                    </div>
-                    <div>
-                      <span className="text-slate-500 text-[10px] block uppercase">Jurisdiction:</span>
-                      <strong className="text-purple-300">{c.city}</strong>
-                    </div>
-                  </div>
+              let statusBorder = "border-line/10";
+              let statusBg = "bg-surface";
+              if (isVerified) {
+                statusBorder = "border-success/35";
+                statusBg = "bg-gradient-to-b from-surface to-success-tint/10";
+              } else if (isOverridden) {
+                statusBorder = "border-line/5 opacity-60";
+                statusBg = "bg-surface/50";
+              }
 
-                  <div className="p-3 rounded-lg bg-slate-950 border border-slate-800/80 space-y-1 text-xs font-mono">
-                    <span className="text-[10px] text-rose-400 font-bold uppercase flex items-center gap-1">
-                      <AlertTriangle className="w-3.5 h-3.5" /> Flagged Rationale:
-                    </span>
-                    <p className="text-slate-300 text-[11px] leading-relaxed">{c.flagged_reason}</p>
-                    <div className="pt-2 flex flex-wrap gap-1.5">
-                      {c.entities.map((e, idx) => (
-                        <span key={idx} className="px-2 py-0.5 rounded bg-slate-900 text-slate-200 text-[10px]">
-                          {e}
+              return (
+                <div
+                  key={c.case_number}
+                  className={`rounded-card border p-5 flex flex-col justify-between space-y-4 shadow-sm hover:shadow-md transition-all duration-300 relative overflow-hidden ${statusBg} ${statusBorder}`}
+                >
+                  {/* Subtle top indicator for pending issues */}
+                  {isPending && (
+                    <div className="absolute top-0 inset-x-0 h-0.5 bg-accent" />
+                  )}
+
+                  <div className="space-y-4">
+                    {/* Header: Case ID, AI Confidence and Status */}
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-1">
+                        <span className="font-mono text-sm font-black text-ink tracking-wider block">
+                          {c.case_number}
                         </span>
-                      ))}
+                        
+                        {/* Compact AI Confidence percentage indicator inside each card */}
+                        <div className="flex items-center gap-1">
+                          <Bot className="w-3.5 h-3.5 text-accent-text" />
+                          <span className="text-[10px] font-mono text-ink-3 font-semibold">
+                            {(c.ai_confidence * 100).toFixed(0)}% AI Consensus
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <span
+                        className={`px-2 py-0.5 rounded-pill text-[9px] font-mono font-bold uppercase tracking-wider ${
+                          isVerified
+                            ? "bg-success-tint text-success border border-success/25"
+                            : isOverridden
+                            ? "bg-surface-2 text-ink-3 border border-line/10"
+                            : "bg-warning-tint text-accent-text border border-accent/25"
+                        }`}
+                      >
+                        {c.status.replace("_", " ")}
+                      </span>
                     </div>
+
+                    {/* Metadata Grid */}
+                    <div className="grid grid-cols-2 gap-3 p-2.5 bg-surface-2 rounded-control border border-line/10 text-xs font-mono">
+                      <div>
+                        <span className="text-ink-3 text-[9px] uppercase tracking-wider block">Threat Vector</span>
+                        <strong className="text-ink text-xs truncate block mt-0.5">{c.scam_type}</strong>
+                      </div>
+                      <div>
+                        <span className="text-ink-3 text-[9px] uppercase tracking-wider block">Jurisdiction</span>
+                        <strong className="text-accent-text text-xs truncate block mt-0.5">{c.city}</strong>
+                      </div>
+                    </div>
+
+                    {/* Flagged Rationale */}
+                    <div className="p-3.5 rounded-control bg-surface-2 border border-line/15 space-y-2">
+                      <div className="flex items-center gap-1 text-danger font-mono text-[10px] font-bold uppercase">
+                        <AlertTriangle className="w-3.5 h-3.5" />
+                        <span>Analysis Rationale</span>
+                      </div>
+                      <p className="text-ink-2 text-xs leading-relaxed font-sans font-medium">
+                        {c.flagged_reason}
+                      </p>
+
+                      {/* Evidence Chips */}
+                      <div className="pt-2.5 border-t border-line/10 space-y-1">
+                        <span className="text-[9px] text-ink-3 uppercase font-mono block">Identified Entities</span>
+                        <div className="flex flex-wrap gap-1">
+                          {c.entities.map((e, idx) => (
+                            <span
+                              key={idx}
+                              className="px-2 py-0.5 rounded-control bg-surface-3/40 border border-line/15 text-ink text-[10px] font-mono flex items-center gap-1"
+                            >
+                              <CornerDownRight className="w-2.5 h-2.5 text-ink-3" />
+                              {e}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* CTAs */}
+                  <div className="space-y-2 pt-3 border-t border-line/10">
+                    {isPending ? (
+                      <div className="space-y-2">
+                        <button
+                          onClick={() => handleVerifyToNTIR(c.case_number)}
+                          disabled={processingCase === c.case_number}
+                          className="w-full py-2 rounded-control bg-success hover:bg-success/90 text-black font-mono font-black text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95 disabled:opacity-50"
+                        >
+                          {processingCase === c.case_number ? (
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                          )}
+                          Verify & Lock NTIR Grid
+                        </button>
+                        <button
+                          onClick={() => setOverrideModalCase(c)}
+                          className="w-full py-1.5 rounded-control bg-surface-2 hover:bg-surface-3/50 text-ink font-mono font-bold text-xs border border-line/20 flex items-center justify-center gap-1.5 transition-all"
+                        >
+                          <Sliders className="w-3 h-3 text-accent-text" />
+                          Override & Fine-tune
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="py-1 text-center text-ink-3 font-mono text-[10px]">
+                        Closed & immutable threat signature record.
+                      </div>
+                    )}
                   </div>
                 </div>
+              );
+            })}
+          </div>
 
-                {c.status === "PENDING_REVIEW" && (
-                  <div className="pt-3 border-t border-slate-800 flex flex-col gap-2 font-mono text-xs">
-                    <button
-                      onClick={() => handleVerifyToNTIR(c.case_number)}
-                      disabled={processingCase === c.case_number}
-                      className="w-full py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold flex items-center justify-center gap-2 shadow-lg transition-all"
-                    >
-                      <CheckCircle2 className="w-4 h-4" /> Verify & Lock into NTIR Grid
-                    </button>
-                    <button
-                      onClick={() => setOverrideModalCase(c)}
-                      className="w-full py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold flex items-center justify-center gap-1.5 transition-all"
-                    >
-                      <Sliders className="w-3.5 h-3.5" /> Override / RLHF Weight Tuning
-                    </button>
-                  </div>
-                )}
+          {/* Row 4: Redesigned Telemetry Panel Container */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Activity className="w-4 h-4 text-accent-text animate-pulse" />
+              <h3 className="font-mono text-xs font-black uppercase text-ink tracking-wider">
+                Consensus Stream Feed (`RAICExecutionMonitor`)
+              </h3>
+            </div>
+            
+            <div className="rounded-card bg-surface border border-line/10 shadow-sm overflow-hidden">
+              <div className="px-4 py-2.5 bg-surface-2 border-b border-line/10 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-success"></span>
+                  </span>
+                  <span className="font-mono text-[9px] text-ink-3 uppercase tracking-wider font-extrabold">Active System Broadcast Pipe</span>
+                </div>
+                <div className="font-mono text-[9px] text-ink-3 font-semibold">Node Pipeline: Synchronized</div>
               </div>
-            ))}
+              <div className="p-4 bg-surface-2/30">
+                <RAICExecutionMonitor autoConnect={true} className="max-h-52 font-mono text-xs rounded-control border border-line/5 text-ink" />
+              </div>
+            </div>
           </div>
-
-          <div className="space-y-2 pt-4">
-            <h3 className="font-mono text-xs font-bold text-slate-400 uppercase tracking-wider">
-              Human-in-the-Loop Telemetry (`RAICExecutionMonitor`)
-            </h3>
-            <RAICExecutionMonitor autoConnect={true} className="max-h-52" />
-          </div>
+        </div>
+      ) : (
+        /* Tab 2: Nodal Officer Registrations */
+        <div className="space-y-4">
+          <Card className="bg-surface border-line/10 rounded-card overflow-hidden shadow-sm">
+            <CardHeader 
+              title={
+                <div className="flex items-center gap-2 font-mono text-ink text-sm">
+                  <UserCheck className="w-4 h-4 text-accent-text" />
+                  <span>Pending Registrations Verification</span>
+                </div>
+              } 
+              sub={<span className="font-mono text-xs text-ink-3">Validate credentials of operators requesting system entry permissions.</span>} 
+            />
+            <div className="p-4 bg-surface">
+              {loadingUsers ? (
+                <TableSkeleton rows={4} />
+              ) : users.length === 0 ? (
+                <EmptyState icon={UserX} title="No registrations requiring review" body="All registration tickets for nodal officers have been closed." />
+              ) : (
+                <DataTable columns={userColumns} rows={users} rowKey={(u) => u.id} />
+              )}
+            </div>
+          </Card>
         </div>
       )}
 
-      {/* Tab 2: Pending User Registrations */}
-      {activeTab === "users" && (
-        <Card className="bg-slate-900/80 border-slate-800">
-          <CardHeader title="Nodal Officer Registrations" sub="Pending verified agency accounts" />
-          {loadingUsers ? (
-            <TableSkeleton rows={4} />
-          ) : users.length === 0 ? (
-            <EmptyState icon={UserCheck} title="No pending registrations" body="All nodal officers are currently approved." />
-          ) : (
-            <DataTable columns={userColumns} rows={users} rowKey={(u) => u.id} />
-          )}
-        </Card>
-      )}
+      {/* Row 5: Compact KPI Security Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="p-3.5 rounded-card bg-surface border border-line/10 flex items-center gap-3 shadow-sm">
+          <div className="p-2 rounded-control bg-accent-text/10 text-accent-text border border-accent/15 shrink-0">
+            <Cpu className="w-4 h-4" />
+          </div>
+          <div>
+            <span className="text-[9px] uppercase font-mono tracking-wider text-ink-3 block font-black">RAIC Engine</span>
+            <span className="text-[11px] text-ink-2 font-sans font-medium block">6-Factor risk parser</span>
+          </div>
+        </div>
+
+        <div className="p-3.5 rounded-card bg-surface border border-line/10 flex items-center gap-3 shadow-sm">
+          <div className="p-2 rounded-control bg-success-tint text-success border border-success/15 shrink-0">
+            <ShieldCheck className="w-4 h-4" />
+          </div>
+          <div>
+            <span className="text-[9px] uppercase font-mono tracking-wider text-ink-3 block font-black">Secure Verification</span>
+            <span className="text-[11px] text-ink-2 font-sans font-medium block">Multi-sig validation logic</span>
+          </div>
+        </div>
+
+        <div className="p-3.5 rounded-card bg-surface border border-line/10 flex items-center gap-3 shadow-sm">
+          <div className="p-2 rounded-control bg-accent/10 text-accent-text border border-accent/15 shrink-0">
+            <Lock className="w-4 h-4" />
+          </div>
+          <div>
+            <span className="text-[9px] uppercase font-mono tracking-wider text-ink-3 block font-black">Bank Freeze Sync</span>
+            <span className="text-[11px] text-ink-2 font-sans font-medium block">Automated NPCI lock interface</span>
+          </div>
+        </div>
+
+        <div className="p-3.5 rounded-card bg-surface border border-line/15 flex items-center gap-3 shadow-sm">
+          <div className="p-2 rounded-control bg-surface-2 text-ink-2 border border-line/15 shrink-0">
+            <History className="w-4 h-4" />
+          </div>
+          <div>
+            <span className="text-[9px] uppercase font-mono tracking-wider text-ink-3 block font-black">Audit Trail</span>
+            <span className="text-[11px] text-ink-2 font-sans font-medium block">Cryptographically signed logs</span>
+          </div>
+        </div>
+      </div>
 
       {/* RLHF Override & Weight Tuning Modal */}
       {overrideModalCase && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-6 space-y-5 shadow-2xl font-mono">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h3 className="text-lg font-black text-white">RLHF Weight Tuning & Decision Override</h3>
-              <button onClick={() => setOverrideModalCase(null)} className="text-slate-400 hover:text-white">✕</button>
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-surface border border-line/15 rounded-card max-w-lg w-full p-5 space-y-5 shadow-card font-mono relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-accent-text/5 rounded-full blur-xl pointer-events-none" />
+            
+            <div className="flex items-center justify-between border-b border-line/10 pb-3">
+              <div className="flex items-center gap-2">
+                <Sliders className="w-4.5 h-4.5 text-accent-text" />
+                <h3 className="text-sm font-black text-ink uppercase tracking-tight">RLHF Override Console</h3>
+              </div>
+              <button
+                onClick={() => setOverrideModalCase(null)}
+                className="text-ink-3 hover:text-ink bg-surface-2 hover:bg-surface-3 p-1 rounded-control transition-colors text-xs"
+              >
+                ✕
+              </button>
             </div>
 
             <div className="space-y-4 text-xs">
-              <p className="text-slate-300">
-                You are overriding AI decision for <strong className="text-white">{overrideModalCase.case_number}</strong>. This feeds human feedback back into the RAIC 6-Factor consensus core.
+              <p className="text-ink-2 leading-relaxed font-sans">
+                Tuning analytical engine biases for case <strong className="text-ink font-mono">{overrideModalCase.case_number}</strong>. Adjust parameters before NTIR storage.
               </p>
 
-              <div className="space-y-2">
-                <label className="text-slate-400 font-bold block">Officer Forensic Rationale / Notes:</label>
+              <div className="space-y-1.5">
+                <label className="text-ink-3 font-bold block uppercase text-[9px] tracking-wider">Forensic Override Notes:</label>
                 <textarea
                   value={overrideNotes}
                   onChange={(e) => setOverrideNotes(e.target.value)}
-                  placeholder="e.g. Legitimate corporate SIP gateway verified via TRAI whitelisting..."
+                  placeholder="e.g. Legitimate gateway routing verified manually via agency coordination..."
                   rows={3}
-                  className="w-full p-3 rounded-lg bg-slate-950 border border-slate-800 text-slate-200 focus:outline-none focus:border-emerald-500 text-xs"
+                  className="w-full p-2.5 rounded-control bg-surface-2 border border-line/10 text-ink focus:outline-none focus:border-accent text-xs transition-colors"
                 />
               </div>
 
-              <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
-                <div className="flex justify-between font-bold text-slate-200">
-                  <span>Qwen 2.5-VL-7B Weight: {(qwenWeight * 100).toFixed(0)}%</span>
-                  <span>ThreatAnalysis Core Weight: {((1 - qwenWeight) * 100).toFixed(0)}%</span>
+              <div className="p-3 rounded-control bg-surface-2 border border-line/10 space-y-3">
+                <div className="flex justify-between font-bold text-ink-2 text-[11px]">
+                  <span>Qwen LLM Weight: <span className="text-accent-text">{(qwenWeight * 100).toFixed(0)}%</span></span>
+                  <span>System Heuristics: <span className="text-accent-text">{((1 - qwenWeight) * 100).toFixed(0)}%</span></span>
                 </div>
+                
                 <input
                   type="range"
                   min="0.10"
@@ -418,28 +629,33 @@ export default function AdminApprovalsPage() {
                   step="0.05"
                   value={qwenWeight}
                   onChange={(e) => setQwenWeight(parseFloat(e.target.value))}
-                  className="w-full accent-emerald-500 cursor-pointer"
+                  className="w-full accent-accent cursor-pointer bg-line h-1 rounded-control"
                 />
-                <span className="text-[10px] text-slate-500 block text-center">
-                  Slide to adjust model dominance for future digital arrest consensus reasoning.
+                
+                <span className="text-[9px] text-ink-3 block text-center font-sans leading-normal">
+                  Reduces false-positive ratios by updating consensus model priors.
                 </span>
               </div>
             </div>
 
-            <div className="flex justify-end gap-3 pt-3 border-t border-slate-800">
+            <div className="flex justify-end gap-2 pt-3 border-t border-line/10">
               <button
                 onClick={() => setOverrideModalCase(null)}
-                className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs"
+                className="px-3 py-1.5 rounded-control bg-surface-2 hover:bg-surface-3 text-ink font-bold text-xs border border-line/10 transition-all"
               >
                 Cancel
               </button>
               <button
                 onClick={submitRLHFOverride}
                 disabled={processingCase === overrideModalCase.case_number}
-                className="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-2 shadow-lg"
+                className="px-4 py-1.5 rounded-control bg-accent hover:bg-accent-hover text-accent-ink font-black text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer disabled:opacity-50"
               >
-                {processingCase === overrideModalCase.case_number ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-                Commit RLHF Feedback & Adjust Core
+                {processingCase === overrideModalCase.case_number ? (
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Zap className="w-3.5 h-3.5" />
+                )}
+                Commit Parameters
               </button>
             </div>
           </div>

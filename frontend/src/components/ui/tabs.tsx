@@ -38,7 +38,7 @@
               type="button"
               onClick={() => onChange(item.id)}
               className={cn(
-                "relative flex-1 h-9 px-4.5 rounded-control text-xs font-bold uppercase tracking-wider whitespace-nowrap",
+               "relative flex-1 min-h-[64px] px-4 py-2 rounded-control text-xs font-bold uppercase tracking-wider",
                 "transition-colors duration-150 cursor-pointer select-none",
                 active ? "text-ink" : "text-ink-3 hover:text-ink"
               )}
@@ -50,7 +50,7 @@
                   className="absolute inset-0 rounded-control bg-surface shadow-card border border-line/10"
                 />
               )}
-              <span className="relative z-10 flex items-center justify-center gap-2">
+              <span className="relative z-10 flex flex-col items-center justify-center text-center leading-tight">
                 {item.label}
               </span>
             </button>

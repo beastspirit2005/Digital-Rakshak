@@ -115,16 +115,18 @@ export function RAICExecutionMonitor({
       );
     }
     return (
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-500/15 text-slate-400 border border-slate-500/30">
-        <Activity className="w-3.5 h-3.5 text-slate-400" /> {status}
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-500/15 text-ink-3 border border-slate-500/30">
+        <Activity className="w-3.5 h-3.5 text-ink-3" /> {status}
       </span>
     );
   };
 
   return (
-    <div className={`rounded-xl border border-slate-800 bg-slate-950/90 shadow-2xl overflow-hidden ${className}`}>
+   <div
+  className={`rounded-xl border border-line bg-surface shadow-card overflow-hidden transition-colors duration-300 ${className}`}
+>
       {/* Header bar */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800 bg-gradient-to-r from-slate-900 to-slate-950">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-line bg-surface-2">
         <div className="flex items-center gap-2.5">
           <div className="flex gap-1.5">
             <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
@@ -132,18 +134,20 @@ export function RAICExecutionMonitor({
             <span className={`w-2.5 h-2.5 rounded-full ${connected ? "bg-emerald-500 animate-pulse" : "bg-slate-600"}`} />
           </div>
           <Cpu className="w-4 h-4 text-emerald-400 ml-1" />
-          <span className="text-xs font-mono font-bold text-slate-200 tracking-wider uppercase">
+          <span className="text-xs font-mono font-bold text-ink tracking-wider uppercase">
             RAIC Real-Time Execution Monitor
           </span>
           {caseNumber && (
-            <span className="ml-2 px-2 py-0.5 rounded text-[10px] font-mono bg-slate-800 text-slate-300">
+            <span className="ml-2 px-2 py-0.5 rounded text-[10px] font-mono bg-bg
+text-ink-2
+border border-line">
               Case #{caseNumber}
             </span>
           )}
         </div>
         <div className="flex items-center gap-3">
           <div className="text-right">
-            <span className="text-[10px] font-mono text-slate-400 block uppercase tracking-wider">RAIC Consensus</span>
+            <span className="text-[10px] font-mono text-ink-3 block uppercase tracking-wider">RAIC Consensus</span>
             <span className="text-xs font-mono font-bold text-emerald-400">
               {(consensusScore * 100).toFixed(1)}%
             </span>
@@ -153,24 +157,24 @@ export function RAICExecutionMonitor({
       </div>
 
       {/* Active Ticker status */}
-      <div className="px-4 py-2 bg-slate-900/60 border-b border-slate-800/80 flex items-center justify-between text-xs font-mono text-slate-300">
+      <div className="px-4 py-2 bg-bg border-b border-line flex items-center justify-between text-xs font-mono text-ink-2">
         <div className="flex items-center gap-2 truncate">
           <span className="text-emerald-400 font-bold select-none">{">>"}</span>
           <span className="truncate">{activeAgent}</span>
         </div>
-        <span className="text-[10px] text-slate-500 select-none">Live SSE (`/stream/events`)</span>
+        <span className="text-[10px] text-ink-3 select-none">Live SSE (`/stream/events`)</span>
       </div>
 
       {/* Event List / Logs */}
       <div
         ref={scrollRef}
-        className="p-4 max-h-80 overflow-y-auto space-y-2.5 font-mono text-xs scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent"
+        className="p-4 max-h-80 overflow-y-auto space-y-2.5 font-mono text-xs scrollbar-thin scrollbar-thumb-line scrollbar-track-transparent"
       >
         {events.length === 0 ? (
-          <div className="py-8 text-center text-slate-500 flex flex-col items-center gap-2">
+          <div className="py-8 text-center text-ink-3 flex flex-col items-center gap-2">
             <Loader2 className="w-6 h-6 animate-spin text-emerald-500/50" />
             <p className="text-xs">Listening for RAIC agent executions...</p>
-            <p className="text-[10px] text-slate-600">Subscribed to real-time FastAPI Server-Sent Events</p>
+            <p className="text-[10px] text-ink-3">Subscribed to real-time FastAPI Server-Sent Events</p>
           </div>
         ) : (
           <AnimatePresence initial={false}>
@@ -180,21 +184,21 @@ export function RAICExecutionMonitor({
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.2 }}
-                className="p-3 rounded-lg bg-slate-900/80 border border-slate-800/80 flex items-center justify-between gap-3 hover:border-slate-700 transition-colors"
+                className="p-3 rounded-lg bg-bg border-line flex items-center justify-between gap-3 hover:border-accent/40 transition-colors"
               >
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold text-slate-200">{ev.agent}</span>
+                      <span className="font-semibold text-ink">{ev.agent}</span>
                       {ev.execution_ms > 0 && (
-                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-400">
+                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-surface-2 text-ink-3">
                           {ev.execution_ms}ms
                         </span>
                       )}
                     </div>
                     {ev.data && ev.data.message && (
-                      <p className="text-[11px] text-slate-400 mt-0.5 truncate">{ev.data.message}</p>
+                      <p className="text-[11px] text-ink-3 mt-0.5 truncate">{ev.data.message}</p>
                     )}
                   </div>
                 </div>
