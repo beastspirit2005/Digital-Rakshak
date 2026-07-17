@@ -57,15 +57,17 @@ export function FormNotice({
 }) {
   return (
     <div
-  className={cn(
-    "rounded-control border border-success/20 bg-success-tint px-3.5 py-3 text-sm text-success",
-    className
-  )}
->
+      className={cn(
+        "rounded-control border border-success/20 bg-success-tint px-3.5 py-3 text-sm text-success",
+        className
+      )}
+    >
       {children}
     </div>
   );
 }
+
+
 
 export function OtpInput({
   value,
