@@ -280,16 +280,9 @@ async def submit_case(
                 is_cloud_storage = False  # Trigger fallback
         
         if not is_cloud_storage:
-            from cryptography.fernet import Fernet
-            from infrastructure.security.encryption import get_master_encryption_key
-            
-            key = get_master_encryption_key()
-            fernet = Fernet(key.encode())
-            
-            encrypted_data = fernet.encrypt(file_bytes)
             final_file_path = os.path.join(upload_dir, safe_filename)
             with open(final_file_path, "wb") as buffer:
-                buffer.write(encrypted_data)
+                buffer.write(file_bytes)
                 
             file_path_in_db = f"local://{safe_filename}"
             
@@ -309,11 +302,26 @@ async def submit_case(
             case_id=new_case.id,
             evidence_type=ev_type,
             file_path=file_path_in_db,
+            storage_location=file_path_in_db,
+            sha256=sha256_digest,
+            mime_type=file.content_type or "application/octet-stream",
+            file_size_bytes=len(file_bytes),
             source="citizen_upload",
         )
         setattr(new_evidence, 'file_hash_sha256', sha256_digest)
         
         db.add(new_evidence)
+        await db.commit()
+        await db.refresh(new_evidence)
+        
+        from domain.models.evidence import ChainOfCustodyLog
+        coc_log = ChainOfCustodyLog(
+            evidence_id=new_evidence.id,
+            actor=f"{user.full_name} (Citizen)" if user else "Citizen (Submitter)",
+            action="UPLOADED",
+            remarks=f"Ingested via Citizen Portal. SHA-256 verified: {sha256_digest}."
+        )
+        db.add(coc_log)
         await db.commit()
         
         # Phase 1: Malicious APK Scanner Integration

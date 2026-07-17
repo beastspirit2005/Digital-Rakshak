@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     SUPABASE_URL: Optional[str] = None
     SUPABASE_KEY: Optional[str] = None
     LOCAL_FILE_ENCRYPTION_KEY: str = "hkAAmCKwdf2sBS8rbP4VTWI8WWu6bcr3pRT7Jb5nhuo="
-    UPLOAD_DIR: str = "uploads"
+    UPLOAD_DIR: str = "/tmp/uploads" if os.environ.get("VERCEL") == "1" else "uploads"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=True)
 
