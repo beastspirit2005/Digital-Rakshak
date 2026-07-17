@@ -21,7 +21,7 @@ import { BrandIdentity } from "@/components/brand-identity";
 import { BrandLogo } from "@/components/brand-logo";
 import { AnimatedCounter } from "@/components/animated-counter";
 import { FAQSection } from "@/components/landing/FAQsection";
-
+import { NationalAlertTicker } from "@/components/landing/NationalAlertTicker";
 const STEPS = [
   {
     stepNumber: "01",
@@ -503,7 +503,7 @@ export default function LandingPage() {
 
           </div>
         </section>
-
+    <NationalAlertTicker />
         {/* Animated Enterprise Trust Statistics */}
         <section
           id="features"
