@@ -59,6 +59,7 @@ export default function AIHealthGovernanceDashboard() {
 
   const [models, setModels] = useState<ModelConfig[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
+  const [environment, setEnvironment] = useState<"cloud" | "local">("local");
 
   useEffect(() => {
     const fetchTelemetry = async () => {
@@ -69,6 +70,7 @@ export default function AIHealthGovernanceDashboard() {
         });
         setModels(res.data.models);
         setAuditLogs(res.data.auditLogs);
+        if (res.data.environment) setEnvironment(res.data.environment);
       } catch (err) {
         toast("danger", "Failed to load AI telemetry.");
       } finally {
@@ -105,7 +107,9 @@ export default function AIHealthGovernanceDashboard() {
             <p className="text-xs font-mono text-slate-400 mt-0.5 flex items-center gap-2">
               <span>Model Versioning & Drift Auditing</span>
               <span className="text-slate-600">•</span>
-              <span className="text-emerald-400 font-semibold">Zero-Cloud Sovereign Enforce Ready</span>
+              <span className="text-emerald-400 font-semibold">
+                {environment === "cloud" ? "Cloud Serverless Limits" : "Local Workstation Hardware"}
+              </span>
             </p>
           </div>
         </div>

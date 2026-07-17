@@ -21,7 +21,7 @@ import { useReducedMotion } from "framer-motion";
 import { Card, CardHeader } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatBlock, CountUp } from "@/components/ui/stat";
-import { StatusBadge, PriorityBadge } from "@/components/ui/badge";
+import { StatusBadge, PriorityBadge, Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -101,6 +101,7 @@ export default function WorkbenchDashboard() {
   const [trendData, setTrendData] = useState<any[]>([]);
   const [categoryData, setCategoryData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [telemetry, setTelemetry] = useState<string>("Loading telemetry...");
   const { token } = useAuthStore();
   const reduced = useReducedMotion();
   const drawIn = useDrawInOnce();
@@ -108,10 +109,18 @@ export default function WorkbenchDashboard() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [casesRes, analyticsRes] = await Promise.all([
+        const [casesRes, analyticsRes, telemetryRes] = await Promise.all([
           axios.get(api("/cases/?limit=10"), { headers: { Authorization: `Bearer ${token}` } }),
-          axios.get(api("/analytics/dashboard"), { headers: { Authorization: `Bearer ${token}` } })
+          axios.get(api("/analytics/dashboard"), { headers: { Authorization: `Bearer ${token}` } }),
+          axios.get(api("/health/ai-telemetry")).catch(() => ({ data: { models: [] } }))
         ]);
+        
+        const qwenModel = telemetryRes.data?.models?.find((m: any) => m.id === "qwen-2.5-vl");
+        if (qwenModel && qwenModel.vram_usage) {
+          setTelemetry(qwenModel.vram_usage);
+        } else {
+          setTelemetry("Cloud Engine");
+        }
         
         setRecentCases(casesRes.data.cases);
         
@@ -149,6 +158,13 @@ export default function WorkbenchDashboard() {
         <PageHeader
           title="Workbench"
           sub="Case activity across your jurisdiction, past seven days."
+          actions={
+            <div className="flex items-center gap-2">
+              <Badge tone="neutral">
+                Hardware: {telemetry}
+              </Badge>
+            </div>
+          }
         />
       </Rise>
 

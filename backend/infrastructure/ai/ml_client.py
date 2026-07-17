@@ -189,7 +189,10 @@ class RakshakVisionClient:
             import easyocr
             has_cuda = ML_AVAILABLE and 'torch' in globals() and torch.cuda.is_available()
             self.reader = easyocr.Reader(['en', 'hi'], gpu=has_cuda)
+        except Exception as e:
+            print(f"EasyOCR failed to load: {e}")
             
+        try:
             # Load PyTorch Fake Currency classifier (MobileNet/ResNet)
             if ML_AVAILABLE:
                 import torchvision.models as models
@@ -207,11 +210,12 @@ class RakshakVisionClient:
                     self.classifier.eval()
                     self.model_loaded = True
                 else:
+                    print(f"Model path not found: {model_path}")
                     self.model_loaded = False
                 
             return True
         except Exception as e:
-            print(f"Vision engines failed to load: {e}")
+            print(f"Vision PyTorch model failed to load: {e}")
             return False
             
     def extract_text(self, image_path: str):

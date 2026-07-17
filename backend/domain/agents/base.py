@@ -34,7 +34,7 @@ class BaseAgent(ABC):
 
     @abstractmethod
     async def inference(self, prompt: str, context: Dict[str, Any]) -> Dict[str, Any]:
-        """Step 4: Call the primary model (Gemini) or fallback (Ollama)."""
+        """Step 4: Call the primary model (Groq) or fallback (Ollama)."""
         pass
 
     @abstractmethod

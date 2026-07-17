@@ -1,11 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, cast, Date
+from sqlalchemy import select, func, cast, Date, desc
 from infrastructure.db.session import get_db
 from api.deps import get_current_user, get_current_admin
 from domain.models.user import User
 from domain.models.case import Case, CaseStatus
 from infrastructure.graph.neo4j_client import IntelligenceGraph
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
@@ -15,9 +18,9 @@ async def get_dashboard_analytics(db: AsyncSession = Depends(get_db), user: User
     Returns aggregated analytics for the National Intelligence Dashboard.
     """
     role = user.role
-    print(f"DEBUG: analytics user.role is {repr(role)}")
+    logger.debug(f"analytics user.role is {repr(role)}")
     if role not in ["admin", "police", "cyber_cell"]:
-        print(f"DEBUG: raising 403 in analytics because {repr(role)} not in allowed list")
+        logger.debug(f"raising 403 in analytics because {repr(role)} not in allowed list")
         raise HTTPException(status_code=403, detail="Unauthorized")
 
     # 1. High-level stats
@@ -104,8 +107,7 @@ async def get_command_center_telemetry(db: AsyncSession = Depends(get_db), user:
     takedowns_executed = takedowns_query.scalar() or 0
     
     # 3. Avg Inference Latency
-    import random
-    avg_latency_ms = random.randint(132, 148)
+    avg_latency_ms = 0
     
     # 4. Syndicates & Neo4j Clusters
     graph = IntelligenceGraph()
@@ -127,19 +129,39 @@ async def get_command_center_telemetry(db: AsyncSession = Depends(get_db), user:
             code = f"SYND-26-IND-{str(hash(entity_val))[-3:]}"
             name = f"{entity_type} Threat Ring ({entity_val[:6]}...)"
             
+            # Query Postgres to get the real financial loss and primary hub
+            hub_name = "Unknown Origin"
+            total_loss = 0.0
+            if case_ids:
+                stats_query = await db.execute(
+                    select(func.sum(Case.estimated_amount)).where(Case.id.in_(case_ids))
+                )
+                total_loss = stats_query.scalar() or 0.0
+                
+                city_query = await db.execute(
+                    select(Case.city, func.count(Case.id).label('c'))
+                    .where(Case.id.in_(case_ids), Case.city.isnot(None))
+                    .group_by(Case.city)
+                    .order_by(desc('c'))
+                    .limit(1)
+                )
+                top_city = city_query.first()
+                if top_city:
+                    hub_name = f"{top_city[0]} Hub"
+            
             campaigns.append({
                 "id": f"synd-{idx}",
                 "code": code,
                 "name": name,
-                "hub": "Cross-Border Transit Vector" if idx % 2 == 0 else "Domestic Phishing Node",
+                "hub": hub_name,
                 "linked_cases": len(case_ids),
-                "financial_exposure": f"₹{len(case_ids) * 3.5:.1f} Lakhs",
+                "financial_exposure": f"₹{total_loss / 100000:.2f} Lakhs" if total_loss > 0 else "₹0.0 Lakhs",
                 "risk_level": "CRITICAL" if len(case_ids) > 3 else "HIGH",
                 "status": "ACTIVE"
             })
             
     except Exception as e:
-        print(f"Failed to fetch neo4j clusters for command center: {e}")
+        logger.error(f"Failed to fetch neo4j clusters for command center: {e}")
     finally:
         await graph.close()
         
@@ -150,7 +172,8 @@ async def get_command_center_telemetry(db: AsyncSession = Depends(get_db), user:
             func.avg(Case.latitude), 
             func.avg(Case.longitude), 
             func.count(Case.id),
-            func.max(Case.scam_type_code)
+            func.max(Case.scam_type_code),
+            func.sum(Case.estimated_amount)
         )
         .where(Case.city.isnot(None), Case.latitude.isnot(None), Case.longitude.isnot(None))
         .group_by(Case.city)
@@ -158,7 +181,8 @@ async def get_command_center_telemetry(db: AsyncSession = Depends(get_db), user:
     
     city_rows = city_query.all()
     for row in city_rows:
-        city_name, lat, lng, count, scam_code = row
+        city_name, lat, lng, count, scam_code, total_amount = row
+        actual_loss = total_amount or 0.0
         if city_name and lat and lng:
             city_coordinates[city_name] = {
                 "lat": lat,
@@ -166,7 +190,7 @@ async def get_command_center_telemetry(db: AsyncSession = Depends(get_db), user:
                 "cases": count,
                 "threat": 0.95 if count > 5 else 0.82,
                 "code": scam_code or "PHISHING",
-                "loss": f"₹{count * 2.1:.1f} Lakhs"
+                "loss": f"₹{actual_loss / 100000:.2f} Lakhs" if actual_loss > 0 else "₹0.0 Lakhs"
             }
             
     if not city_coordinates:

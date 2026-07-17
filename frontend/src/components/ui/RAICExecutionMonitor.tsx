@@ -37,58 +37,64 @@ export function RAICExecutionMonitor({
   useEffect(() => {
     if (!autoConnect) return;
 
-    // Connect to backend Server-Sent Events (SSE) stream
-    const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/v1";
-    const eventSource = new EventSource(`${apiBase}/stream/events`);
+    let eventSource: EventSource | null = null;
+    let reconnectTimeout: NodeJS.Timeout;
 
-    eventSource.addEventListener("connected", (e) => {
-      setConnected(true);
-      setActiveAgent("Stream Connected. Waiting for AI Core dispatch...");
-    });
+    const connect = () => {
+      const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+      const apiBase = process.env.NEXT_PUBLIC_API_URL || (isLocal ? "http://127.0.0.1:8000/v1" : "/api/v1");
+      eventSource = new EventSource(`${apiBase}/stream/events`);
 
-    eventSource.addEventListener("agent_execution", (e) => {
-      try {
-        const payload: RAICEvent = JSON.parse(e.data);
-        if (caseNumber && payload.case_id && payload.case_id !== caseNumber) {
-          // Filter out events for other cases if caseNumber is explicitly provided
-          return;
-        }
+      eventSource.addEventListener("connected", (e) => {
+        setConnected(true);
+        setActiveAgent("Stream Connected. Waiting for AI Core dispatch...");
+      });
 
-        setEvents((prev) => [...prev, payload]);
-        setActiveAgent(`${payload.agent}: ${payload.status}`);
+      eventSource.addEventListener("agent_execution", (e) => {
+        try {
+          const payload: RAICEvent = JSON.parse(e.data);
+          if (caseNumber && payload.case_id && payload.case_id !== caseNumber) return;
 
-        if (payload.confidence && payload.confidence > consensusScore) {
-          setConsensusScore(payload.confidence);
-        }
+          setEvents((prev) => [...prev, payload]);
+          setActiveAgent(`${payload.agent}: ${payload.status}`);
 
-        if (payload.agent === "DecisionCore" && payload.status === "Completed") {
-          if (onExecutionComplete) {
-            onExecutionComplete(payload.data);
+          if (payload.confidence && payload.confidence > consensusScore) {
+            setConsensusScore(payload.confidence);
           }
+
+          if (payload.agent === "DecisionCore" && payload.status === "Completed") {
+            if (onExecutionComplete) onExecutionComplete(payload.data);
+          }
+        } catch (err) {
+          console.error("Error parsing SSE agent execution event:", err);
         }
-      } catch (err) {
-        console.error("Error parsing SSE agent execution event:", err);
-      }
-    });
+      });
 
-    eventSource.addEventListener("case_created", (e) => {
-      try {
-        const payload: RAICEvent = JSON.parse(e.data);
-        if (caseNumber && payload.case_id && payload.case_id !== caseNumber) return;
-        setEvents((prev) => [...prev, payload]);
-        setActiveAgent(`Case #${payload.case_id} ingested into pipeline.`);
-      } catch (err) {
-        console.error("Error parsing case_created event:", err);
-      }
-    });
+      eventSource.addEventListener("case_created", (e) => {
+        try {
+          const payload: RAICEvent = JSON.parse(e.data);
+          if (caseNumber && payload.case_id && payload.case_id !== caseNumber) return;
+          setEvents((prev) => [...prev, payload]);
+          setActiveAgent(`Case #${payload.case_id} ingested into pipeline.`);
+        } catch (err) {
+          console.error("Error parsing case_created event:", err);
+        }
+      });
 
-    eventSource.onerror = (err) => {
-      setConnected(false);
-      setActiveAgent("Connection interrupted. Reconnecting to EventBroadcaster...");
+      eventSource.onerror = (err) => {
+        setConnected(false);
+        setActiveAgent("Connection interrupted. Reconnecting to EventBroadcaster...");
+        eventSource?.close();
+        // Vercel Serverless cuts off SSE randomly, force a new connection loop
+        reconnectTimeout = setTimeout(connect, 2000);
+      };
     };
 
+    connect();
+
     return () => {
-      eventSource.close();
+      clearTimeout(reconnectTimeout);
+      eventSource?.close();
       setConnected(false);
     };
   }, [caseNumber, autoConnect]);

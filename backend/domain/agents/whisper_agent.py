@@ -36,7 +36,7 @@ class WhisperAgent:
             except Exception as e:
                 logger.warning(f"Groq Whisper failed: {e}. Falling back to local.")
                 
-        # Try local whisper (or fallback to Gemini if missing ffmpeg)
+        # Try local whisper (or fallback to Groq if missing ffmpeg)
         try:
             import whisper
             model = await asyncio.to_thread(self._load_model)

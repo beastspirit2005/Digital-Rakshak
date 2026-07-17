@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { useAuthStore } from "@/lib/auth-store";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Shield,
@@ -69,6 +70,7 @@ interface CoCRecord {
 export default function InvestigatorWorkspacePage() {
   const params = useParams();
   const router = useRouter();
+  const { token } = useAuthStore();
   const caseNumber = typeof params?.case_number === "string" ? params.case_number : "";
 
   const [activeTab, setActiveTab] = useState<"evidence" | "dna" | "raic" | "audit">("evidence");
@@ -86,14 +88,14 @@ export default function InvestigatorWorkspacePage() {
   const [correctionNote, setCorrectionNote] = useState<string>("");
   const [actionStatus, setActionStatus] = useState<string | null>(null);
 
-  const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/v1";
+  const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+  const apiBase = process.env.NEXT_PUBLIC_API_URL || (isLocal ? "http://127.0.0.1:8000/v1" : "/api/v1");
 
   const fetchCaseDetails = async () => {
     if (!caseNumber) return;
     setLoading(true);
     setError(null);
     try {
-      const token = localStorage.getItem("access_token") || "";
       const res = await fetch(`${apiBase}/cases/${caseNumber}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -119,7 +121,6 @@ export default function InvestigatorWorkspacePage() {
 
   const fetchCocHistory = async (evId: string) => {
     try {
-      const token = localStorage.getItem("access_token") || "";
       const res = await fetch(`${apiBase}/evidence/${evId}/history`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -135,7 +136,6 @@ export default function InvestigatorWorkspacePage() {
   const verifyEvidenceIntegrity = async (evId: string) => {
     setVerifyingId(evId);
     try {
-      const token = localStorage.getItem("access_token") || "";
       const res = await fetch(`${apiBase}/evidence/${evId}/verify`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
@@ -157,7 +157,6 @@ export default function InvestigatorWorkspacePage() {
     if (!caseData) return;
     setActionStatus("Processing action...");
     try {
-      const token = localStorage.getItem("access_token") || "";
       const endpoint =
         actionType === "approve"
           ? `${apiBase}/cases/${caseData.case_number}/verify`
@@ -664,7 +663,7 @@ export default function InvestigatorWorkspacePage() {
                     </h3>
                   </div>
                   <span className="text-xs font-mono text-slate-400">
-                    Model: <strong className="text-emerald-400">Gemini 3.1 Pro + Qwen 2.5-VL Refinement</strong>
+                    Model: <strong className="text-emerald-400">Groq Llama 3 70B + Vision Refinement</strong>
                   </span>
                 </div>
 

@@ -66,6 +66,7 @@ async def update_platform_settings(payload: SettingsUpdate, db: AsyncSession = D
         if payload.default_ai_mode not in ("auto", "groq", "ollama", "both"):
             raise HTTPException(status_code=400, detail="Invalid ai_mode. Must be auto, groq, ollama, or both.")
         db_settings.default_ai_mode = payload.default_ai_mode
+        settings.DEFAULT_AI_MODE = payload.default_ai_mode
         logger.info(f"Default AI mode set to {payload.default_ai_mode}")
 
     await db.commit()

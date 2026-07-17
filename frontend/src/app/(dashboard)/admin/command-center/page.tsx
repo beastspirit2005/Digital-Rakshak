@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { useAuthStore } from "@/lib/auth-store";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Siren,
@@ -51,6 +52,7 @@ interface CampaignSyndicate {
 }
 
 export default function CommandCenterDashboard() {
+  const { token } = useAuthStore();
   const router = useRouter();
   const [clusters, setClusters] = useState<SpatialCluster[]>([]);
   const [selectedCity, setSelectedCity] = useState<string | null>("Delhi NCR");
@@ -68,11 +70,11 @@ export default function CommandCenterDashboard() {
     syndicates_tracked: 0
   });
 
-  const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/v1";
+  const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+  const apiBase = process.env.NEXT_PUBLIC_API_URL || (isLocal ? "http://127.0.0.1:8000/v1" : "/api/v1");
 
   const fetchCommandCenterData = async () => {
     try {
-      const token = localStorage.getItem("token") || localStorage.getItem("access_token") || "";
       const res = await fetch(`${apiBase}/analytics/command-center`, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -97,7 +99,6 @@ export default function CommandCenterDashboard() {
   const fetchSpatialClusters = async () => {
     setLoadingClusters(true);
     try {
-      const token = localStorage.getItem("token") || localStorage.getItem("access_token") || "";
       const res = await fetch(`${apiBase}/cases/clusters`, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -114,13 +115,15 @@ export default function CommandCenterDashboard() {
 
   const fetchAiTelemetry = async () => {
     try {
-      const token = localStorage.getItem("token") || localStorage.getItem("access_token") || "";
       const res = await fetch(`${apiBase}/health/ai-telemetry`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
         const data = await res.json();
         if (data.models) setAiModels(data.models);
+        if (data.cpu_utilization !== undefined) {
+          setStats((prev) => ({ ...prev, cpu_utilization: data.cpu_utilization }));
+        }
       }
     } catch (err) {
       console.error("Failed to load AI telemetry:", err);
@@ -131,7 +134,6 @@ export default function CommandCenterDashboard() {
     setSimulatingEvent(true);
     setSimulationMsg("Broadcasting live telemetry pulse...");
     try {
-      const token = localStorage.getItem("token") || localStorage.getItem("access_token") || "";
       const agents = ["ThreatAnalysisAgent", "BehaviourAgent", "CampaignAgent", "DecisionCore", "VisionAgent"];
       const randomAgent = agents[Math.floor(Math.random() * agents.length)];
       const randomScore = Number((0.85 + Math.random() * 0.14).toFixed(2));
@@ -514,13 +516,13 @@ export default function CommandCenterDashboard() {
             <div className="flex items-center justify-between text-slate-300">
               <span>National GPU Cluster Utilization</span>
               <span className="text-emerald-400 font-bold">
-                {Math.min(99.9, 50 + stats.active_cases * 2.1).toFixed(1)}%
+                {(stats as any).cpu_utilization ? ((stats as any).cpu_utilization).toFixed(1) : Math.min(99.9, 50 + stats.active_cases * 2.1).toFixed(1)}%
               </span>
             </div>
             <div className="w-full h-2.5 rounded-full bg-slate-900 overflow-hidden">
               <div
                 className="h-full bg-gradient-to-r from-emerald-500 via-amber-500 to-rose-500 transition-all duration-1000"
-                style={{ width: `${Math.min(100, 50 + stats.active_cases * 2.1)}%` }}
+                style={{ width: `${(stats as any).cpu_utilization || Math.min(100, 50 + stats.active_cases * 2.1)}%` }}
               />
             </div>
             <div className="flex justify-between text-[10px] text-slate-500 pt-1">

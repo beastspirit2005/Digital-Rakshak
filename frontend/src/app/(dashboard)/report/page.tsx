@@ -214,16 +214,9 @@ export default function ReportPage() {
             <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
               <FormError>{error}</FormError>
 
-              <AnimatePresence mode="wait">
+              <>
                 {activeStep === 1 && (
-                  <motion.div
-                    key="step-1"
-                    initial={reduced ? { opacity: 0 } : { opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={reduced ? { opacity: 0 } : { opacity: 0, x: -20 }}
-                    transition={{ duration: 0.25, ease: "easeOut" }}
-                    className="space-y-6"
-                  >
+                  <div key="step-1" className="space-y-6">
                     <div className="space-y-1">
                       <p className="text-xs font-bold uppercase tracking-widest text-accent font-mono">
                         REPORT A SCAM
@@ -277,18 +270,11 @@ export default function ReportPage() {
                         <ChevronRight className="w-4 h-4 ml-1.5" />
                       </Button>
                     </div>
-                  </motion.div>
+                  </div>
                 )}
 
                 {activeStep === 2 && (
-                  <motion.div
-                    key="step-2"
-                    initial={reduced ? { opacity: 0 } : { opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={reduced ? { opacity: 0 } : { opacity: 0, x: -20 }}
-                    transition={{ duration: 0.25, ease: "easeOut" }}
-                    className="space-y-6"
-                  >
+                  <div key="step-2" className="space-y-6">
                     <div className="space-y-1">
                       <p className="text-xs font-bold uppercase tracking-widest text-accent font-mono">
                         REPORT A SCAM
@@ -393,18 +379,11 @@ export default function ReportPage() {
                         <ChevronRight className="w-4 h-4 ml-1.5" />
                       </Button>
                     </div>
-                  </motion.div>
+                  </div>
                 )}
 
                 {activeStep === 3 && (
-                  <motion.div
-                    key="step-3"
-                    initial={reduced ? { opacity: 0 } : { opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={reduced ? { opacity: 0 } : { opacity: 0, x: -20 }}
-                    transition={{ duration: 0.25, ease: "easeOut" }}
-                    className="space-y-6"
-                  >
+                  <div key="step-3" className="space-y-6">
                     <div className="space-y-1">
                       <p className="text-xs font-bold uppercase tracking-widest text-accent font-mono">
                         REPORT A SCAM
@@ -469,18 +448,11 @@ export default function ReportPage() {
                         <ChevronRight className="w-4 h-4 ml-1.5" />
                       </Button>
                     </div>
-                  </motion.div>
+                  </div>
                 )}
 
                 {activeStep === 4 && (
-                  <motion.div
-                    key="step-4"
-                    initial={reduced ? { opacity: 0 } : { opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={reduced ? { opacity: 0 } : { opacity: 0, x: -20 }}
-                    transition={{ duration: 0.25, ease: "easeOut" }}
-                    className="space-y-6"
-                  >
+                  <div key="step-4" className="space-y-6">
                     <div className="space-y-1">
                       <p className="text-xs font-bold uppercase tracking-widest text-accent font-mono">
                         REPORT A SCAM
@@ -552,9 +524,9 @@ export default function ReportPage() {
                         Skip for now
                       </button>
                     </div>
-                  </motion.div>
+                  </div>
                 )}
-              </AnimatePresence>
+              </>
             </form>
           </div>
         ) : (

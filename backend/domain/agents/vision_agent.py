@@ -10,7 +10,7 @@ class VisionAgent:
     """
     
     def __init__(self):
-        self.model = "llama-3.2-11b-vision-preview"
+        self.model = "meta-llama/llama-4-scout-17b-16e-instruct"
         self.system_prompt = """You are an elite Cyber Threat Intelligence Vision AI.
 Analyze the provided image (screenshot of a WhatsApp chat, bank transfer, email, etc.) for signs of a scam or digital fraud.
 You MUST extract any text in the image.
@@ -38,25 +38,35 @@ You MUST output your analysis in raw JSON format matching this exact schema:
         from core.config import settings
         resolved_mode = ai_mode if ai_mode != "auto" else settings.DEFAULT_AI_MODE
         
-        # OFFLINE MODE (Local PyTorch)
+        # OFFLINE MODE (Local PyTorch) — with auto-fallback to Cloud if PyTorch is unavailable (e.g. Vercel)
         if resolved_mode == "ollama" or settings.FORCE_LOCAL_INFERENCE:
-            if analyze_type == "counterfeit":
-                from infrastructure.ai.ml_client import RakshakVisionClient
-                client = RakshakVisionClient()
-                client.load_model()
-                return client.detect_counterfeit(image_path)
-            else:
-                # Default OCR fallback for offline scam analysis
-                from infrastructure.ai.ml_client import RakshakVisionClient
-                client = RakshakVisionClient()
-                client.load_model()
-                extracted = client.extract_text(image_path)
-                return {
-                    "decision": "Manual Review Required (Offline OCR)",
-                    "score": 0.5,
-                    "extracted_text": extracted,
-                    "evidence": ["Image analyzed via offline EasyOCR."]
-                }
+            try:
+                if analyze_type == "counterfeit":
+                    from infrastructure.ai.ml_client import RakshakVisionClient, ML_AVAILABLE
+                    if not ML_AVAILABLE:
+                        raise ImportError("PyTorch not available in this environment")
+                    client = RakshakVisionClient()
+                    client.load_model()
+                    if not client.model_loaded:
+                        raise RuntimeError("Counterfeit model not loaded")
+                    return client.detect_counterfeit(image_path)
+                else:
+                    # Default OCR fallback for offline scam analysis
+                    from infrastructure.ai.ml_client import RakshakVisionClient, ML_AVAILABLE
+                    if not ML_AVAILABLE:
+                        raise ImportError("PyTorch not available in this environment")
+                    client = RakshakVisionClient()
+                    client.load_model()
+                    extracted = client.extract_text(image_path)
+                    return {
+                        "decision": "Manual Review Required (Offline OCR)",
+                        "score": 0.5,
+                        "extracted_text": extracted,
+                        "evidence": ["Image analyzed via offline EasyOCR."]
+                    }
+            except (ImportError, RuntimeError) as e:
+                print(f"Local inference unavailable ({e}), falling back to Groq Cloud...")
+                # Fall through to Cloud Mode below
                 
         # CLOUD MODE (Groq Vision)
         try:
@@ -100,17 +110,36 @@ You MUST output your analysis in raw JSON format matching this exact schema:
                         ]
                     }
                 ],
-                "temperature": 0.1,
-                "response_format": {"type": "json_object"}
+                "temperature": 0.1
             }
             
             async with httpx.AsyncClient() as client:
                 response = await client.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=payload_data, timeout=60.0)
+                if response.status_code != 200:
+                    print(f"Groq API Error: {response.text}")
                 response.raise_for_status()
                 
                 data = response.json()
                 content = data["choices"][0]["message"]["content"]
-                result = json.loads(content)
+                
+                import re
+                print(f"Raw Groq Response: {content}")
+                json_match = re.search(r'\{.*\}', content, re.DOTALL)
+                if json_match:
+                    content = json_match.group(0)
+                
+                try:
+                    result_raw = json.loads(content)
+                    # Normalize keys to lowercase to avoid frontend mapping issues
+                    result = {k.lower(): v for k, v in result_raw.items()}
+                except json.JSONDecodeError as e:
+                    print(f"Failed to parse JSON from Groq: {content}")
+                    result = {
+                        "decision": "Error parsing AI response",
+                        "score": 0.0,
+                        "threat_class": "Unknown",
+                        "evidence": [f"Raw text: {content}"]
+                    }
                 
             result["models_used"] = [self.model]
             return result
