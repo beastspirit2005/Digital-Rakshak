@@ -119,7 +119,7 @@ async def get_my_cases(request: Request, db: AsyncSession = Depends(get_db), ski
     """
     user_id = str(user.id)
     from sqlalchemy import desc
-    result = await db.execute(select(Case).where(Case.submitted_by == user_id).order_by(desc(Case.created_at)).offset(skip).limit(limit))
+    result = await db.execute(select(Case).where(Case.submitted_by == user.id).order_by(desc(Case.created_at)).offset(skip).limit(limit))
     cases = result.scalars().all()
     return {"cases": cases}
 
