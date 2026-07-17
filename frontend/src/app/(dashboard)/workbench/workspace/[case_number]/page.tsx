@@ -235,9 +235,9 @@ export default function InvestigatorWorkspacePage() {
           >
             <ArrowLeft className="w-3.5 h-3.5" /> Workbench Dashboard
           </button>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-black font-mono tracking-tight text-white">
-              CASE #{caseData.case_number}
+          <div className="flex flex-wrap items-center gap-3 pt-1">
+            <h1 className="text-2xl md:text-3xl font-black font-mono tracking-tight text-white leading-normal">
+              CASE {caseData.case_number}
             </h1>
             <span className="px-2.5 py-0.5 rounded-full text-xs font-bold font-mono uppercase bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
               {caseData.status || "UNDER REVIEW"}
@@ -293,7 +293,7 @@ export default function InvestigatorWorkspacePage() {
               : "border-transparent text-slate-400 hover:text-slate-200"
           }`}
         >
-          <Lock className="w-4 h-4" /> Tab 1: Evidence Vault & SHA-256 CoC
+          <Lock className="w-4 h-4" /> Evidence Vault & SHA-256 CoC
           {caseData.evidence && (
             <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-800 text-slate-300">
               {caseData.evidence.length}
@@ -308,7 +308,7 @@ export default function InvestigatorWorkspacePage() {
               : "border-transparent text-slate-400 hover:text-slate-200"
           }`}
         >
-          <GitBranch className="w-4 h-4" /> Tab 2: Neo4j Syndicate Graph (Attack DNA)
+          <GitBranch className="w-4 h-4" /> Neo4j Syndicate Graph (Attack DNA)
         </button>
         <button
           onClick={() => setActiveTab("raic")}
@@ -318,7 +318,7 @@ export default function InvestigatorWorkspacePage() {
               : "border-transparent text-slate-400 hover:text-slate-200"
           }`}
         >
-          <Cpu className="w-4 h-4" /> Tab 3: RAIC Consensus & Explainability
+          <Cpu className="w-4 h-4" /> RAIC Consensus & Explainability
         </button>
         <button
           onClick={() => setActiveTab("audit")}
@@ -328,7 +328,7 @@ export default function InvestigatorWorkspacePage() {
               : "border-transparent text-slate-400 hover:text-slate-200"
           }`}
         >
-          <History className="w-4 h-4" /> Tab 4: Chronological Audit Ledger
+          <History className="w-4 h-4" /> Chronological Audit Ledger
         </button>
       </div>
 
@@ -525,7 +525,7 @@ export default function InvestigatorWorkspacePage() {
                                     logs.map((log) => (
                                       <tr key={log.id} className="border-b border-slate-800/60 hover:bg-slate-900/40">
                                         <td className="p-2.5 text-slate-400 whitespace-nowrap">
-                                          {log.timestamp ? log.timestamp.replace("T", " ").substring(0, 19) : "N/A"}
+                                          {log.timestamp ? new Date(log.timestamp + "Z").toLocaleString("en-IN") : "N/A"}
                                         </td>
                                         <td className="p-2.5 font-bold text-slate-300">{log.actor}</td>
                                         <td className="p-2.5">
@@ -737,7 +737,7 @@ export default function InvestigatorWorkspacePage() {
                   caseData.timeline_events.map((evt, idx) => (
                     <div key={idx} className="flex gap-4 p-3 rounded-lg bg-slate-950 border border-slate-800/80">
                       <div className="w-32 shrink-0 text-slate-500 text-[11px]">
-                        {evt.timestamp ? evt.timestamp.replace("T", " ").substring(0, 19) : "N/A"}
+                        {evt.timestamp ? new Date(evt.timestamp + "Z").toLocaleString("en-IN") : "N/A"}
                       </div>
                       <div className="flex-1 space-y-1">
                         <div className="font-bold text-emerald-400 flex items-center gap-2">

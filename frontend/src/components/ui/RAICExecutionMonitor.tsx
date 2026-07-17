@@ -138,9 +138,7 @@ export function RAICExecutionMonitor({
             RAIC Real-Time Execution Monitor
           </span>
           {caseNumber && (
-            <span className="ml-2 px-2 py-0.5 rounded text-[10px] font-mono bg-bg
-text-ink-2
-border border-line">
+            <span className="ml-2 px-2 py-0.5 rounded text-[10px] font-mono bg-bg text-ink-2 border border-line">
               Case #{caseNumber}
             </span>
           )}

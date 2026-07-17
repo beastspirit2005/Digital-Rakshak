@@ -168,7 +168,8 @@ async def download_evidence_file(
     result = await db.execute(select(Evidence).where(Evidence.id == evidence_id))
     evidence = result.scalars().first()
 
-    if not evidence or not evidence.storage_location or not os.path.exists(evidence.storage_location):
+    path_to_check = evidence.storage_location or evidence.file_path
+    if not evidence or not path_to_check:
         raise HTTPException(status_code=404, detail="Evidence file missing or not found on server")
 
     # Record access log
@@ -176,8 +177,37 @@ async def download_evidence_file(
     actor_name = f"{user.full_name} ({user.role})" if user else "Investigator / Viewer"
     await repo.log_access(evidence_id, actor=actor_name, action="HUMAN_REVIEW", remarks=f"{actor_name} downloaded/previewed evidence file.")
 
+    if path_to_check.startswith("supabase://"):
+        from core.config import settings
+        from supabase import create_client
+        from fastapi.responses import RedirectResponse
+        bucket, filename = path_to_check.replace("supabase://", "").split("/", 1)
+        try:
+            supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
+            res = supabase.storage.from_(bucket).create_signed_url(filename, 60)
+            signed_url = res.get("signedURL")
+            if signed_url:
+                return RedirectResponse(url=signed_url)
+        except Exception:
+            pass # Fall through to local fallback
+            
+        # If Supabase failed, check if we have a local fallback in uploads/evidence_vault
+        local_path = os.path.join(repo.upload_dir, filename)
+    elif path_to_check.startswith("local://"):
+        local_path = os.path.join(repo.upload_dir, path_to_check.replace("local://", ""))
+    else:
+        local_path = path_to_check
+
+    if not os.path.exists(local_path):
+        # Try one last fallback using just the filename
+        fallback_path = os.path.join(repo.upload_dir, os.path.basename(path_to_check))
+        if os.path.exists(fallback_path):
+            local_path = fallback_path
+        else:
+            raise HTTPException(status_code=404, detail="Evidence file missing or not found on storage backend")
+
     return FileResponse(
-        path=evidence.storage_location,
+        path=local_path,
         media_type=evidence.mime_type or "application/octet-stream",
-        filename=os.path.basename(evidence.storage_location)
+        filename=os.path.basename(local_path)
     )

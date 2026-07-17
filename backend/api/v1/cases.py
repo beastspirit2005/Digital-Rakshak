@@ -79,6 +79,38 @@ async def get_cases(request: Request, db: AsyncSession = Depends(get_db), skip: 
         
     return {"cases": enriched_cases}
 
+@router.get("/pending")
+@limiter.limit("60/minute")
+async def get_pending_cases(request: Request, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_admin)):
+    """
+    Returns cases pending admin review (submitted / under_review).
+    Used by the Admin Approvals page for NTIR verification queue.
+    """
+    from sqlalchemy import desc
+
+    result = await db.execute(
+        select(Case)
+        .where(Case.status.in_([CaseStatus.submitted.value, CaseStatus.under_review.value]))
+        .order_by(desc(Case.created_at))
+        .limit(100)
+    )
+    cases = result.scalars().all()
+
+    pending = []
+    for c in cases:
+        pending.append({
+            "case_number": c.case_number,
+            "scam_type": c.scam_type_code or "",
+            "city": c.city or "",
+            "ai_confidence": c.threat_confidence_score or 0.0,
+            "ai_verdict": c.ai_decision or "pending",
+            "flagged_reason": c.scam_text or "",
+            "entities": [],
+            "status": "PENDING_REVIEW",
+        })
+
+    return pending
+
 @router.get("/my")
 @limiter.limit("60/minute")
 async def get_my_cases(request: Request, db: AsyncSession = Depends(get_db), skip: int = 0, limit: int = 50, user: User = Depends(get_current_user)):
