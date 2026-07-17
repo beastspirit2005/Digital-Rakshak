@@ -43,19 +43,35 @@ async def get_cases(request: Request, db: AsyncSession = Depends(get_db), skip: 
     from sqlalchemy import desc
     from domain.models.user import User
     
-    result = await db.execute(select(Case).order_by(desc(Case.created_at)).offset(skip).limit(limit))
+    from sqlalchemy.orm import selectinload
+    
+    result = await db.execute(
+        select(Case)
+        .order_by(desc(Case.created_at))
+        .offset(skip)
+        .limit(limit)
+    )
     cases = result.scalars().all()
+    
+    # Collect all unique submitter IDs
+    submitter_ids = {c.submitted_by for c in cases if c.submitted_by}
+    
+    # Fetch all submitters in a single query
+    submitters = {}
+    if submitter_ids:
+        sub_res = await db.execute(select(User).where(User.id.in_(submitter_ids)))
+        for u in sub_res.scalars().all():
+            submitters[u.id] = u
     
     # Enrich with submitter details
     enriched_cases = []
     for c in cases:
         c_dict = {
-            "id": c.id,
+            "id": str(c.id),
             "case_number": c.case_number,
-            "created_at": c.created_at,
+            "created_at": c.created_at.isoformat() if c.created_at else None,
             "status": c.status,
             "priority": c.priority,
-            "scam_type_code": c.scam_type_code,
             "scam_type_code": c.scam_type_code,
             "scam_text": c.scam_text,
             "assigned_phone": c.assigned_phone,
@@ -65,16 +81,16 @@ async def get_cases(request: Request, db: AsyncSession = Depends(get_db), skip: 
             "victim_address": c.victim_address,
             "ai_decision": c.ai_decision,
             "threat_confidence_score": c.threat_confidence_score,
-            "assigned_to": c.assigned_to,
+            "assigned_to": str(c.assigned_to) if c.assigned_to else None,
             "timeline_events": c.timeline_events
         }
-        if c.submitted_by:
-            sub_res = await db.execute(select(User).where(User.id == c.submitted_by))
-            submitter = sub_res.scalar_one_or_none()
-            if submitter:
-                c_dict["submitter_name"] = submitter.full_name
-                c_dict["submitter_email"] = submitter.email
-                c_dict["submitter_phone"] = submitter.station_phone_number # Just in case they stored phone here
+        
+        submitter = submitters.get(c.submitted_by)
+        if submitter:
+            c_dict["submitter_name"] = submitter.full_name
+            c_dict["submitter_email"] = submitter.email
+            c_dict["submitter_phone"] = submitter.station_phone_number
+            
         enriched_cases.append(c_dict)
         
     return {"cases": enriched_cases}
