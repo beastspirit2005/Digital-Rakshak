@@ -20,6 +20,7 @@ import { useState, useEffect } from "react";
 import { BrandIdentity } from "@/components/brand-identity";
 import { BrandLogo } from "@/components/brand-logo";
 import { AnimatedCounter } from "@/components/animated-counter";
+import { FAQSection } from "@/components/landing/FAQsection";
 
 const STEPS = [
   {
@@ -103,6 +104,12 @@ export default function LandingPage() {
             <a href="#features" className="text-sm font-medium text-[#A7B4BD] hover:text-[#E7EEF3] transition-colors">
               Features
             </a>
+            <a
+  href="#faq"
+  className="text-sm font-medium text-[#A7B4BD] hover:text-[#E7EEF3] transition-colors"
+>
+    FAQ
+</a>
           </div>
 
           <div className="flex items-center gap-4">
@@ -585,31 +592,8 @@ export default function LandingPage() {
             </div>
           </div>
         </section>
-
-        {/* Dark Navy Closing CTA Section */}
-        <section className="bg-[#F8FAFC] pb-24">
-          <div className="max-w-6xl mx-auto px-6">
-            <div className="bg-[#08131A] border border-[#253540]/30 rounded-card p-8 sm:p-14 relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-8 shadow-xl">
-              <div className="absolute inset-0 bg-[linear-gradient(rgba(37,53,64,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(37,53,64,0.03)_1px,transparent_1px)] bg-[size:30px_30px] pointer-events-none" />
-              
-              <div className="relative z-10 max-w-lg">
-                <h2 className="font-display font-bold text-xl sm:text-2xl tracking-tight text-[#E7EEF3]">
-                  A single signal can reveal a larger threat
-                </h2>
-                <p className="text-sm text-[#A7B4BD] mt-3 leading-relaxed">
-                  Report suspicious activity and help connect the dots before the next victim is targeted
-                </p>
-              </div>
-              
-              <Link
-                href={getHref("/report")}
-                className="relative z-10 inline-flex items-center justify-center h-12 px-8 rounded-control bg-[#F59E0B] text-[#08131A] font-bold text-sm hover:bg-[#F97316] hover:shadow-[0_4px_20px_rgba(245,158,11,0.2)] transition-all duration-150 shrink-0 active:scale-[0.98]"
-              >
-                Report a scam
-              </Link>
-            </div>
-          </div>
-        </section>
+<FAQSection />
+       
       </main>
 
       {/* Cyber Premium Footer */}
