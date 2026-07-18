@@ -126,7 +126,7 @@
       <h2 className="font-display font-bold text-[44px] leading-tight tracking-tight text-ink">Sign in</h2>
         <p className="text-sm text-ink-2 mt-2 mb-8">
           New here?{" "}
-          <Link href="/auth/register" className="text-[#F59E0B] font-semibold hover:text-[#F59E0B]/80 hover:underline transition-colors duration-200">
+          <Link href="/auth/register" className="text-accent-text font-semibold hover:text-accent-text/80 hover:underline transition-colors duration-200">
             Create an account
           </Link>
         </p>
@@ -181,7 +181,7 @@
                   Email
                 </Label>
                 <div className="relative flex items-center">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 z-20 text-[#94A3B8] pointer-events-none">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 z-20 text-ink-3 pointer-events-none">
                     <Mail className="w-5 h-5" />
                   </div>
                   <Input
@@ -192,7 +192,7 @@
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="you@example.com"
                     autoComplete="email"
-                    className="w-full bg-surface border-line hover:border-[#38BDF8] focus:border-[#F59E0B] focus:ring-1 focus:ring-[#F59E0B] rounded-xl text-ink placeholder:text-ink-3 pl-11 transition-all duration-300 h-12"
+                    className="w-full bg-surface border-line hover:border-ink-3/50 focus:border-accent focus:ring-1 focus:ring-accent rounded-xl text-ink placeholder:text-ink-3 pl-11 transition-all duration-300 h-12"
                   />
                 </div>
               </motion.div>
@@ -217,7 +217,7 @@
                     </Link>
                   </div>
                   <div className="relative flex items-center">
-    <div className="absolute left-4 top-1/2 -translate-y-1/2 z-20 text-[#94A3B8] pointer-events-none">
+    <div className="absolute left-4 top-1/2 -translate-y-1/2 z-20 text-ink-3 pointer-events-none">
       <LockIcon className="w-5 h-5" />
     </div>
 
@@ -229,7 +229,7 @@
       onChange={(e) => setPassword(e.target.value)}
       placeholder="••••••••"
       autoComplete="current-password"
-      className="w-full h-12 rounded-xl bg-surface border border-line text-ink placeholder:text-ink-3 pl-12 pr-4  focus:border-[#F59E0B] focus:ring-1 focus:ring-[#F59E0B] hover:border-[#38BDF8]"
+      className="w-full h-12 rounded-xl bg-surface border border-line text-ink placeholder:text-ink-3 pl-12 pr-4  focus:border-accent focus:ring-1 focus:ring-accent hover:border-ink-3/50"
     />
   </div>              </motion.div>
               )}
@@ -245,7 +245,7 @@
                   variant="primary" 
                   size="lg" 
                   loading={isLoading} 
-                  className="w-full h-[56px] relative overflow-hidden bg-[#F59E0B] hover:bg-[#F59E0B]/90 text-[#020617] font-bold rounded-xl shadow-[0_4px_24px_rgba(245,158,11,0.2)] active:scale-[0.98] transition-all duration-300 text-sm tracking-wider uppercase"
+                  className="w-full h-[56px] relative overflow-hidden bg-accent hover:bg-accent-hover text-accent-ink font-bold rounded-xl shadow-[0_4px_24px_rgba(245,158,11,0.2)] active:scale-[0.98] transition-all duration-300 text-sm tracking-wider uppercase"
                 >
                   {loginMethod === "password" ? "Sign in" : "Send code"}
                 </Button>
@@ -266,7 +266,7 @@
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.05 }}
               >
-                <FormNotice className="p-3.5 rounded-xl border border-[#38BDF8]/20 bg-[#38BDF8]/5 text-[#38BDF8] text-xs sm:text-sm text-left">
+                <FormNotice className="p-3.5 rounded-xl border border-line bg-surface-2 text-ink-2 text-xs sm:text-sm text-left">
                   We sent a six-digit code to <span className="font-semibold text-ink">{email}</span>.
                 </FormNotice>
               </motion.div>
@@ -310,7 +310,7 @@
                   variant="primary" 
                   size="lg" 
                   loading={isLoading} 
-                  className="w-full h-[56px] relative overflow-hidden bg-[#F59E0B] hover:bg-[#F59E0B]/90 text-[#020617] font-bold rounded-xl shadow-[0_4px_24px_rgba(245,158,11,0.2)] active:scale-[0.98] transition-all duration-300 text-sm tracking-wider uppercase"
+                  className="w-full h-[56px] relative overflow-hidden bg-accent hover:bg-accent-hover text-accent-ink font-bold rounded-xl shadow-[0_4px_24px_rgba(245,158,11,0.2)] active:scale-[0.98] transition-all duration-300 text-sm tracking-wider uppercase"
                 >
                   Verify and sign in
                 </Button>
@@ -318,7 +318,7 @@
                 <button
                   type="button"
                   onClick={() => setStep("email")}
-                  className="w-full text-sm text-[#94A3B8] hover:text-[#F8FAFC] transition-colors py-1 block"
+                  className="w-full text-sm text-ink-3 hover:text-ink transition-colors py-1 block"
                 >
                   Use a different email
                 </button>

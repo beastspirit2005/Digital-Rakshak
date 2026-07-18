@@ -8,16 +8,16 @@
 
 :root {
   /* Surface colors optimized for high-contrast enterprise light mode */
-  --bg: #f8fafc;
+  --bg: #f7f7f8;
   --surface: #ffffff;
-  --surface-2: #f1f5f9;
-  --surface-3: #e2e8f0;
-  --line: #cbd5e1;
+  --surface-2: #f0f0f2;
+  --surface-3: #e4e4e7;
+  --line: #d4d4d8;
 
   /* Premium high-contrast text shades */
-  --ink: #08131A;
-  --ink-2: #475569;
-  --ink-3: #64748b;
+  --ink: #0a0a0c;
+  --ink-2: #52525b;
+  --ink-3: #71717a;
 
   /* Primary Accent: Premium Amber/Saffron for Active Command Decisions */
   --accent: #f59e0b;
@@ -58,17 +58,17 @@
 }
 
 .dark {
-  /* Rich, premium cybersecurity command-center dark-navy base */
-  --bg: #08131a;
-  --surface: #0c151b;
-  --surface-2: #17232a;
-  --surface-3: #253540;
-  --line: rgba(37, 53, 64, 0.4);
+  /* Obsidian: neutral near-black base, no blue/teal cast */
+  --bg: #0a0a0c;
+  --surface: #111114;
+  --surface-2: #18181c;
+  --surface-3: #232328;
+  --line: rgba(255, 255, 255, 0.09);
 
-  /* Highly legible high-contrast cybersecurity light texts */
-  --ink: #e7eef3;
-  --ink-2: #a7b4bd;
-  --ink-3: #64748b;
+  /* Neutral high-contrast texts, same family as light mode, tuned per-background */
+  --ink: #f4f4f5;
+  --ink-2: #c1c1c7;
+  --ink-3: #92929a;
 
   --accent: #f59e0b;
   --accent-hover: #f97316;
@@ -394,8 +394,8 @@ box-shadow:
   border-radius: 28px;
 
   box-shadow:
-      0 35px 90px rgba(15,23,42,.12),
-      inset 1px 0 0 rgba(56,189,248,.08),
+      0 35px 90px rgba(10,10,12,.12),
+      inset 1px 0 0 rgba(255,255,255,.06),
       inset -1px 0 0 rgba(245,158,11,.08);
 
   transition: all .35s ease;
@@ -403,19 +403,19 @@ box-shadow:
 
 .dark .glass-premium-card{
 
-  background: rgba(15,23,42,.82);
+  background: rgba(17,17,20,.82);
 
   border:1px solid rgba(255,255,255,.08);
 
   box-shadow:
       0 40px 90px rgba(0,0,0,.55),
-      inset 1px 0 0 rgba(56,189,248,.18),
+      inset 1px 0 0 rgba(255,255,255,.06),
       inset -1px 0 0 rgba(245,158,11,.18);
 }
 
 /* Modern segmented control styling matching Vercel */
 .vercel-segmented, .Segmented {
-  background: rgba(15, 23, 42, 0.60) !important;
+  background: rgba(17, 17, 20, 0.60) !important;
   border: 1px solid rgba(255, 255, 255, 0.06) !important;
   border-radius: 12px !important;
   padding: 4px !important;
@@ -438,10 +438,10 @@ box-shadow:
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
 
-/* Active segmented control blue glow option */
+/* Active segmented control accent option */
 .vercel-segmented button[aria-selected="true"],
 .Segmented button[aria-selected="true"] {
-  color: #38BDF8 !important;
+  color: #F59E0B !important;
   background: transparent !important;
 border:none !important;
  box-shadow:none !important;
@@ -454,7 +454,7 @@ border:none !important;
 
 .glass-premium-card input:focus {
   border-color: #F59E0B !important;
-  box-shadow: 0 0 16px rgba(56, 189, 248, 0.25) !important;
+  box-shadow: 0 0 16px rgba(245, 158, 11, 0.25) !important;
   outline: none !important;
 }
 
@@ -462,7 +462,7 @@ border:none !important;
 .otp-input-centered-wrapper input,
 .otp-input-centered-wrapper [class*="OtpInput"] input,
 input[type="text"][maxlength="1"] {
-  background-color: #111827 !important;
+  background-color: #111114 !important;
   border: 1px solid rgba(255, 255, 255, 0.08) !important;
   border-radius: 12px !important;
   color: #ffffff !important;

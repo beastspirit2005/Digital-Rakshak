@@ -8,21 +8,21 @@ export default function AuthLayout({
   children: React.ReactNode;
 }) {
   return (
-   <div className="min-h-screen bg-background relative flex flex-col overflow-x-hidden selection:bg-[#F59E0B] selection:text-[#020617] text-foreground">
-      {/* LAYER 1: Navy background already covered by bg-[#020617] */}
+   <div className="min-h-screen bg-background dark:bg-[#08131A] relative flex flex-col overflow-x-hidden selection:bg-[#F59E0B] selection:text-[#020617] text-foreground">
+      {/* LAYER 1: Dark mode aligned with landing page nav header color (#08131A) */}
 
       {/* LAYER 2: Subtle cyber grid */}
       <div className="absolute inset-0 bg-cyber-grid opacity-4 pointer-events-none z-0" />
 
-      {/* LAYER 3: Blue radial glow from left side */}
-      <div className="absolute top-[15%] left-[-15%] w-[60%] h-[60%] rounded-full bg-[#38BDF8]/10 blur-[130px] pointer-events-none z-0 animate-pulse" style={{ animationDuration: "8s" }} />
+      {/* LAYER 3: Amber radial glow from left side */}
+      <div className="absolute top-[15%] left-[-15%] w-[60%] h-[60%] rounded-full bg-[#F59E0B]/08 blur-[130px] pointer-events-none z-0 animate-pulse" style={{ animationDuration: "8s" }} />
 
       {/* LAYER 4: Orange radial glow from right side */}
       <div className="absolute bottom-[15%] right-[-15%] w-[60%] h-[60%] rounded-full bg-[#F59E0B]/08 blur-[130px] pointer-events-none z-0 animate-pulse" style={{ animationDuration: "10s" }} />
 
       {/* LAYER 5: Cybersecurity illustration behind the card */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 select-none overflow-hidden">
-        <svg className="w-[90%] max-w-[950px] h-auto aspect-square text-[#38BDF8]/40 opacity-[0.12]" viewBox="0 0 800 800" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <svg className="w-[90%] max-w-[950px] h-auto aspect-square text-ink-3/40 opacity-[0.12]" viewBox="0 0 800 800" fill="none" xmlns="http://www.w3.org/2000/svg">
           {/* Radar grids */}
           <g stroke="currentColor" strokeWidth="1" strokeDasharray="3 3">
             <circle cx="400" cy="400" r="320" opacity="0.3" />
