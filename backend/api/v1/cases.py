@@ -651,10 +651,18 @@ async def get_case(
     Get a single case by case number.
     Admins/officials can fetch any case. Citizens can only fetch their own.
     """
-    from sqlalchemy import select
+    from sqlalchemy import select, or_
     from domain.models.case import Case
+    import uuid
     
-    result = await db.execute(select(Case).where(Case.case_number == case_number))
+    # Check if case_number is a UUID
+    try:
+        case_uuid = uuid.UUID(case_number)
+        query = select(Case).where(or_(Case.case_number == case_number, Case.id == case_uuid))
+    except ValueError:
+        query = select(Case).where(Case.case_number == case_number)
+        
+    result = await db.execute(query)
     case = result.scalar_one_or_none()
     
     if not case:
