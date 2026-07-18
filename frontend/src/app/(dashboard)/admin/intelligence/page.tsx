@@ -215,7 +215,7 @@ const sliceColor = (index: number) => chartSeries[index % chartSeries.length];
             <h3 className="font-display font-semibold text-base text-ink">Public threat feeds</h3>
             <p className="text-sm text-ink-2 mt-0.5 max-w-xl">
               Pull known malicious indicators and scam scripts from external databases like MHA
-              and PhishTank into the AI's knowledge.
+              and PhishTank into the AI&apos;s knowledge.
             </p>
           </div>
           <Button loading={syncing} onClick={handleOsintSync}>

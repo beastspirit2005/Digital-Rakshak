@@ -1021,7 +1021,7 @@ async def process_case_background(
                     await broadcaster.emit_agent_event(case.case_number, "OCRAnalysisAgent", "Completed", confidence=0.95)
 
             # Phase 2: Parallel Specialized Execution or Counterfeit Bypass
-            if report_type == "counterfeit" and file_path:
+            if report_type and report_type.lower() == "counterfeit" and file_path:
                 await broadcaster.emit_agent_event(case.case_number, "VisionAgent", "Running...", message="Inspecting note security features...")
                 from domain.agents.vision_agent import VisionAgent
                 payload = {"text": file_path, "ai_mode": ai_mode, "analyze_type": "counterfeit"}
@@ -1062,10 +1062,10 @@ async def process_case_background(
                 
                 t_res, b_res, c_res, tr_res = await asyncio.gather(t_task, b_task, c_task, tr_task)
                 
-                await broadcaster.emit_agent_event(case.case_number, "ThreatAnalysisAgent", "Completed", confidence=float(t_res.get("confidence", 0.85)))
-                await broadcaster.emit_agent_event(case.case_number, "BehaviourAgent", "Completed", confidence=float(b_res.get("confidence", 0.85)))
-                await broadcaster.emit_agent_event(case.case_number, "CampaignAgent", "Completed", confidence=float(c_res.get("confidence", 0.85)))
-                await broadcaster.emit_agent_event(case.case_number, "TrustValidationAgent", "Completed", confidence=float(tr_res.get("confidence", 0.85)))
+                await broadcaster.emit_agent_event(case.case_number, "ThreatAnalysisAgent", "Completed", confidence=float(t_res.get("confidence", t_res.get("score", 0.85))))
+                await broadcaster.emit_agent_event(case.case_number, "BehaviourAgent", "Completed", confidence=float(b_res.get("confidence", b_res.get("score", 0.85))))
+                await broadcaster.emit_agent_event(case.case_number, "CampaignAgent", "Completed", confidence=float(c_res.get("confidence", c_res.get("score", 0.85))))
+                await broadcaster.emit_agent_event(case.case_number, "TrustValidationAgent", "Completed", confidence=float(tr_res.get("confidence", tr_res.get("score", 0.85))))
                 
                 # Phase 3: RAIC Decision Core Fusion
                 await broadcaster.emit_agent_event(case.case_number, "DecisionCore", "Running...", message="Calculating 6-factor consensus weights...")
@@ -1097,7 +1097,7 @@ async def process_case_background(
             await db.commit()
             
             # Phase 4: Data Persistence via IntelligenceAgent
-            entities = c_res.get("entities", {}) if report_type != "counterfeit" else {}
+            entities = c_res.get("entities", {}) if not (report_type and report_type.lower() == "counterfeit") else {}
             from domain.agents.intelligence_agent import IntelligenceAgent
             intelligence_payload = {
                 "decision": fused_decision,

@@ -243,7 +243,7 @@ export default function ReportPage() {
                         What happened?
                       </h2>
                       <p className="text-sm text-ink-2">
-                        Tell us what happened in your own words. You don't need to use formal language.
+                        Tell us what happened in your own words. You don&apos;t need to use formal language.
                       </p>
                     </div>
 

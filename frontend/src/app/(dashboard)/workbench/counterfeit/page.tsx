@@ -285,7 +285,7 @@ export default function CounterfeitIntelligenceHubPage() {
                 <div>
                   <span className="text-slate-500 text-[10px] block uppercase mb-2">Raw OCR Extraction:</span>
                   <div className="p-3 rounded bg-slate-950 border border-slate-800 text-slate-400 italic">
-                    "{visionResult.extracted_text}"
+                    &quot;{visionResult.extracted_text}&quot;
                   </div>
                 </div>
               )}

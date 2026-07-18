@@ -517,7 +517,7 @@ export default function InvestigatorWorkspacePage() {
                                   {logs.length === 0 ? (
                                     <tr>
                                       <td colSpan={4} className="p-4 text-center text-slate-500">
-                                        No CoC records loaded yet. Click 'Verify SHA256' above.
+                                        No CoC records loaded yet. Click &apos;Verify SHA256&apos; above.
                                       </td>
                                     </tr>
                                   ) : (
@@ -596,22 +596,40 @@ export default function InvestigatorWorkspacePage() {
                     </div>
 
                     {/* Linked Entity Nodes */}
-                    <div className="grid grid-cols-3 gap-4 text-center">
-                      <div className="p-3 rounded-lg bg-slate-900 border border-emerald-500/40 font-mono text-xs space-y-1 shadow-lg hover:border-emerald-400 cursor-pointer transition-all">
-                        <PhoneCall className="w-4 h-4 text-emerald-400 mx-auto" />
-                        <span className="block font-bold text-slate-200">+91 98200 41029</span>
-                        <span className="text-[10px] text-emerald-400 block">3 Linked Cases</span>
-                      </div>
-                      <div className="p-3 rounded-lg bg-slate-900 border border-amber-500/40 font-mono text-xs space-y-1 shadow-lg hover:border-amber-400 cursor-pointer transition-all">
-                        <Building2 className="w-4 h-4 text-amber-400 mx-auto" />
-                        <span className="block font-bold text-slate-200">ICICI Bank A/C</span>
-                        <span className="text-[10px] text-amber-400 block">Mule A/C Flagged</span>
-                      </div>
-                      <div className="p-3 rounded-lg bg-slate-900 border border-purple-500/40 font-mono text-xs space-y-1 shadow-lg hover:border-purple-400 cursor-pointer transition-all">
-                        <Mail className="w-4 h-4 text-purple-400 mx-auto" />
-                        <span className="block font-bold text-slate-200">pay@hdfc.upi</span>
-                        <span className="text-[10px] text-purple-400 block">Syndicate Hub #4</span>
-                      </div>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-center max-h-[150px] overflow-y-auto">
+                      {caseData.ai_decision?.entities?.PHONE?.map((phone: string, i: number) => (
+                        <div key={`phone-${i}`} className="p-3 rounded-lg bg-slate-900 border border-emerald-500/40 font-mono text-xs space-y-1 shadow-lg hover:border-emerald-400 cursor-pointer transition-all">
+                          <PhoneCall className="w-4 h-4 text-emerald-400 mx-auto" />
+                          <span className="block font-bold text-slate-200">{phone}</span>
+                          <span className="text-[10px] text-emerald-400 block">Linked Phone</span>
+                        </div>
+                      ))}
+                      {caseData.ai_decision?.entities?.IFSC?.map((ifsc: string, i: number) => (
+                        <div key={`ifsc-${i}`} className="p-3 rounded-lg bg-slate-900 border border-amber-500/40 font-mono text-xs space-y-1 shadow-lg hover:border-amber-400 cursor-pointer transition-all">
+                          <Building2 className="w-4 h-4 text-amber-400 mx-auto" />
+                          <span className="block font-bold text-slate-200">{ifsc}</span>
+                          <span className="text-[10px] text-amber-400 block">Bank Entity</span>
+                        </div>
+                      ))}
+                      {caseData.ai_decision?.entities?.UPI?.map((upi: string, i: number) => (
+                        <div key={`upi-${i}`} className="p-3 rounded-lg bg-slate-900 border border-purple-500/40 font-mono text-xs space-y-1 shadow-lg hover:border-purple-400 cursor-pointer transition-all">
+                          <Mail className="w-4 h-4 text-purple-400 mx-auto" />
+                          <span className="block font-bold text-slate-200">{upi}</span>
+                          <span className="text-[10px] text-purple-400 block">UPI Hub</span>
+                        </div>
+                      ))}
+                      {caseData.ai_decision?.entities?.URLS?.map((url: string, i: number) => (
+                        <div key={`url-${i}`} className="p-3 rounded-lg bg-slate-900 border border-blue-500/40 font-mono text-xs space-y-1 shadow-lg hover:border-blue-400 cursor-pointer transition-all">
+                          <GitBranch className="w-4 h-4 text-blue-400 mx-auto" />
+                          <span className="block font-bold text-slate-200 break-all">{url}</span>
+                          <span className="text-[10px] text-blue-400 block">Phishing URL</span>
+                        </div>
+                      ))}
+                      {(!caseData.ai_decision?.entities || Object.values(caseData.ai_decision.entities).every(arr => Array.isArray(arr) && arr.length === 0)) && (
+                         <div className="col-span-full p-3 rounded-lg bg-slate-900 border border-slate-700 font-mono text-xs space-y-1 shadow-lg text-slate-400">
+                           No entities detected in this case.
+                         </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -624,15 +642,14 @@ export default function InvestigatorWorkspacePage() {
                   <div className="space-y-3 text-slate-300">
                     <div>
                       <span className="text-slate-500 text-[10px] block uppercase">Extracted Entities:</span>
-                      <p className="mt-1 font-semibold text-emerald-300">
-                        {JSON.stringify(caseData.ai_decision?.entities || { phones: ["+91 98200 41029"], banks: ["ICICI"] }, null, 2)}
-                      </p>
+                      <pre className="mt-1 font-semibold text-emerald-300 text-[10px] whitespace-pre-wrap">
+                        {JSON.stringify(caseData.ai_decision?.entities || {}, null, 2)}
+                      </pre>
                     </div>
                     <div className="p-3 rounded bg-slate-900/80 border border-slate-800 space-y-1">
                       <span className="text-amber-400 font-bold">Syndicate Risk Assessment:</span>
                       <p className="text-slate-400 text-[11px] leading-relaxed">
-                        Cross-jurisdiction correlation matches pattern <strong className="text-white">SYND-2026-IND-84</strong>.
-                        High probability of coordinated SMS phishing infrastructure.
+                        {caseData.ai_decision?.entities ? `Correlated ${Object.values(caseData.ai_decision.entities).flat().length} unique network entities across active records. High probability of coordinated phishing infrastructure.` : "Pending further cross-jurisdiction correlation."}
                       </p>
                     </div>
                     <button
@@ -679,23 +696,27 @@ export default function InvestigatorWorkspacePage() {
                   </div>
                   <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
                     <span className="text-amber-400 font-bold block uppercase text-[11px]">Behavioral Intent</span>
-                    <div className="text-xl font-black text-white">High Urgency</div>
+                    <div className="text-xl font-black text-white">{caseData.ai_decision?.behaviors?.[0] || "Unknown Intent"}</div>
                     <p className="text-[11px] text-slate-400 leading-normal">
-                      Impersonation of TRAI / Cyber Crime police to induce panic transfer.
+                      {caseData.ai_decision?.behaviors?.length > 1 ? `Multiple behaviors detected including ${caseData.ai_decision.behaviors[1]}` : "Analysis matched specific threat signature."}
                     </p>
                   </div>
                   <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
                     <span className="text-purple-400 font-bold block uppercase text-[11px]">Campaign Correlation</span>
-                    <div className="text-xl font-black text-white">Cluster #14</div>
+                    <div className="text-xl font-black text-white">{caseData.ai_decision?.entities ? `${Object.values(caseData.ai_decision.entities).flat().length} Linked Entities` : "Isolated Case"}</div>
                     <p className="text-[11px] text-slate-400 leading-normal">
-                      Correlated with 18 other active citizen reports across Delhi & Mumbai.
+                      Correlated network clusters based on extracted Attack DNA vectors.
                     </p>
                   </div>
                   <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
                     <span className="text-blue-400 font-bold block uppercase text-[11px]">Trust Validation</span>
-                    <div className="text-xl font-black text-white">Zero Trust</div>
+                    <div className="text-xl font-black text-white">
+                      {caseData.ai_decision?.ztivf_metrics?.identity_score < 0.8 ? "Zero Trust" : "Verified Identity"}
+                    </div>
                     <p className="text-[11px] text-slate-400 leading-normal">
-                      Domain registration & phone headers fail official government SPF/DKIM checks.
+                      {caseData.ai_decision?.ztivf_metrics?.identity_score < 0.8 
+                        ? "Domain registration & phone headers fail verification checks."
+                        : "Trust validation metrics passed successfully."}
                     </p>
                   </div>
                 </div>

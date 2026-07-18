@@ -80,10 +80,10 @@ class RakshakCoreClient:
             
             # Mock behaviors since we trained a standard SequenceClassifier for the hackathon
             detected_behaviors = []
-            if threat_class == "Banking Fraud": detected_behaviors = ["Urgency", "OTP Harvesting"]
-            elif threat_class == "Digital Arrest": detected_behaviors = ["Fear", "Impersonation"]
-            elif threat_class == "UPI Fraud": detected_behaviors = ["Urgency"]
-            elif threat_class == "Courier Scam": detected_behaviors = ["Fear"]
+            if threat_class.lower() == "banking fraud": detected_behaviors = ["Urgency", "OTP Harvesting"]
+            elif threat_class.lower() == "digital arrest": detected_behaviors = ["Fear", "Impersonation"]
+            elif threat_class.lower() == "upi fraud": detected_behaviors = ["Urgency"]
+            elif threat_class.lower() == "courier scam": detected_behaviors = ["Fear"]
             
         return {
             "threat_class": threat_class,

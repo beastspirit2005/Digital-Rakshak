@@ -62,19 +62,7 @@ useState<VerificationCase[]>([]);
   const [overrideNotes, setOverrideNotes] = useState<string>("");
   const [qwenWeight, setQwenWeight] = useState<number>(0.35);
 
-  useEffect(() => {
-    if (token && activeTab === "users") {
-      fetchPendingUsers();
-    }
-  }, [token, activeTab]);
-useEffect(() => {
-
-if (!token) return;
-
-fetchPendingCases();
-
-}, [token]);
-const fetchPendingCases = async () => {
+  const fetchPendingCases = async () => {
 
 try{
 
@@ -122,6 +110,19 @@ setUsers([]);
       setLoadingUsers(false);
     }
   };
+
+  useEffect(() => {
+    if (token && activeTab === "users") {
+      fetchPendingUsers();
+    }
+  }, [token, activeTab]);
+useEffect(() => {
+
+if (!token) return;
+
+fetchPendingCases();
+
+}, [token]);
 
   const handleApproveUser = async (userId: string) => {
     try {

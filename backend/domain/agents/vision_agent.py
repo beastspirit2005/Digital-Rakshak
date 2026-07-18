@@ -29,7 +29,7 @@ You MUST output your analysis in raw JSON format matching this exact schema:
     async def execute(self, payload: Dict[str, Any], case_id: str = "Unknown") -> Dict[str, Any]:
         image_path = payload.get("text", "")
         ai_mode = payload.get("ai_mode", "auto")
-        analyze_type = payload.get("analyze_type", "scam") # 'scam' or 'counterfeit'
+        analyze_type = payload.get("analyze_type", "scam").lower() # 'scam' or 'counterfeit'
         
         if not os.path.exists(image_path):
             return {"error": "Image file not found"}

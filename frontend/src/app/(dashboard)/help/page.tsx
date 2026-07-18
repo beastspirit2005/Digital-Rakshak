@@ -98,6 +98,17 @@ export default function HelpPage() {
     }
   };
 
+  const fetchTickets = async () => {
+    try {
+      const res = await axios.get(api("/support/tickets"), { headers: { Authorization: `Bearer ${token}` } });
+      setTickets(res.data.tickets);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Unified Polling Interval
   useEffect(() => {
     if (!user || !token) return;
@@ -196,16 +207,6 @@ export default function HelpPage() {
     setIsAiTyping(false);
   };
 
-  const fetchTickets = async () => {
-    try {
-      const res = await axios.get(api("/support/tickets"), { headers: { Authorization: `Bearer ${token}` } });
-      setTickets(res.data.tickets);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleTicketSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
