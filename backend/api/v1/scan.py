@@ -164,7 +164,7 @@ async def live_prevention_scan_qr(
         
     # Pipe the hidden payload into the existing AI and OSINT pipeline
     # We will pass it as `text` so the native AI model parses the full intent
-    return await live_prevention_scan(text=payload, user=user)
+    return await live_prevention_scan(payload=ScanRequest(text=payload), user=user)
 
 import os
 import tempfile
