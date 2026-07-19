@@ -20,7 +20,8 @@ class WhisperAgent:
             self._model = whisper.load_model(self.model_name)
         return self._model
 
-    async def execute(self, audio_path: str) -> dict:
+    async def execute(self, payload: dict, case_id: str = "Unknown") -> dict:
+        audio_path = payload.get("text", "")
         if not os.path.exists(audio_path):
             return {"error": "Audio file not found"}
             

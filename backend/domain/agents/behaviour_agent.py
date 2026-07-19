@@ -29,7 +29,7 @@ class BehaviourAgent(BaseAgent):
     async def inference(self, prompt: str, context: Dict[str, Any]) -> Dict[str, Any]:
         result = self.client.predict(prompt)
         
-        detected_behaviors = result['behaviors']
+        detected_behaviors = result.get('behaviors', [])
         confidence = 0.90 if len(detected_behaviors) > 0 else 0.50
         
         mitre_mapping = {

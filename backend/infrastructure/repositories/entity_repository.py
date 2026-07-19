@@ -81,12 +81,14 @@ class EntityRepository:
             RETURN c.id as case_number, c.threat_score as threat_score
             LIMIT 25
             """
-            result = self.graph.query(query, {"val": norm_value})
-            for record in result:
-                linked_cases.append({
-                    "case_number": record.get("case_number", "UNKNOWN"),
-                    "threat_score": record.get("threat_score", 0.85)
-                })
+            async with self.graph.driver.session() as session:
+                result = await session.run(query, val=norm_value)
+                records = await result.data()
+                for record in records:
+                    linked_cases.append({
+                        "case_number": record.get("case_number", "UNKNOWN"),
+                        "threat_score": record.get("threat_score", 0.85)
+                    })
         except Exception as e:
             logger.warning(f"Neo4j query failed in get_entity_profile: {e}")
 

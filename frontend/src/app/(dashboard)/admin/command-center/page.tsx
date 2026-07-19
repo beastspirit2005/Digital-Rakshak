@@ -159,10 +159,23 @@ export default function CommandCenterDashboard() {
 
   const executeMassTakedown = async (syndCode: string) => {
     setSimulationMsg(`Executing mass automated takedown & bank freeze for ${syndCode}...`);
-    setStats((prev) => ({ ...prev, takedowns_executed: prev.takedowns_executed + 1 }));
-    setTimeout(() => {
-      setSimulationMsg(`SUCCESS: All 14 UPI handles and 3 mule bank accounts under ${syndCode} frozen via NPCI API.`);
-    }, 1800);
+    try {
+      await fetch(api("/cases"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          case_type: "mass_takedown",
+          description: `Mass Takedown Order for syndicate ${syndCode}`,
+          platform: "Internal",
+          evidence_links: []
+        })
+      });
+      setStats((prev) => ({ ...prev, takedowns_executed: prev.takedowns_executed + 1 }));
+      setSimulationMsg(`SUCCESS: All associated entities under ${syndCode} flagged for takedown.`);
+    } catch (err) {
+      console.error("Takedown failed:", err);
+      setSimulationMsg(`FAILED: Could not execute takedown for ${syndCode}.`);
+    }
   };
 
   useEffect(() => {

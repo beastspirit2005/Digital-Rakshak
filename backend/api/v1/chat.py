@@ -115,11 +115,11 @@ async def global_chatbot(
     if laws:
         rag_context += "\nRELEVANT LAWS/GUIDELINES:\n"
         for law in laws:
-            rag_context += f"- {law['title']} ({law['source']}): {law['content']}\n"
+            rag_context += f"- {law.get('title', 'Unknown')} ({law.get('source', '')}): {law.get('content', '')}\n"
     if patterns:
         rag_context += "\nKNOWN FRAUD PATTERNS:\n"
         for p in patterns:
-            rag_context += f"- {p['pattern']}: {p['description']}\n"
+            rag_context += f"- {p.get('pattern', 'Unknown')}: {p.get('description', '')}\n"
             
     if rag_context:
         context += f"\n\n{rag_context}"
@@ -214,7 +214,7 @@ async def case_copilot_chat(
     if mistakes:
         rag_context += "\nPAST AI MISTAKES TO AVOID (RLHF Memory):\n"
         for m in mistakes:
-            rag_context += f"- Original: {m['original_scam']}\n  AI Guessed: {m['ai_got_wrong']}\n  Human Corrected: {m['human_correction']}\n"
+            rag_context += f"- Original: {m.get('original_scam', '')}\n  AI Guessed: {m.get('ai_got_wrong', '')}\n  Human Corrected: {m.get('human_correction', '')}\n"
             
     if rag_context:
         context += f"\n\n{rag_context}"
@@ -251,10 +251,16 @@ async def case_copilot_chat(
 
 
 
-from fastapi import WebSocket, WebSocketDisconnect
+from fastapi import WebSocket, WebSocketDisconnect, Query
 
 @router.websocket("/ws/support")
-async def websocket_support_endpoint(websocket: WebSocket):
+async def websocket_support_endpoint(websocket: WebSocket, token: str = Query(...), db: AsyncSession = Depends(get_db)):
+    from api.deps import get_current_user_ws
+    try:
+        user = await get_current_user_ws(token, db)
+    except Exception:
+        await websocket.close(code=4001)
+        return
     await websocket.accept()
     try:
         while True:

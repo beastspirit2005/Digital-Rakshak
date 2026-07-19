@@ -36,7 +36,9 @@ async def get_cases(request: Request, db: AsyncSession = Depends(get_db), skip: 
     Returns cases based on role. Citizens see none (they should use /my).
     Police/Admin see all.
     """
-    role = user.role if user else "admin"
+    if user is None:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    role = user.role
     if role not in ["admin", "police"]:
         raise HTTPException(status_code=403, detail="Citizens must use /my endpoint")
         
@@ -216,7 +218,7 @@ async def submit_case(
         file_bytes = await file.read()
         if len(file_bytes) > 50 * 1024 * 1024:
             raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Evidence file too large. Maximum allowed size is 50MB.")
-        file_ext = os.path.splitext(file.filename)[1].lower()
+        file_ext = os.path.splitext(file.filename or "")[1].lower()
         allowed_extensions = {".jpg", ".jpeg", ".png", ".pdf", ".apk"}
         if file_ext not in allowed_extensions:
             raise HTTPException(status_code=400, detail="Invalid file type. Only JPG, PNG, PDF, and APK are allowed.")
@@ -347,11 +349,11 @@ async def submit_case(
             apk_report = apk_scanner.scan_apk(file_path)
             
             # Inject APK malware metadata into the scam text so the AI can analyze the fused threat
-            scam_text += f"\n\n[SYSTEM MALWARE SCAN]: Uploaded APK '{apk_report['app_name']}' ({apk_report['package_name']}). "
-            if apk_report['is_malicious']:
+            scam_text += f"\n\n[SYSTEM MALWARE SCAN]: Uploaded APK '{apk_report.get('app_name', 'Unknown')}' ({apk_report.get('package_name', 'Unknown')}). "
+            if apk_report.get('is_malicious'):
                 scam_text += "WARNING: This APK requests highly dangerous permissions typical of banking trojans: "
-                for flag in apk_report['flagged_permissions']:
-                    scam_text += f"{flag['permission']} ({flag['threat']}), "
+                for flag in apk_report.get('flagged_permissions', []):
+                    scam_text += f"{flag.get('permission', '')} ({flag.get('threat', 'unknown')}), "
             else:
                 scam_text += "No known critical malware permissions detected."
     
@@ -538,18 +540,25 @@ async def summarize_cluster(request: Request, req: ClusterSummaryRequest, user: 
     return result
 
 @router.post("/{case_id}/verify")
-async def verify_case(case_id: int, correction: str = Form(...), db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+async def verify_case(case_id: str, correction: str = Form(...), db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     """
     RLHF Continuous Learning: Save human corrections to the pgvector database.
     """
     from infrastructure.db.knowledge import MistakeCorrection, KnowledgeBase
     import json
+    import uuid
     
     # Verify Admin/Official
     if user.role not in ["admin", "police"]:
         raise HTTPException(403, "Only officials can correct the AI.")
         
-    result = await db.execute(select(Case).where(Case.id == case_id))
+    try:
+        case_uuid = uuid.UUID(case_id)
+        query = select(Case).where(Case.id == case_uuid)
+    except ValueError:
+        query = select(Case).where(Case.case_number == case_id)
+        
+    result = await db.execute(query)
     case = result.scalar_one_or_none()
     if not case:
         raise HTTPException(404, "Case not found")
@@ -665,11 +674,11 @@ async def get_case(
     result = await db.execute(query)
     case = result.scalar_one_or_none()
     
-    if not case:
-        raise HTTPException(status_code=404, detail="Case not found")
+    if user is None:
+        raise HTTPException(status_code=401, detail="Authentication required")
         
-    role = user.role if user else "admin"
-    user_id = str(user.id) if user else "guest"
+    role = user.role
+    user_id = str(user.id)
     
     if role == "citizen" and str(case.submitted_by) != user_id:
         raise HTTPException(status_code=403, detail="Not authorized to view this case")
@@ -695,11 +704,11 @@ async def get_case_evidence(
     result = await db.execute(select(Case).where(Case.case_number == case_number))
     case = result.scalar_one_or_none()
     
-    if not case:
-        raise HTTPException(status_code=404, detail="Case not found")
+    if user is None:
+        raise HTTPException(status_code=401, detail="Authentication required")
         
-    role = user.role if user else "admin"
-    user_id = str(user.id) if user else "guest"
+    role = user.role
+    user_id = str(user.id)
     
     if role == "citizen" and str(case.submitted_by) != user_id:
         raise HTTPException(status_code=403, detail="Not authorized to view this case")
@@ -1029,6 +1038,7 @@ async def process_case_background(
                     await broadcaster.emit_agent_event(case.case_number, "OCRAnalysisAgent", "Completed", confidence=0.95)
 
             # Phase 2: Parallel Specialized Execution or Counterfeit Bypass
+            c_res = {}
             if report_type and report_type.lower() == "counterfeit" and file_path:
                 await broadcaster.emit_agent_event(case.case_number, "VisionAgent", "Running...", message="Inspecting note security features...")
                 from domain.agents.vision_agent import VisionAgent
@@ -1170,7 +1180,7 @@ async def verify_case_to_ntir(
     for p in phones:
         await repo.store_entity(case_number, "PHONE", str(p), risk_score=1.0, metadata={"ntir_verified": True})
 
-    broadcaster.emit_agent_event(
+    await broadcaster.emit_agent_event(
         case_id=case_number,
         agent="NTIRVerificationDesk",
         status_msg="OFFICER_VERIFIED_THREAT_LOCKED",
@@ -1228,7 +1238,7 @@ async def override_ai_decision_rlhf(
     await db.commit()
     await db.refresh(case)
 
-    broadcaster.emit_agent_event(
+    await broadcaster.emit_agent_event(
         case_id=case_number,
         agent="RLHFFeedbackCore",
         status_msg=f"HUMAN_OVERRIDE_APPLIED_{new_verdict.upper().replace(' ', '_')}",

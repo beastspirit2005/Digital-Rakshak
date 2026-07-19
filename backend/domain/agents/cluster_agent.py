@@ -33,10 +33,15 @@ Focus on:
             
             logger.info(f"Generating cluster summary with {self.model}...")
             # We use Ollama directly for maximum privacy as requested by the plan
-            response = ollama.chat(model=self.model, messages=[
-                {"role": "system", "content": self.system_prompt},
-                {"role": "user", "content": f"CLUSTER DATA:\n{json.dumps(payload, indent=2)}\n\nProvide the summary:"}
-            ])
+            import asyncio
+            response = await asyncio.to_thread(
+                ollama.chat,
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": self.system_prompt},
+                    {"role": "user", "content": f"CLUSTER DATA:\n{json.dumps(payload, indent=2)}\n\nProvide the summary:"}
+                ]
+            )
             
             return {"summary": response['message']['content'], "model": self.model}
         except Exception as e:

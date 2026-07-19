@@ -206,7 +206,11 @@ Respond ONLY with raw JSON (no markdown, no code fences) matching this exact sch
             response.raise_for_status()
             data = response.json()
 
-        content = data["candidates"][0]["content"]["parts"][0]["text"]
+        candidates = data.get("candidates", [])
+        if not candidates:
+            raise RuntimeError("Gemini returned no candidates (content may be blocked)")
+        parts = candidates[0].get("content", {}).get("parts", [{}])
+        content = parts[0].get("text", "") if parts else ""
         print(f"Raw Gemini Response: {content[:300]}")
 
         content = re.sub(r"^```(?:json)?\s*|\s*```$", "", content.strip(), flags=re.MULTILINE)

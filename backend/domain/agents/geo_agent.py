@@ -29,8 +29,12 @@ class GeoAgent(BaseAgent):
     def validate_input(self, payload: Dict[str, Any]) -> bool:
         return "latitude" in payload and "longitude" in payload
 
-    async def retrieve_context(self, case_id: str) -> Dict[str, Any]:
-        return {}
+    async def retrieve_context(self, payload: dict) -> dict:
+        return {
+            "latitude": payload.get("latitude", 0),
+            "longitude": payload.get("longitude", 0),
+            "location_name": payload.get("location_name", "Unknown")
+        }
 
     async def inference(self, prompt: str, context: Dict[str, Any]) -> Dict[str, Any]:
         ai_mode = context.get("ai_mode", "auto")

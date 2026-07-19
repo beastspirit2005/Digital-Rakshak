@@ -134,18 +134,17 @@ async def get_command_center_telemetry(db: AsyncSession = Depends(get_db), user:
             total_loss = 0.0
             if case_ids:
                 stats_query = await db.execute(
-                    select(func.sum(Case.estimated_amount)).where(Case.id.in_(case_ids))
+                    select(func.sum(Case.estimated_amount)).where(Case.case_number.in_(case_ids))
                 )
                 total_loss = stats_query.scalar() or 0.0
                 
-                city_query = await db.execute(
+                top_city = (await db.execute(
                     select(Case.city, func.count(Case.id).label('c'))
                     .where(Case.id.in_(case_ids), Case.city.isnot(None))
                     .group_by(Case.city)
                     .order_by(desc('c'))
                     .limit(1)
-                )
-                top_city = city_query.first()
+                )).first()
                 if top_city:
                     hub_name = f"{top_city[0]} Hub"
             
@@ -166,7 +165,7 @@ async def get_command_center_telemetry(db: AsyncSession = Depends(get_db), user:
         await graph.close()
         
     # 5. Spatial City Coordinates
-    city_query = await db.execute(
+    city_rows = (await db.execute(
         select(
             Case.city, 
             func.avg(Case.latitude), 
@@ -177,9 +176,7 @@ async def get_command_center_telemetry(db: AsyncSession = Depends(get_db), user:
         )
         .where(Case.city.isnot(None), Case.latitude.isnot(None), Case.longitude.isnot(None))
         .group_by(Case.city)
-    )
-    
-    city_rows = city_query.all()
+    )).all()
     for row in city_rows:
         city_name, lat, lng, count, scam_code, total_amount = row
         actual_loss = total_amount or 0.0

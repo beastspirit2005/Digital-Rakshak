@@ -49,9 +49,9 @@ class OllamaClient:
             )
             
             # The response message content should be a valid JSON string
-            if "message" not in response or "content" not in response["message"]:
+            if not hasattr(response, 'message') or not hasattr(response.message, 'content') or not response.message.content:
                 raise ValueError(f"Unexpected Ollama response: {response}")
-            result = json.loads(response['message']['content'])
+            result = json.loads(response.message.content)
             
             # Ensure required keys exist
             if "score" not in result:
@@ -88,9 +88,9 @@ class OllamaClient:
                 messages=[{'role': 'user', 'content': prompt}],
                 options={'temperature': 0.4}
             )
-            if "message" not in response or "content" not in response["message"]:
+            if not hasattr(response, 'message') or not hasattr(response.message, 'content') or not response.message.content:
                 return "Ollama Inference Error: Unexpected API response structure."
-            return response['message']['content']
+            return response.message.content
         except Exception as e:
             print(f"Ollama API Error (generate_text): {e}")
             return f"Ollama Inference Error: {str(e)}"

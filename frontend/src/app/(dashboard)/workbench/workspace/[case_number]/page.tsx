@@ -242,7 +242,7 @@ export default function InvestigatorWorkspacePage() {
               {caseData.status || "UNDER REVIEW"}
             </span>
             <span className="px-2.5 py-0.5 rounded-full text-xs font-bold font-mono uppercase bg-rose-500/15 text-rose-400 border border-rose-500/30">
-              THREAT: {(caseData.threat_confidence_score * 100).toFixed(0)}%
+              THREAT: {((caseData.threat_confidence_score ?? 0) * 100).toFixed(0)}%
             </span>
           </div>
           <p className="text-sm text-slate-400 mt-1 flex items-center gap-2">
@@ -688,7 +688,7 @@ export default function InvestigatorWorkspacePage() {
                   <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
                     <span className="text-emerald-400 font-bold block uppercase text-[11px]">Threat Vectors</span>
                     <div className="text-xl font-black text-white">
-                      {(caseData.threat_confidence_score * 100).toFixed(0)}%
+                      {((caseData.threat_confidence_score ?? 0) * 100).toFixed(0)}%
                     </div>
                     <p className="text-[11px] text-slate-400 leading-normal">
                       Analyzed deep text syntax, phishing URLs, and coercive keywords.
@@ -711,10 +711,10 @@ export default function InvestigatorWorkspacePage() {
                   <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
                     <span className="text-blue-400 font-bold block uppercase text-[11px]">Trust Validation</span>
                     <div className="text-xl font-black text-white">
-                      {caseData.ai_decision?.ztivf_metrics?.identity_score < 0.8 ? "Zero Trust" : "Verified Identity"}
+                      {(caseData.ai_decision?.ztivf_metrics?.identity_score ?? 1) < 0.8 ? "Zero Trust" : "Verified Identity"}
                     </div>
                     <p className="text-[11px] text-slate-400 leading-normal">
-                      {caseData.ai_decision?.ztivf_metrics?.identity_score < 0.8 
+                      {(caseData.ai_decision?.ztivf_metrics?.identity_score ?? 1) < 0.8
                         ? "Domain registration & phone headers fail verification checks."
                         : "Trust validation metrics passed successfully."}
                     </p>
@@ -754,8 +754,8 @@ export default function InvestigatorWorkspacePage() {
                     No timeline actions recorded yet for Case #{caseData.case_number}.
                   </div>
                 ) : (
-                  caseData.timeline_events.map((evt, idx) => (
-                    <div key={idx} className="flex gap-4 p-3 rounded-lg bg-slate-950 border border-slate-800/80">
+                  caseData.timeline_events.map((evt: any, idx: number) => (
+                    <div key={evt.id || evt.timestamp || idx} className="relative flex gap-4 p-3 rounded-lg bg-slate-950 border border-slate-800/80">
                       <div className="w-32 shrink-0 text-slate-500 text-[11px]">
                         {evt.timestamp ? new Date(evt.timestamp + "Z").toLocaleString("en-IN") : "N/A"}
                       </div>

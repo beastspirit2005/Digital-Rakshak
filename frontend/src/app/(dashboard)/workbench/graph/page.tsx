@@ -40,7 +40,11 @@ export default function GraphExplorerPage() {
       }
     };
 
-    if (token) fetchGraph();
+    if (token) {
+      fetchGraph();
+    } else {
+      setLoading(false);
+    }
   }, [token]);
 
   useEffect(() => {
@@ -56,6 +60,7 @@ export default function GraphExplorerPage() {
         setSelectedCaseDetails(res.data);
       } catch (err) {
         console.error("Failed to load case details", err);
+        setSelectedCaseDetails(null);
       }
     };
     fetchCaseDetails();

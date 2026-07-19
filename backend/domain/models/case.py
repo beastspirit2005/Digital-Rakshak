@@ -20,6 +20,7 @@ class CaseStatus(str, enum.Enum):
     escalated = "escalated"
     resolved = "resolved"
     closed = "closed"
+    verified = "verified"
 
 class CasePriority(str, enum.Enum):
     low = "low"

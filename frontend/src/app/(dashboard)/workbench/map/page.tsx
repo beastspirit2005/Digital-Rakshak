@@ -24,7 +24,7 @@ export default function SpatialMapPage() {
     try {
       const res = await axios.post(
         api("/cases/cluster/summary"),
-        { case_texts: cluster.case_texts },
+        { case_texts: cluster.case_texts ?? [] },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setClusterSummary(res.data.summary);
@@ -88,7 +88,7 @@ export default function SpatialMapPage() {
                   Reading the linked cases…
                 </span>
               ) : (
-                <span className="whitespace-pre-wrap">{clusterSummary}</span>
+                <span className="whitespace-pre-wrap">{clusterSummary ?? "No summary available."}</span>
               )}
             </Inset>
           </Card>

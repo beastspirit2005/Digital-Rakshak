@@ -42,7 +42,8 @@ async def get_network(user: User = Depends(get_current_official)):
                 n_id = record['n_id']
                 if n_id not in nodes:
                     n_label = record['n_labels'][0] if record['n_labels'] else "Unknown"
-                    n_value = record['n_props'].get('id') or record['n_props'].get('value') or "Unknown"
+                    n_props = record.get('n_props') or {}
+                    n_value = n_props.get('id') or n_props.get('value') or "Unknown"
                     nodes[n_id] = {
                         "id": n_id,
                         "label": n_label,
@@ -52,7 +53,8 @@ async def get_network(user: User = Depends(get_current_official)):
                 m_id = record['m_id']
                 if m_id not in nodes:
                     m_label = record['m_labels'][0] if record['m_labels'] else "Unknown"
-                    m_value = record['m_props'].get('id') or record['m_props'].get('value') or "Unknown"
+                    m_props = record.get('m_props') or {}
+                    m_value = m_props.get('id') or m_props.get('value') or "Unknown"
                     nodes[m_id] = {
                         "id": m_id,
                         "label": m_label,

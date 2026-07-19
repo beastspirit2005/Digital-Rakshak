@@ -101,7 +101,10 @@ export default function CopilotPage() {
       formData.append("file", audioBlob, "audio.webm");
 
       const response = await axios.post(api("/agents/transcribe"), formData, {
-        headers: { "Content-Type": "multipart/form-data" },
+        headers: { 
+          "Content-Type": "multipart/form-data",
+          Authorization: `Bearer ${token}` 
+        },
       });
 
       if (response.data.transcript) {
@@ -122,9 +125,10 @@ export default function CopilotPage() {
 
     setIsAnalyzing(true);
     try {
-      const response = await axios.post(api("/agents/analyze-transcript"), {
-        transcript: transcript,
-      });
+      const response = await axios.post(api("/agents/analyze-transcript"), 
+        { transcript: transcript },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
 
       if (response.data.draft) {
         setDraftReport(response.data.draft);
