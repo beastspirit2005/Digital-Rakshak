@@ -112,7 +112,7 @@ async def transcribe_audio(file: UploadFile = File(...), user: User = Depends(ge
     try:
         from domain.agents.whisper_agent import WhisperAgent
         whisper = WhisperAgent()
-        transcription = await whisper.execute(file_path)
+        transcription = await whisper.execute({"text": file_path})
         return transcription
     finally:
         for _ in range(3):
