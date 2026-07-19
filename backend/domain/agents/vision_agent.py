@@ -135,7 +135,7 @@ Respond ONLY with raw JSON (no markdown, no code fences) matching this exact sch
                 }
             ],
             "temperature": 0.1,
-            "max_tokens": 1024
+            "max_tokens": 4096
         }
 
         async with httpx.AsyncClient() as client:
@@ -150,8 +150,8 @@ Respond ONLY with raw JSON (no markdown, no code fences) matching this exact sch
         content = data["choices"][0]["message"]["content"]
         print(f"Raw Groq Vision Response: {content[:300]}")
 
-        # Strip <think>...</think> blocks from reasoning models
-        content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
+        # Strip <think>...</think> blocks from reasoning models even if they are unclosed
+        content = re.sub(r"<think>.*?(?:</think>|$)", "", content, flags=re.DOTALL).strip()
         # Strip markdown code fences
         content = re.sub(r"^```(?:json)?\s*|\s*```$", "", content.strip(), flags=re.MULTILINE)
         json_match = re.search(r"\{.*\}", content, re.DOTALL)
@@ -197,7 +197,7 @@ Respond ONLY with raw JSON (no markdown, no code fences) matching this exact sch
                     ]
                 }
             ],
-            "generationConfig": {"temperature": 0.1, "maxOutputTokens": 1024}
+            "generationConfig": {"temperature": 0.1, "maxOutputTokens": 4096}
         }
 
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_VISION_MODEL}:generateContent?key={api_key}"
@@ -213,6 +213,9 @@ Respond ONLY with raw JSON (no markdown, no code fences) matching this exact sch
         content = parts[0].get("text", "") if parts else ""
         print(f"Raw Gemini Response: {content[:300]}")
 
+        # Strip <think>...</think> blocks for Gemini as well
+        content = re.sub(r"<think>.*?(?:</think>|$)", "", content, flags=re.DOTALL).strip()
+        
         content = re.sub(r"^```(?:json)?\s*|\s*```$", "", content.strip(), flags=re.MULTILINE)
         json_match = re.search(r"\{.*\}", content, re.DOTALL)
         if json_match:
