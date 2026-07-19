@@ -8,9 +8,9 @@ const ALERT_ITEMS = [
     🛡 NATIONAL CYBER HELPLINE <span className="text-[#F59E0B] font-bold">1930</span>
   </span>,
   <span key="2">REPORT CYBER FRAUD IMMEDIATELY</span>,
-  <span key="3" className="flex items-center gap-1.5 text-cyan-400 font-semibold tracking-wide">
+  <span key="3" className="flex items-center gap-1.5 text-[#F59E0B] font-semibold tracking-wide">
     <a href="https://cybercrime.gov.in" target="_blank" rel="noopener noreferrer">
-      🌐 cybercrime.gov.in
+       cybercrime.gov.in
     </a>
   </span>,
   <span key="4">NEVER SHARE OTP</span>,
@@ -18,7 +18,7 @@ const ALERT_ITEMS = [
   <span key="6">REPORT WITHIN THE GOLDEN HOUR</span>,
 
   <span key="7" className="flex items-center gap-1.5">
-    📞 CALL <span className="text-[#F59E0B] font-bold">1930</span> FOR IMMEDIATE ASSISTANCE
+     CALL <span className="text-[#F59E0B] font-bold">1930</span> FOR IMMEDIATE ASSISTANCE
   </span>,
 ];
 
@@ -37,7 +37,7 @@ export function NationalAlertTicker() {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-      className="w-full bg-[#08131A] bg-surface relative overflow-hidden border-t border-b border-[#253540]/50 border-line/50 select-none z-20"
+      className="w-full bg-[#08131A] relative overflow-hidden border-t border-b border-[#253540]/50 select-none z-20"
     >
       {/* Subtle vector grid texture */}
       <div className="absolute inset-0 bg-[linear-gradient(rgba(37,53,64,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(37,53,64,0.08)_1px,transparent_1px)] bg-[size:32px_32px] pointer-events-none" />
@@ -70,7 +70,7 @@ export function NationalAlertTicker() {
       <div className="hidden md:flex items-center w-full relative z-10">
         
         {/* Fixed LIVE Badge status */}
-        <div className="flex items-center gap-2 px-5 py-3 bg-[#0C151B] border-r border-[#253540]/50 border-line/50 shrink-0 z-20 shadow-[4px_0_12px_rgba(0,0,0,0.5)]">
+        <div className="flex items-center gap-2 px-5 py-3 bg-[#0C151B] border-r border-[#253540]/50 shrink-0 z-20 shadow-[4px_0_12px_rgba(0,0,0,0.5)]">
           <span className="relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#00D9A3] opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2 w-2 bg-[#00D9A3]"></span>
