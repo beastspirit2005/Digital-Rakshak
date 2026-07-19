@@ -100,8 +100,8 @@ async def transcribe_audio(file: UploadFile = File(...), user: User = Depends(ge
         from fastapi import HTTPException
         raise HTTPException(status_code=413, detail="File too large. Maximum size is 10MB.")
         
-    upload_dir = os.path.join(os.getcwd(), "uploads", "audio")
-    os.makedirs(upload_dir, exist_ok=True)
+    import tempfile
+    upload_dir = tempfile.gettempdir()
     
     safe_name = f"copilot_{str(user.id)}_{uuid.uuid4().hex[:8]}{file_ext}"
     file_path = os.path.join(upload_dir, safe_name)

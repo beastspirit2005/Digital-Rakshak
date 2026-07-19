@@ -19,14 +19,21 @@ class ScanResponse(BaseModel):
     risk_level: str
     reasons: list[str]
 
-@router.get("", response_model=ScanResponse)
+class ScanRequest(BaseModel):
+    text: Optional[str] = None
+    url: Optional[str] = None
+    phone: Optional[str] = None
+    upi: Optional[str] = None
+
+@router.post("", response_model=ScanResponse)
 async def live_prevention_scan(
-    text: Optional[str] = None,
-    url: Optional[str] = None, 
-    phone: Optional[str] = None,
-    upi: Optional[str] = None,
+    payload: ScanRequest,
     user: User = Depends(get_current_user)
 ):
+    text = payload.text
+    url = payload.url
+    phone = payload.phone
+    upi = payload.upi
     """
     Live Prevention Shield API.
     Used by browser extensions, mobile apps, or citizens to instantly check if an entity is safe.

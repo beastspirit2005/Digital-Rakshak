@@ -1154,7 +1154,8 @@ async def verify_case_to_ntir(
     """
     from domain.models.case import Case, CaseStatus
     from infrastructure.repositories.entity_repository import EntityRepository
-    from infrastructure.events.broadcaster import broadcaster
+    from infrastructure.events.broadcaster import get_broadcaster
+    broadcaster = get_broadcaster()
 
     stmt = select(Case).where(Case.case_number == case_number)
     result = await db.execute(stmt)
@@ -1209,7 +1210,8 @@ async def override_ai_decision_rlhf(
     Feeds weight adjustments directly into RAIC Consensus Core.
     """
     from domain.models.case import Case, CaseStatus
-    from infrastructure.events.broadcaster import broadcaster
+    from infrastructure.events.broadcaster import get_broadcaster
+    broadcaster = get_broadcaster()
 
     stmt = select(Case).where(Case.case_number == case_number)
     result = await db.execute(stmt)
