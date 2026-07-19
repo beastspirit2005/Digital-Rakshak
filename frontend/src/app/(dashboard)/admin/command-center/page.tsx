@@ -160,7 +160,7 @@ export default function CommandCenterDashboard() {
   const executeMassTakedown = async (syndCode: string) => {
     setSimulationMsg(`Executing mass automated takedown & bank freeze for ${syndCode}...`);
     try {
-      await fetch(api("/cases"), {
+      await fetch(`${apiBase}/cases`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
