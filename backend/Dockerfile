@@ -9,10 +9,11 @@ ENV PORT=8000
 # Set work directory
 WORKDIR /app
 
-# Install system dependencies required for OpenCV, psycopg2, and building certain Python packages
+# Install system dependencies required for OpenCV, psycopg2, ffmpeg for Whisper AI, and building certain Python packages
 RUN apt-get update && apt-get install -y \
     build-essential \
     libpq-dev \
+    ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies

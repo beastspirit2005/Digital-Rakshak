@@ -32,3 +32,4 @@ easyocr>=1.7.1
 sentence-transformers>=2.5.1
 opencv-python-headless>=4.9.0
 ctranslate2>=4.0.0
+openai-whisper>=20231117
