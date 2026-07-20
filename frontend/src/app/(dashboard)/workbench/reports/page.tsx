@@ -590,7 +590,7 @@ useEffect(() => {
                       >
                         <td className="px-6 py-4 font-medium text-ink tabular">{c.case_number}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-ink-2">
-                          {new Date(c.created_at).toLocaleString("en-IN", {
+                          {new Date(c.created_at + "Z").toLocaleString("en-IN", {
                             dateStyle: "short",
                             timeStyle: "short",
                           })}

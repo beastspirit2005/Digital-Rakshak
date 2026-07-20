@@ -43,19 +43,35 @@ async def get_cases(request: Request, db: AsyncSession = Depends(get_db), skip: 
     from sqlalchemy import desc
     from domain.models.user import User
     
-    result = await db.execute(select(Case).order_by(desc(Case.created_at)).offset(skip).limit(limit))
+    from sqlalchemy.orm import selectinload
+    
+    result = await db.execute(
+        select(Case)
+        .order_by(desc(Case.created_at))
+        .offset(skip)
+        .limit(limit)
+    )
     cases = result.scalars().all()
+    
+    # Collect all unique submitter IDs
+    submitter_ids = {c.submitted_by for c in cases if c.submitted_by}
+    
+    # Fetch all submitters in a single query
+    submitters = {}
+    if submitter_ids:
+        sub_res = await db.execute(select(User).where(User.id.in_(submitter_ids)))
+        for u in sub_res.scalars().all():
+            submitters[u.id] = u
     
     # Enrich with submitter details
     enriched_cases = []
     for c in cases:
         c_dict = {
-            "id": c.id,
+            "id": str(c.id),
             "case_number": c.case_number,
-            "created_at": c.created_at,
+            "created_at": c.created_at.isoformat() if c.created_at else None,
             "status": c.status,
             "priority": c.priority,
-            "scam_type_code": c.scam_type_code,
             "scam_type_code": c.scam_type_code,
             "scam_text": c.scam_text,
             "assigned_phone": c.assigned_phone,
@@ -65,19 +81,51 @@ async def get_cases(request: Request, db: AsyncSession = Depends(get_db), skip: 
             "victim_address": c.victim_address,
             "ai_decision": c.ai_decision,
             "threat_confidence_score": c.threat_confidence_score,
-            "assigned_to": c.assigned_to,
+            "assigned_to": str(c.assigned_to) if c.assigned_to else None,
             "timeline_events": c.timeline_events
         }
-        if c.submitted_by:
-            sub_res = await db.execute(select(User).where(User.id == c.submitted_by))
-            submitter = sub_res.scalar_one_or_none()
-            if submitter:
-                c_dict["submitter_name"] = submitter.full_name
-                c_dict["submitter_email"] = submitter.email
-                c_dict["submitter_phone"] = submitter.station_phone_number # Just in case they stored phone here
+        
+        submitter = submitters.get(c.submitted_by)
+        if submitter:
+            c_dict["submitter_name"] = submitter.full_name
+            c_dict["submitter_email"] = submitter.email
+            c_dict["submitter_phone"] = submitter.station_phone_number
+            
         enriched_cases.append(c_dict)
         
     return {"cases": enriched_cases}
+
+@router.get("/pending")
+@limiter.limit("60/minute")
+async def get_pending_cases(request: Request, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_admin)):
+    """
+    Returns cases pending admin review (submitted / under_review).
+    Used by the Admin Approvals page for NTIR verification queue.
+    """
+    from sqlalchemy import desc
+
+    result = await db.execute(
+        select(Case)
+        .where(Case.status.in_([CaseStatus.submitted.value, CaseStatus.under_review.value]))
+        .order_by(desc(Case.created_at))
+        .limit(100)
+    )
+    cases = result.scalars().all()
+
+    pending = []
+    for c in cases:
+        pending.append({
+            "case_number": c.case_number,
+            "scam_type": c.scam_type_code or "",
+            "city": c.city or "",
+            "ai_confidence": c.threat_confidence_score or 0.0,
+            "ai_verdict": c.ai_decision or "pending",
+            "flagged_reason": c.scam_text or "",
+            "entities": [],
+            "status": "PENDING_REVIEW",
+        })
+
+    return pending
 
 @router.get("/my")
 @limiter.limit("60/minute")
@@ -87,7 +135,7 @@ async def get_my_cases(request: Request, db: AsyncSession = Depends(get_db), ski
     """
     user_id = str(user.id)
     from sqlalchemy import desc
-    result = await db.execute(select(Case).where(Case.submitted_by == user_id).order_by(desc(Case.created_at)).offset(skip).limit(limit))
+    result = await db.execute(select(Case).where(Case.submitted_by == user.id).order_by(desc(Case.created_at)).offset(skip).limit(limit))
     cases = result.scalars().all()
     return {"cases": cases}
 
@@ -195,7 +243,8 @@ async def submit_case(
     
     # 1.5 Save uploaded file if any
     if file and file_bytes:
-        upload_dir = os.path.join(os.getcwd(), "uploads")
+        import tempfile
+        upload_dir = os.path.join(tempfile.gettempdir(), "rakshak_uploads")
         os.makedirs(upload_dir, exist_ok=True)
         file_ext = os.path.splitext(file.filename)[1].lower()
         
@@ -247,16 +296,9 @@ async def submit_case(
                 is_cloud_storage = False  # Trigger fallback
         
         if not is_cloud_storage:
-            from cryptography.fernet import Fernet
-            from infrastructure.security.encryption import get_master_encryption_key
-            
-            key = get_master_encryption_key()
-            fernet = Fernet(key.encode())
-            
-            encrypted_data = fernet.encrypt(file_bytes)
             final_file_path = os.path.join(upload_dir, safe_filename)
             with open(final_file_path, "wb") as buffer:
-                buffer.write(encrypted_data)
+                buffer.write(file_bytes)
                 
             file_path_in_db = f"local://{safe_filename}"
             
@@ -276,11 +318,26 @@ async def submit_case(
             case_id=new_case.id,
             evidence_type=ev_type,
             file_path=file_path_in_db,
+            storage_location=file_path_in_db,
+            sha256=sha256_digest,
+            mime_type=file.content_type or "application/octet-stream",
+            file_size_bytes=len(file_bytes),
             source="citizen_upload",
         )
         setattr(new_evidence, 'file_hash_sha256', sha256_digest)
         
         db.add(new_evidence)
+        await db.commit()
+        await db.refresh(new_evidence)
+        
+        from domain.models.evidence import ChainOfCustodyLog
+        coc_log = ChainOfCustodyLog(
+            evidence_id=new_evidence.id,
+            actor=f"{user.full_name} (Citizen)" if user else "Citizen (Submitter)",
+            action="UPLOADED",
+            remarks=f"Ingested via Citizen Portal. SHA-256 verified: {sha256_digest}."
+        )
+        db.add(coc_log)
         await db.commit()
         
         # Phase 1: Malicious APK Scanner Integration
@@ -594,10 +651,18 @@ async def get_case(
     Get a single case by case number.
     Admins/officials can fetch any case. Citizens can only fetch their own.
     """
-    from sqlalchemy import select
+    from sqlalchemy import select, or_
     from domain.models.case import Case
+    import uuid
     
-    result = await db.execute(select(Case).where(Case.case_number == case_number))
+    # Check if case_number is a UUID
+    try:
+        case_uuid = uuid.UUID(case_number)
+        query = select(Case).where(or_(Case.case_number == case_number, Case.id == case_uuid))
+    except ValueError:
+        query = select(Case).where(Case.case_number == case_number)
+        
+    result = await db.execute(query)
     case = result.scalar_one_or_none()
     
     if not case:
@@ -856,16 +921,18 @@ async def complete_investigation(
         
     attachment_url = None
     if file:
-        from core.supabase import supabase
+        from core.config import settings
+        from supabase import create_client
         import uuid
         file_ext = file.filename.split('.')[-1] if file.filename else 'bin'
         file_name = f"{case_number}_{uuid.uuid4().hex[:8]}.{file_ext}"
         try:
+            supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
             content = await file.read()
             res = supabase.storage.from_("evidence").upload(file_name, content, {"content-type": file.content_type})
             attachment_url = supabase.storage.from_("evidence").get_public_url(file_name)
         except Exception as e:
-            pass # ignore upload error for now
+            print(f"Investigation attachment upload failed: {e}")
             
     case.status = CaseStatus.investigation_completed.value
     
@@ -962,7 +1029,7 @@ async def process_case_background(
                     await broadcaster.emit_agent_event(case.case_number, "OCRAnalysisAgent", "Completed", confidence=0.95)
 
             # Phase 2: Parallel Specialized Execution or Counterfeit Bypass
-            if report_type == "counterfeit" and file_path:
+            if report_type and report_type.lower() == "counterfeit" and file_path:
                 await broadcaster.emit_agent_event(case.case_number, "VisionAgent", "Running...", message="Inspecting note security features...")
                 from domain.agents.vision_agent import VisionAgent
                 payload = {"text": file_path, "ai_mode": ai_mode, "analyze_type": "counterfeit"}
@@ -1003,10 +1070,10 @@ async def process_case_background(
                 
                 t_res, b_res, c_res, tr_res = await asyncio.gather(t_task, b_task, c_task, tr_task)
                 
-                await broadcaster.emit_agent_event(case.case_number, "ThreatAnalysisAgent", "Completed", confidence=float(t_res.get("confidence", 0.85)))
-                await broadcaster.emit_agent_event(case.case_number, "BehaviourAgent", "Completed", confidence=float(b_res.get("confidence", 0.85)))
-                await broadcaster.emit_agent_event(case.case_number, "CampaignAgent", "Completed", confidence=float(c_res.get("confidence", 0.85)))
-                await broadcaster.emit_agent_event(case.case_number, "TrustValidationAgent", "Completed", confidence=float(tr_res.get("confidence", 0.85)))
+                await broadcaster.emit_agent_event(case.case_number, "ThreatAnalysisAgent", "Completed", confidence=float(t_res.get("confidence", t_res.get("score", 0.85))))
+                await broadcaster.emit_agent_event(case.case_number, "BehaviourAgent", "Completed", confidence=float(b_res.get("confidence", b_res.get("score", 0.85))))
+                await broadcaster.emit_agent_event(case.case_number, "CampaignAgent", "Completed", confidence=float(c_res.get("confidence", c_res.get("score", 0.85))))
+                await broadcaster.emit_agent_event(case.case_number, "TrustValidationAgent", "Completed", confidence=float(tr_res.get("confidence", tr_res.get("score", 0.85))))
                 
                 # Phase 3: RAIC Decision Core Fusion
                 await broadcaster.emit_agent_event(case.case_number, "DecisionCore", "Running...", message="Calculating 6-factor consensus weights...")
@@ -1038,7 +1105,7 @@ async def process_case_background(
             await db.commit()
             
             # Phase 4: Data Persistence via IntelligenceAgent
-            entities = c_res.get("entities", {}) if report_type != "counterfeit" else {}
+            entities = c_res.get("entities", {}) if not (report_type and report_type.lower() == "counterfeit") else {}
             from domain.agents.intelligence_agent import IntelligenceAgent
             intelligence_payload = {
                 "decision": fused_decision,

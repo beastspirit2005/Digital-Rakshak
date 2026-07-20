@@ -312,7 +312,7 @@ export default function AdminUsersPage() {
           <div className="flex items-center justify-between p-3.5 bg-surface-2 rounded-control">
             <div className="text-sm">
               <p className="font-medium text-ink">Account active</p>
-              <p className="text-ink-2 text-xs mt-0.5">Disabled accounts can't sign in.</p>
+              <p className="text-ink-2 text-xs mt-0.5">Disabled accounts can&apos;t sign in.</p>
             </div>
             <button
               type="button"
@@ -348,7 +348,7 @@ export default function AdminUsersPage() {
         <div className="space-y-4">
           <p className="text-sm text-ink-2">
             This permanently deletes <strong className="text-ink">{selectedUser?.full_name}</strong>{" "}
-            and notifies them by email. It can't be undone.
+            and notifies them by email. It can&apos;t be undone.
           </p>
           <FormError>{formError}</FormError>
           <div className="flex justify-end gap-3 pt-2">

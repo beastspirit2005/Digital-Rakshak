@@ -12,6 +12,18 @@ We are empowering Law Enforcement Agencies (LEAs), nodal officers, and citizens 
 
 ## What Makes Digital Rakshak Unique?
 
+### Version 3.0: Enterprise Architecture Upgrade
+The latest release restructures the backend to improve scalability, reliability, and security when running in production environment profiles.
+*   **Decoupled Agent and Model Registry (RAIC + RIE):** Business logic is completely separated from machine learning runtimes. The registries handle model loading and execution configurations dynamically, removing hardcoded model dependencies.
+*   **Topological Swarm Execution:** Uses Kahn's algorithm to resolve dependencies between different analysis agents, allowing them to run concurrently where possible (e.g. running threat analysis first, then running campaign correlation only after the threat data is resolved).
+*   **Structured Threat Database (Ontology):** Implements an async repository pattern mapped to core entities like investigations, execution workflows, and raw evidence.
+*   **Strict Security Safeguards:**
+    *   *Prompt Injection Protection:* Checks incoming text for model-override attacks.
+    *   *Magic Byte Validation:* Inspects binary signatures of uploads directly to block disguised scripts or executables.
+    *   *Immutable Event Logs:* Implements sequential SHA-256 hashing to track case actions chronologically.
+    *   *Evidence Integrity:* Automatically recalculates and matches hashes throughout the case lifecycle.
+*   **Operations & Performance:** Integrates native NVML telemetry for tracking GPU VRAM usage and uses asynchronous task queues to keep heavy analysis steps off the main request thread.
+
 ### 1. The Multi-Agent Intelligence Swarm (MAIF)
 Most platforms use a single AI to answer questions. Digital Rakshak uses a swarm of **11 specialized AI subagents**. When a case is filed, agents immediately go to work in parallel:
 *   **The Vision Agent** scans uploaded screenshots for phishing URLs.
@@ -33,6 +45,9 @@ As banks and police verify the data, the system uses Continuous Learning (RLHF) 
 
 ### 5. Empathic AI Voice Copilot
 Victims of financial fraud are often panicked. Instead of forcing them to navigate complex dropdown menus, they can simply **talk** to our AI Copilot. The system parses their voice, extracts the malicious UPIs and phone numbers, and fills out the intelligence report automatically.
+
+### 6. Command Center & Hardware Telemetry
+The platform provides a real-time Tactical Command Center powered by dynamic PostgreSQL aggregations (calculating true financial exposure and active threat hubs) rather than static data. It also features a Live AI Health Governance Desk that monitors actual CPU/GPU hardware loads natively via `psutil`, dynamically adapting to whether it's running on Cloud Serverless architectures or Local Workstations.
 
 ---
 
@@ -174,8 +189,9 @@ docker run -d -p 3000:3000 --env-file ./frontend/.env.local --name dr-frontend 1
 
 ## Contributors
 
-* **beastspirit2005** - Backend and System Design
-* **Pranika** - Frontend Design
+* **beastspirit2005 (Harshit Sharma)** - Backend and System Design
+* **pranikaK17 (Pranika)** - Frontend Design
+* **DikshaChopra2007 (RuntimeTerror)** - Frontend Design
 
 ---
 

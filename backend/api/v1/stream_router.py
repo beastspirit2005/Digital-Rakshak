@@ -43,7 +43,7 @@ async def emit_manual_event(
     status_msg: str = Query("Running...", description="Status message"),
     execution_ms: int = Query(142, description="Execution time in milliseconds"),
     confidence: float = Query(0.95, description="Confidence score 0.0 to 1.0"),
-    admin: Optional[User] = Depends(get_current_user_optional)
+    admin: User = Depends(get_current_admin)
 ):
     """
     Admin utility to manually broadcast a real-time event across all connected SSE clients.

@@ -96,7 +96,7 @@ const saveSettings = async (updates: {
   setSaved(false);
 
   try {
-    const res = await axios.patch(
+    const res = await axios.put(
       api("/admin/settings"),
       updates,
       {
@@ -299,15 +299,15 @@ const handleModeChange = (
           <div className="px-6 pb-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="smtpHost">SMTP host</Label>
-              <Input id="smtpHost" readOnly value={smtpHost} className="text-ink-2" />
+              <Input id="smtpHost" readOnly value={smtpHost || ""} className="text-ink-2" />
             </div>
             <div>
               <Label htmlFor="smtpPort">SMTP port</Label>
-              <Input id="smtpPort" readOnly value={smtpPort} className="text-ink-2" />
+              <Input id="smtpPort" readOnly value={smtpPort || ""} className="text-ink-2" />
             </div>
             <div className="sm:col-span-2">
               <Label htmlFor="smtpUser">SMTP username</Label>
-              <Input id="smtpUser" readOnly value={smtpUser} className="text-ink-2" />
+              <Input id="smtpUser" readOnly value={smtpUser || ""} className="text-ink-2" />
             </div>
           </div>
         </Card>

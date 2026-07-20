@@ -62,19 +62,7 @@ useState<VerificationCase[]>([]);
   const [overrideNotes, setOverrideNotes] = useState<string>("");
   const [qwenWeight, setQwenWeight] = useState<number>(0.35);
 
-  useEffect(() => {
-    if (token && activeTab === "users") {
-      fetchPendingUsers();
-    }
-  }, [token, activeTab]);
-useEffect(() => {
-
-if (!token) return;
-
-fetchPendingCases();
-
-}, [token]);
-const fetchPendingCases = async () => {
+  const fetchPendingCases = async () => {
 
 try{
 
@@ -122,6 +110,19 @@ setUsers([]);
       setLoadingUsers(false);
     }
   };
+
+  useEffect(() => {
+    if (token && activeTab === "users") {
+      fetchPendingUsers();
+    }
+  }, [token, activeTab]);
+useEffect(() => {
+
+if (!token) return;
+
+fetchPendingCases();
+
+}, [token]);
 
   const handleApproveUser = async (userId: string) => {
     try {
@@ -208,7 +209,7 @@ setUsers([]);
       header: "Registered",
       render: (u) => (
         <span className="font-mono text-ink-3 text-sm">
-          {u.created_at ? new Date(u.created_at).toLocaleDateString("en-IN") : "—"}
+          {u.created_at ? new Date(u.created_at + "Z").toLocaleDateString("en-IN") : "—"}
         </span>
       ),
     },
@@ -234,60 +235,56 @@ setUsers([]);
   return (
     <div className="min-h-screen bg-bg text-ink p-4 md:p-6 space-y-6 font-sans transition-colors duration-300">
       
-      {/* Row 1: Tactical Header Panel */}
       {/* ================= HEADER ================= */}
     <div
-  className="
-    rounded-card
-    bg-surface
-    border
-    border-line/10
-    shadow-card
-    px-8
-    py-8
-    min-h-[280px]
-    xl:min-h-[320px]
-    w-full
-  "
->
-        <div className="flex items-start justify-between gap-8">
+      className="
+        rounded-card
+        bg-surface
+        border
+        border-line/10
+        shadow-card
+        px-6 md:px-8
+        py-6 md:py-8
+        w-full
+        overflow-hidden
+      "
+    >
+        <div className="flex flex-col xl:flex-row xl:items-start gap-6">
 
-          {/* LEFT SECTION: Shield Icon + Text */}
-          <div className="flex items-start gap-5 flex-grow">
+          {/* LEFT SECTION: Shield Icon + Text + Badges */}
+          <div className="flex items-start gap-5 min-w-0 flex-1">
             {/* Shield Icon */}
-            <div className="w-16 h-16 rounded-control bg-accent-text/10 border border-accent-text/20 flex items-center justify-center shrink-0">
-              <ShieldAlert className="w-8 h-8 text-accent-text" />
+            <div className="w-14 h-14 xl:w-16 xl:h-16 rounded-control bg-accent-text/10 border border-accent-text/20 flex items-center justify-center shrink-0">
+              <ShieldAlert className="w-7 h-7 xl:w-8 xl:h-8 text-accent-text" />
             </div>
 
             {/* Title & Subtitle */}
-            <div>
-              <h1 className="font-display font-black uppercase leading-[1.15] tracking-tight text-[26px] xl:text-[30px] max-w-[540px] text-ink">
+            <div className="min-w-0">
+              <h1 className="font-display font-black uppercase leading-[1.15] tracking-tight text-xl md:text-2xl xl:text-[28px] text-ink">
                 HUMAN VERIFICATION & NTIR<br />FEEDBACK DESK
               </h1>
-              <p className="mt-3 font-mono text-xs text-ink-2 max-w-[420px]">
+              <p className="mt-2 font-mono text-xs text-ink-2 max-w-[420px]">
                 National Threat Intelligence Repository (`NTIR`) & RLHF Core
               </p>
+              {/* Badges inline under title on smaller screens */}
+              <div className="flex flex-wrap items-center gap-2 mt-3">
+                <span className="px-3 py-1.5 rounded-control bg-success-tint border border-success/20 font-mono text-[10px] font-bold uppercase whitespace-nowrap">
+                  Sprint 7 Human-In-The-Loop
+                </span>
+                <span className="font-mono text-success font-bold text-xs whitespace-nowrap">
+                  Dual Governance Queue
+                </span>
+              </div>
             </div>
           </div>
 
-          {/* CENTER SECTION: Badges */}
-          <div className="w-[180px] flex-shrink-0 flex flex-col gap-3 pt-1 items-center">
-            <span className="w-full px-4 py-2 rounded-control bg-success-tint border border-success/20 font-mono text-[10px] font-bold uppercase text-center block whitespace-nowrap">
-              Sprint 7 Human-In-The-Loop
-            </span>
-            <span className="font-mono text-success font-bold text-xs text-center block whitespace-nowrap">
-              Dual Governance Queue
-            </span>
-          </div>
-
           {/* RIGHT SECTION: Segmented Controls */}
-          <div className="w-[560px] flex-shrink-0">
-            <div className="rounded-xl bg-surface-2 border border-line/10 p-2 flex gap-1">
+          <div className="w-full xl:w-auto xl:min-w-[400px] xl:max-w-[520px] shrink-0">
+            <div className="rounded-xl bg-surface-2 border border-line/10 p-1.5 flex gap-1">
               {/* Tab 1 */}
               <button
                 onClick={() => setActiveTab("ntir")}
-                style={{ flex: "3 1 0%" }}
-                className={`rounded-lg py-3 transition flex items-center justify-center gap-3 shrink-0 ${
+                className={`flex-1 rounded-lg py-2.5 px-3 transition flex items-center justify-center gap-2 ${
                   activeTab === "ntir"
                     ? "bg-success text-black"
                     : "text-ink-3 hover:text-ink"
@@ -295,10 +292,10 @@ setUsers([]);
               >
                 <ShieldAlert className="w-4 h-4 shrink-0" />
                 <div className="text-center">
-                  <div className="font-bold text-sm leading-tight">
+                  <div className="font-bold text-xs sm:text-sm leading-tight">
                     NTIR Threat Verification
                   </div>
-                  <div className="font-bold text-xs opacity-90 leading-tight">
+                  <div className="font-bold text-[10px] sm:text-xs opacity-90 leading-tight">
                     & RLHF Queue
                   </div>
                 </div>
@@ -307,8 +304,7 @@ setUsers([]);
               {/* Tab 2 */}
               <button
                 onClick={() => setActiveTab("users")}
-                style={{ flex: "2 1 0%" }}
-                className={`rounded-lg py-3 transition flex items-center justify-center gap-3 shrink-0 ${
+                className={`flex-1 rounded-lg py-2.5 px-3 transition flex items-center justify-center gap-2 ${
                   activeTab === "users"
                     ? "bg-success text-black"
                     : "text-ink-3 hover:text-ink"
@@ -316,10 +312,10 @@ setUsers([]);
               >
                 <UserCheck className="w-4 h-4 shrink-0" />
                 <div className="text-center">
-                  <div className="font-bold text-sm leading-tight">
+                  <div className="font-bold text-xs sm:text-sm leading-tight">
                     Nodal Officer
                   </div>
-                  <div className="font-bold text-xs opacity-90 leading-tight">
+                  <div className="font-bold text-[10px] sm:text-xs opacity-90 leading-tight">
                     Registrations ({users.length})
                   </div>
                 </div>

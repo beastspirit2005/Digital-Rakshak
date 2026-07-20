@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { useAuthStore } from "@/lib/auth-store";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Shield,
@@ -69,6 +70,7 @@ interface CoCRecord {
 export default function InvestigatorWorkspacePage() {
   const params = useParams();
   const router = useRouter();
+  const { token } = useAuthStore();
   const caseNumber = typeof params?.case_number === "string" ? params.case_number : "";
 
   const [activeTab, setActiveTab] = useState<"evidence" | "dna" | "raic" | "audit">("evidence");
@@ -86,14 +88,14 @@ export default function InvestigatorWorkspacePage() {
   const [correctionNote, setCorrectionNote] = useState<string>("");
   const [actionStatus, setActionStatus] = useState<string | null>(null);
 
-  const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/v1";
+  const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+  const apiBase = process.env.NEXT_PUBLIC_API_URL || (isLocal ? "http://127.0.0.1:8000/v1" : "/api/v1");
 
   const fetchCaseDetails = async () => {
     if (!caseNumber) return;
     setLoading(true);
     setError(null);
     try {
-      const token = localStorage.getItem("access_token") || "";
       const res = await fetch(`${apiBase}/cases/${caseNumber}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -119,7 +121,6 @@ export default function InvestigatorWorkspacePage() {
 
   const fetchCocHistory = async (evId: string) => {
     try {
-      const token = localStorage.getItem("access_token") || "";
       const res = await fetch(`${apiBase}/evidence/${evId}/history`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -135,7 +136,6 @@ export default function InvestigatorWorkspacePage() {
   const verifyEvidenceIntegrity = async (evId: string) => {
     setVerifyingId(evId);
     try {
-      const token = localStorage.getItem("access_token") || "";
       const res = await fetch(`${apiBase}/evidence/${evId}/verify`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
@@ -157,7 +157,6 @@ export default function InvestigatorWorkspacePage() {
     if (!caseData) return;
     setActionStatus("Processing action...");
     try {
-      const token = localStorage.getItem("access_token") || "";
       const endpoint =
         actionType === "approve"
           ? `${apiBase}/cases/${caseData.case_number}/verify`
@@ -235,9 +234,9 @@ export default function InvestigatorWorkspacePage() {
           >
             <ArrowLeft className="w-3.5 h-3.5" /> Workbench Dashboard
           </button>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-black font-mono tracking-tight text-white">
-              CASE #{caseData.case_number}
+          <div className="flex flex-wrap items-center gap-3 pt-1">
+            <h1 className="text-2xl md:text-3xl font-black font-mono tracking-tight text-white leading-normal">
+              CASE {caseData.case_number}
             </h1>
             <span className="px-2.5 py-0.5 rounded-full text-xs font-bold font-mono uppercase bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
               {caseData.status || "UNDER REVIEW"}
@@ -293,7 +292,7 @@ export default function InvestigatorWorkspacePage() {
               : "border-transparent text-slate-400 hover:text-slate-200"
           }`}
         >
-          <Lock className="w-4 h-4" /> Tab 1: Evidence Vault & SHA-256 CoC
+          <Lock className="w-4 h-4" /> Evidence Vault & SHA-256 CoC
           {caseData.evidence && (
             <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-800 text-slate-300">
               {caseData.evidence.length}
@@ -308,7 +307,7 @@ export default function InvestigatorWorkspacePage() {
               : "border-transparent text-slate-400 hover:text-slate-200"
           }`}
         >
-          <GitBranch className="w-4 h-4" /> Tab 2: Neo4j Syndicate Graph (Attack DNA)
+          <GitBranch className="w-4 h-4" /> Neo4j Syndicate Graph (Attack DNA)
         </button>
         <button
           onClick={() => setActiveTab("raic")}
@@ -318,7 +317,7 @@ export default function InvestigatorWorkspacePage() {
               : "border-transparent text-slate-400 hover:text-slate-200"
           }`}
         >
-          <Cpu className="w-4 h-4" /> Tab 3: RAIC Consensus & Explainability
+          <Cpu className="w-4 h-4" /> RAIC Consensus & Explainability
         </button>
         <button
           onClick={() => setActiveTab("audit")}
@@ -328,7 +327,7 @@ export default function InvestigatorWorkspacePage() {
               : "border-transparent text-slate-400 hover:text-slate-200"
           }`}
         >
-          <History className="w-4 h-4" /> Tab 4: Chronological Audit Ledger
+          <History className="w-4 h-4" /> Chronological Audit Ledger
         </button>
       </div>
 
@@ -518,14 +517,14 @@ export default function InvestigatorWorkspacePage() {
                                   {logs.length === 0 ? (
                                     <tr>
                                       <td colSpan={4} className="p-4 text-center text-slate-500">
-                                        No CoC records loaded yet. Click 'Verify SHA256' above.
+                                        No CoC records loaded yet. Click &apos;Verify SHA256&apos; above.
                                       </td>
                                     </tr>
                                   ) : (
                                     logs.map((log) => (
                                       <tr key={log.id} className="border-b border-slate-800/60 hover:bg-slate-900/40">
                                         <td className="p-2.5 text-slate-400 whitespace-nowrap">
-                                          {log.timestamp ? log.timestamp.replace("T", " ").substring(0, 19) : "N/A"}
+                                          {log.timestamp ? new Date(log.timestamp + "Z").toLocaleString("en-IN") : "N/A"}
                                         </td>
                                         <td className="p-2.5 font-bold text-slate-300">{log.actor}</td>
                                         <td className="p-2.5">
@@ -597,22 +596,40 @@ export default function InvestigatorWorkspacePage() {
                     </div>
 
                     {/* Linked Entity Nodes */}
-                    <div className="grid grid-cols-3 gap-4 text-center">
-                      <div className="p-3 rounded-lg bg-slate-900 border border-emerald-500/40 font-mono text-xs space-y-1 shadow-lg hover:border-emerald-400 cursor-pointer transition-all">
-                        <PhoneCall className="w-4 h-4 text-emerald-400 mx-auto" />
-                        <span className="block font-bold text-slate-200">+91 98200 41029</span>
-                        <span className="text-[10px] text-emerald-400 block">3 Linked Cases</span>
-                      </div>
-                      <div className="p-3 rounded-lg bg-slate-900 border border-amber-500/40 font-mono text-xs space-y-1 shadow-lg hover:border-amber-400 cursor-pointer transition-all">
-                        <Building2 className="w-4 h-4 text-amber-400 mx-auto" />
-                        <span className="block font-bold text-slate-200">ICICI Bank A/C</span>
-                        <span className="text-[10px] text-amber-400 block">Mule A/C Flagged</span>
-                      </div>
-                      <div className="p-3 rounded-lg bg-slate-900 border border-purple-500/40 font-mono text-xs space-y-1 shadow-lg hover:border-purple-400 cursor-pointer transition-all">
-                        <Mail className="w-4 h-4 text-purple-400 mx-auto" />
-                        <span className="block font-bold text-slate-200">pay@hdfc.upi</span>
-                        <span className="text-[10px] text-purple-400 block">Syndicate Hub #4</span>
-                      </div>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-center max-h-[150px] overflow-y-auto">
+                      {caseData.ai_decision?.entities?.PHONE?.map((phone: string, i: number) => (
+                        <div key={`phone-${i}`} className="p-3 rounded-lg bg-slate-900 border border-emerald-500/40 font-mono text-xs space-y-1 shadow-lg hover:border-emerald-400 cursor-pointer transition-all">
+                          <PhoneCall className="w-4 h-4 text-emerald-400 mx-auto" />
+                          <span className="block font-bold text-slate-200">{phone}</span>
+                          <span className="text-[10px] text-emerald-400 block">Linked Phone</span>
+                        </div>
+                      ))}
+                      {caseData.ai_decision?.entities?.IFSC?.map((ifsc: string, i: number) => (
+                        <div key={`ifsc-${i}`} className="p-3 rounded-lg bg-slate-900 border border-amber-500/40 font-mono text-xs space-y-1 shadow-lg hover:border-amber-400 cursor-pointer transition-all">
+                          <Building2 className="w-4 h-4 text-amber-400 mx-auto" />
+                          <span className="block font-bold text-slate-200">{ifsc}</span>
+                          <span className="text-[10px] text-amber-400 block">Bank Entity</span>
+                        </div>
+                      ))}
+                      {caseData.ai_decision?.entities?.UPI?.map((upi: string, i: number) => (
+                        <div key={`upi-${i}`} className="p-3 rounded-lg bg-slate-900 border border-purple-500/40 font-mono text-xs space-y-1 shadow-lg hover:border-purple-400 cursor-pointer transition-all">
+                          <Mail className="w-4 h-4 text-purple-400 mx-auto" />
+                          <span className="block font-bold text-slate-200">{upi}</span>
+                          <span className="text-[10px] text-purple-400 block">UPI Hub</span>
+                        </div>
+                      ))}
+                      {caseData.ai_decision?.entities?.URLS?.map((url: string, i: number) => (
+                        <div key={`url-${i}`} className="p-3 rounded-lg bg-slate-900 border border-blue-500/40 font-mono text-xs space-y-1 shadow-lg hover:border-blue-400 cursor-pointer transition-all">
+                          <GitBranch className="w-4 h-4 text-blue-400 mx-auto" />
+                          <span className="block font-bold text-slate-200 break-all">{url}</span>
+                          <span className="text-[10px] text-blue-400 block">Phishing URL</span>
+                        </div>
+                      ))}
+                      {(!caseData.ai_decision?.entities || Object.values(caseData.ai_decision.entities).every(arr => Array.isArray(arr) && arr.length === 0)) && (
+                         <div className="col-span-full p-3 rounded-lg bg-slate-900 border border-slate-700 font-mono text-xs space-y-1 shadow-lg text-slate-400">
+                           No entities detected in this case.
+                         </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -625,15 +642,14 @@ export default function InvestigatorWorkspacePage() {
                   <div className="space-y-3 text-slate-300">
                     <div>
                       <span className="text-slate-500 text-[10px] block uppercase">Extracted Entities:</span>
-                      <p className="mt-1 font-semibold text-emerald-300">
-                        {JSON.stringify(caseData.ai_decision?.entities || { phones: ["+91 98200 41029"], banks: ["ICICI"] }, null, 2)}
-                      </p>
+                      <pre className="mt-1 font-semibold text-emerald-300 text-[10px] whitespace-pre-wrap">
+                        {JSON.stringify(caseData.ai_decision?.entities || {}, null, 2)}
+                      </pre>
                     </div>
                     <div className="p-3 rounded bg-slate-900/80 border border-slate-800 space-y-1">
                       <span className="text-amber-400 font-bold">Syndicate Risk Assessment:</span>
                       <p className="text-slate-400 text-[11px] leading-relaxed">
-                        Cross-jurisdiction correlation matches pattern <strong className="text-white">SYND-2026-IND-84</strong>.
-                        High probability of coordinated SMS phishing infrastructure.
+                        {caseData.ai_decision?.entities ? `Correlated ${Object.values(caseData.ai_decision.entities).flat().length} unique network entities across active records. High probability of coordinated phishing infrastructure.` : "Pending further cross-jurisdiction correlation."}
                       </p>
                     </div>
                     <button
@@ -664,7 +680,7 @@ export default function InvestigatorWorkspacePage() {
                     </h3>
                   </div>
                   <span className="text-xs font-mono text-slate-400">
-                    Model: <strong className="text-emerald-400">Gemini 3.1 Pro + Qwen 2.5-VL Refinement</strong>
+                    Model: <strong className="text-emerald-400">Groq Llama 3 70B + Vision Refinement</strong>
                   </span>
                 </div>
 
@@ -680,23 +696,27 @@ export default function InvestigatorWorkspacePage() {
                   </div>
                   <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
                     <span className="text-amber-400 font-bold block uppercase text-[11px]">Behavioral Intent</span>
-                    <div className="text-xl font-black text-white">High Urgency</div>
+                    <div className="text-xl font-black text-white">{caseData.ai_decision?.behaviors?.[0] || "Unknown Intent"}</div>
                     <p className="text-[11px] text-slate-400 leading-normal">
-                      Impersonation of TRAI / Cyber Crime police to induce panic transfer.
+                      {caseData.ai_decision?.behaviors?.length > 1 ? `Multiple behaviors detected including ${caseData.ai_decision.behaviors[1]}` : "Analysis matched specific threat signature."}
                     </p>
                   </div>
                   <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
                     <span className="text-purple-400 font-bold block uppercase text-[11px]">Campaign Correlation</span>
-                    <div className="text-xl font-black text-white">Cluster #14</div>
+                    <div className="text-xl font-black text-white">{caseData.ai_decision?.entities ? `${Object.values(caseData.ai_decision.entities).flat().length} Linked Entities` : "Isolated Case"}</div>
                     <p className="text-[11px] text-slate-400 leading-normal">
-                      Correlated with 18 other active citizen reports across Delhi & Mumbai.
+                      Correlated network clusters based on extracted Attack DNA vectors.
                     </p>
                   </div>
                   <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
                     <span className="text-blue-400 font-bold block uppercase text-[11px]">Trust Validation</span>
-                    <div className="text-xl font-black text-white">Zero Trust</div>
+                    <div className="text-xl font-black text-white">
+                      {caseData.ai_decision?.ztivf_metrics?.identity_score < 0.8 ? "Zero Trust" : "Verified Identity"}
+                    </div>
                     <p className="text-[11px] text-slate-400 leading-normal">
-                      Domain registration & phone headers fail official government SPF/DKIM checks.
+                      {caseData.ai_decision?.ztivf_metrics?.identity_score < 0.8 
+                        ? "Domain registration & phone headers fail verification checks."
+                        : "Trust validation metrics passed successfully."}
                     </p>
                   </div>
                 </div>
@@ -737,7 +757,7 @@ export default function InvestigatorWorkspacePage() {
                   caseData.timeline_events.map((evt, idx) => (
                     <div key={idx} className="flex gap-4 p-3 rounded-lg bg-slate-950 border border-slate-800/80">
                       <div className="w-32 shrink-0 text-slate-500 text-[11px]">
-                        {evt.timestamp ? evt.timestamp.replace("T", " ").substring(0, 19) : "N/A"}
+                        {evt.timestamp ? new Date(evt.timestamp + "Z").toLocaleString("en-IN") : "N/A"}
                       </div>
                       <div className="flex-1 space-y-1">
                         <div className="font-bold text-emerald-400 flex items-center gap-2">

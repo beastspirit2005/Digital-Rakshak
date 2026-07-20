@@ -30,20 +30,45 @@ class ThreatAnalysisAgent(BaseAgent):
         return {}
 
     async def inference(self, prompt: str, context: Dict[str, Any]) -> Dict[str, Any]:
-        # Run local GPU-accelerated inference
-        result = self.client.predict(prompt)
+        from infrastructure.ai.ml_client import ML_AVAILABLE
+        
+        if ML_AVAILABLE:
+            # Run local GPU-accelerated inference
+            result = self.client.predict(prompt)
+        else:
+            # Fallback to Groq for Vercel Serverless
+            from infrastructure.ai.groq_client import GroqClient
+            sys_prompt = "Classify this scam into ONE of these classes: 'Safe', 'Banking Fraud', 'UPI Fraud', 'Courier Scam', 'Digital Arrest', 'Counterfeit Note', 'Unknown Fraud'. Reply ONLY in JSON format: {\"threat_class\": \"<class>\", \"confidence\": 0.95}"
+            groq = GroqClient()
+            try:
+                res = await groq.analyze(prompt, {"system": sys_prompt})
+                import re
+                json_match = re.search(r'\{.*\}', res.get("decision", ""), re.DOTALL)
+                if json_match:
+                    parsed = json.loads(json_match.group(0))
+                    result = {
+                        "threat_class": parsed.get("threat_class", "Unknown Fraud"),
+                        "confidence": float(parsed.get("confidence", 0.85))
+                    }
+                else:
+                    result = {"threat_class": "Unknown Fraud", "confidence": 0.85}
+            except Exception as e:
+                logger.error(f"Groq classification failed: {e}")
+                result = {"threat_class": "Unknown Fraud", "confidence": 0.50}
+
+        engine_name = "Rakshak-Text" if ML_AVAILABLE else "Groq Llama-3 (Fallback)"
         
         return {
-            "engine": "Rakshak-Text",
+            "engine": engine_name,
             "engine_version": "1.0",
             "model_version": self.client.version,
             "entities": [],
-            "evidence": [f"Scam mapped to TPR Class: {result['threat_class']}"],
-            "reasoning": ["Calibrated confidence computed natively via Temperature Scaling."],
+            "evidence": [f"Scam mapped to TPR Class: {result.get('threat_class')}"],
+            "reasoning": ["Calibrated confidence computed natively via Temperature Scaling." if ML_AVAILABLE else "Confidence provided by Groq Cloud."],
             "recommendation": ["Forward to BehaviourAgent for Attack DNA extraction."],
-            "score": result['confidence'],
-            "prompt_version": "n/a", # No prompts needed for custom models
-            "threat_class": result['threat_class']
+            "score": result.get('confidence', 0.85),
+            "prompt_version": "n/a",
+            "threat_class": result.get('threat_class', "Unknown Fraud")
         }
 
     def calculate_confidence(self, raw_score: float) -> float:

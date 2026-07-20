@@ -26,7 +26,26 @@ from fastapi.responses import JSONResponse
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
     print(f'HTTP Exception: {exc.status_code} - {exc.detail} on {request.url}')
-    return JSONResponse(status_code=exc.status_code, content={'detail': exc.detail})
+    return JSONResponse(
+        status_code=exc.status_code, 
+        content={'detail': exc.detail},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Credentials": "true"
+        }
+    )
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    print(f'Unhandled Exception: {str(exc)} on {request.url}')
+    return JSONResponse(
+        status_code=500, 
+        content={'detail': "Internal Server Error", 'error': str(exc)},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Credentials": "true"
+        }
+    )
 
 # OpenTelemetry Setup
 try:

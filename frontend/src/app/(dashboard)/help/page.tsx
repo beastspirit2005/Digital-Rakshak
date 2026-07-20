@@ -78,7 +78,7 @@ export default function HelpPage() {
         id: m.id,
         type: m.role === "admin" ? "admin" : m.role === "system" ? "system" : m.role === "user" ? "user" : "ai",
         content: m.content,
-        timestamp: new Date(m.created_at)
+        timestamp: new Date(m.created_at + "Z")
       }));
 
       // Content-based deduplication
@@ -95,6 +95,17 @@ export default function HelpPage() {
       }
     } catch (err) {
       // Silently ignore
+    }
+  };
+
+  const fetchTickets = async () => {
+    try {
+      const res = await axios.get(api("/support/tickets"), { headers: { Authorization: `Bearer ${token}` } });
+      setTickets(res.data.tickets);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -196,16 +207,6 @@ export default function HelpPage() {
     setIsAiTyping(false);
   };
 
-  const fetchTickets = async () => {
-    try {
-      const res = await axios.get(api("/support/tickets"), { headers: { Authorization: `Bearer ${token}` } });
-      setTickets(res.data.tickets);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleTicketSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -351,7 +352,7 @@ export default function HelpPage() {
                               <h4 className="font-semibold text-ink text-base">{t.subject}</h4>
                               <span className="text-xs px-2.5 py-1 rounded-full bg-surface-2 text-ink-2 font-medium border border-line">{t.status}</span>
                            </div>
-                           <p className="text-xs text-ink-3 mt-1.5 font-medium">{t.ticket_number} • {new Date(t.created_at).toLocaleString()}</p>
+                           <p className="text-xs text-ink-3 mt-1.5 font-medium">{t.ticket_number} • {new Date(t.created_at + "Z").toLocaleString()}</p>
                            <p className="text-sm text-ink-2 mt-4 p-4 bg-surface-2 rounded-2xl whitespace-pre-wrap">{t.message}</p>
                            {t.history && t.history.length > 0 ? (
                               <div className="mt-5 space-y-3">

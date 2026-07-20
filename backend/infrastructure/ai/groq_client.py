@@ -60,6 +60,8 @@ class GroqClient:
                 response.raise_for_status()
                 
                 data = response.json()
+                if "choices" not in data or not data["choices"]:
+                    raise ValueError(f"Unexpected Groq response: {data}")
                 content = data["choices"][0]["message"]["content"]
                 result = json.loads(content)
                 
@@ -104,6 +106,8 @@ class GroqClient:
                 response = await client.post(self.base_url, headers=headers, json=payload, timeout=30.0)
                 response.raise_for_status()
                 data = response.json()
+                if "choices" not in data or not data["choices"]:
+                    return "Groq Inference Error: Unexpected API response structure."
                 return data["choices"][0]["message"]["content"]
         except Exception as e:
             print(f"Groq API Error (generate_text): {e}")

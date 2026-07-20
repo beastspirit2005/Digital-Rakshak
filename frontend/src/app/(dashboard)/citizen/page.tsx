@@ -228,7 +228,7 @@ if (!token) return;
                         <PriorityBadge priority={c.priority} />
                       </div>
                       <p className="text-sm text-ink-2 capitalize">
-                        {(c.scam_type_code || c.scam_type || "Unknown").replace(/_/g, " ")} • Filed on {new Date(c.created_at).toLocaleDateString("en-IN", {
+                        {(c.scam_type_code || c.scam_type || "Unknown").replace(/_/g, " ")} • Filed on {new Date(c.created_at + "Z").toLocaleDateString("en-IN", {
                           year: "numeric", month: "short", day: "numeric"
                         })}
                       </p>

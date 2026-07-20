@@ -46,6 +46,7 @@ const sliceColor = (index: number) => chartSeries[index % chartSeries.length];
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [telemetry, setTelemetry] = useState<string>("Loading telemetry...");
 
   const { token } = useAuthStore();
   const toast = useToast();
@@ -64,6 +65,18 @@ const sliceColor = (index: number) => chartSeries[index % chartSeries.length];
       );
 
       setData(res.data);
+      
+      try {
+        const telemetryRes = await axios.get(api("/health/ai-telemetry"));
+        const qwenModel = telemetryRes.data.models.find((m: any) => m.id === "qwen-2.5-vl");
+        if (qwenModel && qwenModel.vram_usage) {
+          setTelemetry(qwenModel.vram_usage);
+        } else {
+          setTelemetry("Cloud Engine");
+        }
+      } catch (e) {
+        setTelemetry("Unknown Hardware");
+      }
     } catch (err) {
       console.error(
         "Failed to load analytics",
@@ -172,9 +185,14 @@ const sliceColor = (index: number) => chartSeries[index % chartSeries.length];
           title="National analytics"
           sub="Live aggregated intelligence for policy decisions."
           actions={
-            <Badge tone={threatCritical ? "danger" : "warning"}>
-              National threat: {String(data.stats.threat_level || "—").toLowerCase()}
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Badge tone="neutral">
+                Hardware: {telemetry}
+              </Badge>
+              <Badge tone={threatCritical ? "danger" : "warning"}>
+                National threat: {String(data.stats.threat_level || "—").toLowerCase()}
+              </Badge>
+            </div>
           }
         />
       </Rise>
@@ -197,7 +215,7 @@ const sliceColor = (index: number) => chartSeries[index % chartSeries.length];
             <h3 className="font-display font-semibold text-base text-ink">Public threat feeds</h3>
             <p className="text-sm text-ink-2 mt-0.5 max-w-xl">
               Pull known malicious indicators and scam scripts from external databases like MHA
-              and PhishTank into the AI's knowledge.
+              and PhishTank into the AI&apos;s knowledge.
             </p>
           </div>
           <Button loading={syncing} onClick={handleOsintSync}>

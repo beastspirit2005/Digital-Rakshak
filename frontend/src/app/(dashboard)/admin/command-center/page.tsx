@@ -65,7 +65,8 @@ export default function CommandCenterDashboard() {
     syndicates_tracked: 0,
   });
 
-  const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/v1";
+  const isLocal = typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+  const apiBase = process.env.NEXT_PUBLIC_API_URL || (isLocal ? "http://127.0.0.1:8000/v1" : "/api/v1");
 
   const fetchCommandCenterData = async () => {
     try {
@@ -117,6 +118,9 @@ export default function CommandCenterDashboard() {
       if (res.ok) {
         const data = await res.json();
         if (data.models) setAiModels(data.models);
+        if (data.cpu_utilization !== undefined) {
+          setStats((prev) => ({ ...prev, cpu_utilization: data.cpu_utilization }));
+        }
       }
     } catch (err) {
       console.error("Failed to load AI telemetry:", err);
@@ -171,7 +175,7 @@ export default function CommandCenterDashboard() {
     return () => clearInterval(interval);
   }, []);
 
-  const gpuLoad = Math.min(100, 50 + stats.active_cases * 2.1);
+  const gpuLoad = (stats as any).cpu_utilization ?? Math.min(100, 50 + stats.active_cases * 2.1);
 
   return (
     <div className="space-y-6 pt-2">

@@ -156,7 +156,7 @@ export default function ResetPasswordPage() {
               onClick={() => setStep("email")}
               className="w-full text-sm text-ink-2 hover:text-ink transition-colors"
             >
-              Didn't get the code? Send it again
+              Didn&apos;t get the code? Send it again
             </button>
           </motion.form>
         )}

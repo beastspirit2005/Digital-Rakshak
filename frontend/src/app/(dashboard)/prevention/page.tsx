@@ -11,10 +11,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/field";
 import { Rise } from "@/components/ui/motion";
 
-// html5-qrcode touches window at import time, so require it client-side only.
+// html5-qrcode touches window at import time, so load it client-side only.
 let Html5QrcodeScanner: any;
 if (typeof window !== "undefined") {
-  Html5QrcodeScanner = require("html5-qrcode").Html5QrcodeScanner;
+  import("html5-qrcode").then((mod) => {
+    Html5QrcodeScanner = mod.Html5QrcodeScanner;
+  });
 }
 
 const TABS = [
@@ -31,6 +33,29 @@ export default function PreventionSuite() {
   const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [useCamera, setUseCamera] = useState(false);
+
+  const scanTextPayload = async (text: string) => {
+    setLoading(true);
+    setResult(null);
+    try {
+      const payload =
+        activeTab === "url" ? { url: text } : activeTab === "upi" ? { upi: text } : { text: text };
+
+      const res = await axios.post(api("/scan"), payload);
+      setResult({
+        safe: res.data.is_safe,
+        confidence: 0.95,
+        reason: res.data.reasons.join(" ") || "No threats detected.",
+      });
+    } catch (err: any) {
+      setResult({
+        safe: false,
+        confidence: 0.99,
+        reason: err.response?.data?.detail || "The scan failed.",
+      });
+    }
+    setLoading(false);
+  };
 
   useEffect(() => {
     if (useCamera && activeTab === "qr" && Html5QrcodeScanner) {
@@ -59,28 +84,7 @@ export default function PreventionSuite() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [useCamera, activeTab]);
 
-  const scanTextPayload = async (text: string) => {
-    setLoading(true);
-    setResult(null);
-    try {
-      const payload =
-        activeTab === "url" ? { url: text } : activeTab === "upi" ? { upi: text } : { text: text };
 
-      const res = await axios.post(api("/scan"), payload);
-      setResult({
-        safe: res.data.is_safe,
-        confidence: 0.95,
-        reason: res.data.reasons.join(" ") || "No threats detected.",
-      });
-    } catch (err: any) {
-      setResult({
-        safe: false,
-        confidence: 0.99,
-        reason: err.response?.data?.detail || "The scan failed.",
-      });
-    }
-    setLoading(false);
-  };
 
   const handleScan = async () => {
     setLoading(true);

@@ -170,7 +170,7 @@ useEffect(() => {
       key: "registered",
       header: "Registered",
       render: (u) => (
-        <span className="text-ink-2 text-xs">{new Date(u.created_at).toLocaleDateString("en-IN")}</span>
+        <span className="text-ink-2 text-xs">{new Date(u.created_at + "Z").toLocaleDateString("en-IN")}</span>
       ),
     },
     {

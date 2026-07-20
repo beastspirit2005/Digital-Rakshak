@@ -25,7 +25,7 @@ class RAICDecisionCore:
         for result in agent_results:
             if result.get("agent") == "TrustValidationAgent":
                 continue
-            prob = result.get('confidence', 0.0)
+            prob = result.get('confidence', result.get('score', 0.0))
             valid_probs.append(prob)
             
         if not valid_probs:
@@ -93,7 +93,7 @@ class RAICDecisionCore:
                 fused_data["entities"] = payload.get("entities", {})
             elif payload.get("agent") == "TrustValidationAgent":
                 fused_data["trust_metrics"] = payload.get("entities", {})
-                trust_score = payload.get("confidence", 1.0)
+                trust_score = payload.get("confidence", payload.get("score", 1.0))
                 
             fused_data["evidence"].extend(payload.get("reasoning", []))
             fused_data["models_used"].append(payload.get("engine"))
@@ -160,7 +160,9 @@ class RAICDecisionCore:
             "execution_time_ms": execution_time_ms,
             "raw_explanation": raw_explanation,
             "ztivf_metrics": fused_data["trust_metrics"],
-            "six_dim_score": six_dim_score
+            "six_dim_score": six_dim_score,
+            "entities": fused_data["entities"],
+            "behaviors": fused_data["behaviors"]
         }
 
     async def execute(self, prompt: str, context: Dict[str, Any] = None, ai_mode: str = "auto") -> Dict[str, Any]:

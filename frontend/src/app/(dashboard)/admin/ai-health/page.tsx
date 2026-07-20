@@ -73,6 +73,7 @@ export default function AIHealthGovernanceDashboard() {
 
   const [models, setModels] = useState<ModelConfig[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
+  const [environment, setEnvironment] = useState<"cloud" | "local">("local");
 
   useEffect(() => {
     const fetchTelemetry = async () => {
@@ -83,6 +84,7 @@ export default function AIHealthGovernanceDashboard() {
         });
         setModels(res.data.models);
         setAuditLogs(res.data.auditLogs);
+        if (res.data.environment) setEnvironment(res.data.environment);
       } catch (err) {
         toast("danger", "Failed to load AI telemetry.");
       } finally {
@@ -102,7 +104,7 @@ export default function AIHealthGovernanceDashboard() {
       <Rise>
         <PageHeader
           title="AI Health & Model Governance Desk"
-          sub="Model Versioning & Drift Auditing — Zero-Cloud Sovereign Enforce Ready."
+          sub={`Model Versioning & Drift Auditing — ${environment === "cloud" ? "Cloud Serverless Limits" : "Local Workstation Hardware"}.`}
           actions={
             <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 flex items-center gap-1">
               <ShieldCheck className="w-3.5 h-3.5" /> Sprint 8 Governance Core

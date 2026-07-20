@@ -82,7 +82,7 @@ async def list_models(user: User = Depends(get_current_user_allow_unapproved)):
 @router.post("/transcribe")
 async def transcribe_audio(file: UploadFile = File(...), user: User = Depends(get_current_user)):
     """
-    Accepts an audio file and transcribes it using Whisper or Gemini fallback.
+    Accepts an audio file and transcribes it using Whisper or Groq fallback.
     Returns just the raw text so the user can review/edit it before AI processing.
     """
     import os, uuid, shutil

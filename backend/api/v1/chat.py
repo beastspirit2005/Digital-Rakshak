@@ -62,7 +62,7 @@ async def global_chatbot(
             logger.warning(f"Prompt injection attempt detected from user {user.id}")
             raise HTTPException(status_code=400, detail="Security Violation: Prompt Injection Attempt Detected.")
 
-    role = user.role
+    role = user.role.lower() if user.role else ""
     user_id = str(user.id)
     
     # 2. Role-Based Context Retrieval

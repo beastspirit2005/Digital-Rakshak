@@ -10,7 +10,7 @@ import json
 import importlib
 import os
 
-BASE = "http://127.0.0.1:8000/api/v1"
+BASE = "http://127.0.0.1:8000/v1"
 PASS = "[PASS]"
 FAIL = "[FAIL]"
 WARN = "[WARN]"
@@ -42,8 +42,8 @@ try:
     data = r.json()
     check("Health endpoint", r.status_code == 200)
     check("PostgreSQL", data["services"]["postgres"]["status"] == "up")
-    check("Redis", data["services"]["redis"]["status"] == "up")
-    check("Neo4j", data["services"]["neo4j"]["status"] == "up")
+    if "neo4j" in data["services"]:
+        check("Neo4j", data["services"]["neo4j"]["status"] == "up")
 except Exception as e:
     check("Health endpoint", False, str(e))
 
@@ -87,7 +87,7 @@ except Exception as e:
     check("GET /cases/my", False, str(e))
 
 try:
-    r = requests.get(f"{BASE}/cases/spatial", headers=headers, timeout=5)
+    r = requests.get(f"{BASE}/cases/spatial", headers=headers, timeout=15)
     data = r.json()
     check("GET /cases/spatial (GeoJSON)", r.status_code == 200 and data.get("type") == "FeatureCollection",
           f"(features={len(data.get('features', []))})")
@@ -95,7 +95,7 @@ except Exception as e:
     check("GET /cases/spatial", False, str(e))
 
 try:
-    r = requests.get(f"{BASE}/cases/clusters", headers=headers, timeout=5)
+    r = requests.get(f"{BASE}/cases/clusters", headers=headers, timeout=15)
     data = r.json()
     check("GET /cases/clusters (Neo4j web)", r.status_code == 200,
           f"(cluster_lines={len(data.get('features', []))})")

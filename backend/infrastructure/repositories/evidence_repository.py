@@ -148,22 +148,53 @@ class EvidenceRepository:
         if not evidence:
             return {"is_valid": False, "status": "NOT_FOUND", "error": "Evidence record does not exist."}
 
-        if not evidence.storage_location or not os.path.exists(evidence.storage_location):
+        path_to_check = evidence.storage_location or evidence.file_path
+
+        disk_bytes = None
+        if path_to_check and path_to_check.startswith("supabase://"):
+            from core.config import settings
+            from supabase import create_client
+            bucket, filename = path_to_check.replace("supabase://", "").split("/", 1)
+            try:
+                supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
+                disk_bytes = supabase.storage.from_(bucket).download(filename)
+            except Exception as e:
+                logger.error(f"Failed to fetch evidence from Supabase for verification: {e}")
+                # Fallback to local disk using the filename
+                local_fallback = os.path.join(self.upload_dir, filename)
+                if os.path.exists(local_fallback):
+                    with open(local_fallback, "rb") as f:
+                        disk_bytes = f.read()
+        
+        if disk_bytes is None and path_to_check:
+            local_path = path_to_check
+            if path_to_check.startswith("local://"):
+                local_path = os.path.join(self.upload_dir, path_to_check.replace("local://", ""))
+            
+            if os.path.exists(local_path):
+                with open(local_path, "rb") as f:
+                    disk_bytes = f.read()
+            elif not path_to_check.startswith("supabase://"):
+                # One last attempt: check if it's just a filename in upload_dir
+                fallback = os.path.join(self.upload_dir, os.path.basename(path_to_check))
+                if os.path.exists(fallback):
+                    with open(fallback, "rb") as f:
+                        disk_bytes = f.read()
+
+        if disk_bytes is None:
             evidence.integrity_status = "TAMPERED"
             coc_log = ChainOfCustodyLog(
                 evidence_id=evidence.id,
                 actor=actor,
                 action="VERIFIED",
-                remarks="Verification FAILED: File missing from storage location on disk."
+                remarks="Verification FAILED: File missing from storage location on disk or cloud."
             )
             self.db.add(coc_log)
             await self.db.commit()
-            return {"is_valid": False, "status": "TAMPERED", "error": "File missing on disk."}
+            return {"is_valid": False, "status": "TAMPERED", "error": "File missing on storage backend."}
 
-        with open(evidence.storage_location, "rb") as f:
-            disk_bytes = f.read()
-            sha256_hasher = hashlib.sha256(disk_bytes)
-            disk_sha256 = sha256_hasher.hexdigest()
+        sha256_hasher = hashlib.sha256(disk_bytes)
+        disk_sha256 = sha256_hasher.hexdigest()
 
         is_match = (disk_sha256 == evidence.sha256) or (disk_sha256 == evidence.file_hash_sha256)
         new_status = "VERIFIED" if is_match else "TAMPERED"
@@ -173,7 +204,7 @@ class EvidenceRepository:
             evidence_id=evidence.id,
             actor=actor,
             action="VERIFIED",
-            remarks=f"Integrity check {'PASSED' if is_match else 'FAILED'}. Disk SHA-256: {disk_sha256}."
+            remarks=f"Integrity check {'PASSED' if is_match else 'FAILED'}. Storage SHA-256: {disk_sha256}."
         )
         self.db.add(coc_log)
         await self.db.commit()
