@@ -33,7 +33,7 @@ async def get_alerts(request: Request, db: AsyncSession = Depends(get_db)):
     from sqlalchemy import desc
     result = await db.execute(
         select(Case)
-        .where(Case.severity == "critical")
+        .where(Case.priority == "critical")
         .order_by(desc(Case.created_at))
         .limit(3)
     )
@@ -875,7 +875,7 @@ async def undertake_case(
     db: AsyncSession = Depends(get_db)
 ):
     """Investigator self-assigns an unassigned case."""
-    if user.role not in ["police", "cyber_cell"]:
+    if user.role not in ["police", "cyber_cell", "admin", "investigator"]:
         raise HTTPException(status_code=403, detail="Only investigators can undertake cases")
         
     result = await db.execute(select(Case).where(Case.case_number == case_number))
@@ -1110,7 +1110,7 @@ async def process_case_background(
                     investigation = InvestigationContext(
                         case_id=case.case_number,
                         initial_report=payload.get("text", ""),
-                        evidence=[evidence_url] if evidence_url else [],
+                        evidence=[file_path] if file_path else [],
                         runtime="API"
                     )
                     
