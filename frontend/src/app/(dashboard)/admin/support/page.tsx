@@ -393,7 +393,7 @@ export default function AdminSupportPage() {
                   <div>
                      <p className="text-xs text-ink-3 font-semibold uppercase tracking-wider mb-1">Created At</p>
                      <p className="text-sm text-ink flex items-center gap-2">
-                        <Clock className="w-4 h-4 text-accent" /> {new Date(selectedTicketDetails.created_at + "Z").toLocaleDateString()}
+                        <Clock className="w-4 h-4 text-accent" /> {selectedTicketDetails.created_at ? new Date(selectedTicketDetails.created_at.endsWith("Z") ? selectedTicketDetails.created_at : selectedTicketDetails.created_at + "Z").toLocaleDateString() : "—"}
                      </p>
                   </div>
                   <div>
