@@ -192,8 +192,17 @@ export default function ReportPage() {
       const isValidationError = err.response?.status === 400 || err.response?.status === 413 || err.response?.status === 422;
 
       if (isAuthError || isValidationError) {
-        // Genuine user errors — show the message
-        setError(err.response?.data?.detail || "The report couldn't be submitted. Please try again.");
+        // Genuine user errors — show the message safely
+        let errMsg = "The report couldn't be submitted. Please try again.";
+        const detail = err.response?.data?.detail;
+        if (typeof detail === "string") {
+          errMsg = detail;
+        } else if (Array.isArray(detail)) {
+          errMsg = detail.map((d: any) => d.msg || JSON.stringify(d)).join(", ");
+        } else if (typeof detail === "object") {
+          errMsg = JSON.stringify(detail);
+        }
+        setError(errMsg);
       } else {
         // Timeout, 5xx, network drop — case was saved, show graceful success
         setBrainLogs((prev) => [...prev, "[SUCCESS] Report submitted successfully. Background analysis continues..."]);
