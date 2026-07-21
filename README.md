@@ -183,14 +183,14 @@ Want to skip the manual setup? Pull our production-ready images directly from Do
 
 **Backend Service:**
 ```bash
-docker pull beastspirit2005/digital-rakshak-backend:latest
-docker run -d -p 8000:8000 --env-file ./backend/.env --name dr-backend beastspirit2005/digital-rakshak-backend:latest
+docker pull 1065925/digital-rakshak-backend:latest
+docker run -d -p 8000:8000 --env-file ./backend/.env --name dr-backend 1065925/digital-rakshak-backend:latest
 ```
 
 **Frontend Service:**
 ```bash
-docker pull beastspirit2005/digital-rakshak-frontend:latest
-docker run -d -p 3000:3000 --env-file ./frontend/.env.local --name dr-frontend beastspirit2005/digital-rakshak-frontend:latest
+docker pull 1065925/digital-rakshak-frontend:latest
+docker run -d -p 3000:3000 --env-file ./frontend/.env.local --name dr-frontend 1065925/digital-rakshak-frontend:latest
 ```
 
 ---
