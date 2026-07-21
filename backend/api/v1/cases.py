@@ -41,9 +41,10 @@ async def get_alerts(request: Request, db: AsyncSession = Depends(get_db)):
     
     alerts = []
     for i, c in enumerate(cases):
+        scam_type = (c.scam_type_code or "CYBER").upper()
         alerts.append({
             "id": i + 1,
-            "text": f"ALERT: {c.case_type.upper()} threat detected. Severity: CRITICAL."
+            "text": f"ALERT: {scam_type} threat detected. Severity: CRITICAL."
         })
         
     if not alerts:
