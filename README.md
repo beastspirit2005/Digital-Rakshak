@@ -2,7 +2,7 @@
 
 Welcome to **Digital Rakshak**! 
 
-When a citizen becomes a victim of a cyber scam or encounters counterfeit currency, the current process is often reactive: file a complaint, get a ticket number, and wait. But organized financial crime doesn't wait—it scales. 
+When a citizen becomes a victim of a cyber scam or encounters counterfeit currency, the current process is often reactive: file a complaint, get a ticket number, and wait. But organized financial crime doesn't wait; it scales. 
 
 We built **Digital Rakshak** to flip the script. Instead of just acting as a digital complaint box, Digital Rakshak is an active **Hybrid AI Intelligence Platform**. It doesn't just read complaints; it listens to victims, extracts the behavioral DNA of the attacker, maps the threat across the country, and automatically clusters isolated incidents into organized crime syndicates. 
 
@@ -13,47 +13,42 @@ We are empowering Law Enforcement Agencies (LEAs), nodal officers, and citizens 
 ## What Makes Digital Rakshak Unique?
 
 ### Version 3.0: Enterprise Architecture Upgrade
-The latest release restructures the backend to improve scalability, reliability, and security when running in production environment profiles.
+The latest release restructures the backend to improve scalability, reliability, and security when running in production serverless environments like Vercel.
+*   **Fully-Wired RAIC Dependency Injection (DI) Factory:** The backend now features a robust DI container (`RAICFactory`) that cleanly instantiates Runtimes, Intelligence Engines, Capabilities, and Agents, automatically registering them into the `AgentRegistry` on boot.
 *   **Decoupled Agent and Model Registry (RAIC + RIE):** Business logic is completely separated from machine learning runtimes. The registries handle model loading and execution configurations dynamically, removing hardcoded model dependencies.
-*   **Topological Swarm Execution:** Uses Kahn's algorithm to resolve dependencies between different analysis agents, allowing them to run concurrently where possible (e.g. running threat analysis first, then running campaign correlation only after the threat data is resolved).
-*   **Structured Threat Database (Ontology):** Implements an async repository pattern mapped to core entities like investigations, execution workflows, and raw evidence.
-*   **Strict Security Safeguards:**
-    *   *Prompt Injection Protection:* Checks incoming text for model-override attacks.
-    *   *Magic Byte Validation:* Inspects binary signatures of uploads directly to block disguised scripts or executables.
-    *   *Immutable Event Logs:* Implements sequential SHA-256 hashing to track case actions chronologically.
-    *   *Evidence Integrity:* Automatically recalculates and matches hashes throughout the case lifecycle.
-*   **Operations & Performance:** Integrates native NVML telemetry for tracking GPU VRAM usage and uses asynchronous task queues to keep heavy analysis steps off the main request thread.
+*   **Robust Serverless Fallbacks:** AI Agents utilize safe-access dictionaries and graceful degradation blocks. If PyTorch offline models fail to load on Vercel due to size constraints, the system instantly falls back to Cloud Vision (Groq) without dropping the citizen's request.
+*   **Topological Swarm Execution:** Uses Kahn's algorithm to resolve dependencies between different analysis agents, allowing them to run concurrently where possible.
+*   **Strict Security Safeguards:** Implements immutable event logs, prompt injection protections, and magic byte validation for file uploads.
 
 ### 1. The Multi-Agent Intelligence Swarm (MAIF)
-Most platforms use a single AI to answer questions. Digital Rakshak uses a swarm of **11 specialized AI subagents**. When a case is filed, agents immediately go to work in parallel:
+Most platforms use a single AI to answer questions. Digital Rakshak uses a swarm of specialized AI agents. When a case is filed, agents immediately go to work in parallel:
 *   **The Vision Agent** scans uploaded screenshots for phishing URLs.
-*   **The Behaviour Agent** extracts the psychological manipulation tactics used by the scammer (mapped to MITRE ATT&CK standards).
-*   **The Geo Agent** triangulates the threat.
+*   **The Threat & Behaviour Agents** extract the psychological manipulation tactics used by the scammer (mapped to MITRE ATT&CK standards).
 *   **The Campaign Agent** searches the Neo4j graph database to see if this scammer is part of a larger syndicate.
+*   **The Voice Agent** handles audio evidence and transcriptions natively.
 
 ### 2. Dual-Mode Architecture (Cloud vs. Air-Gapped)
-Police departments and banks deal with highly sensitive Personally Identifiable Information (PII) that cannot legally be sent to external cloud APIs like OpenAI or Groq. 
-*   **Cloud Mode:** Uses high-speed LPU infrastructure (like Groq + Llama 3.3) for rapid processing and scale.
-*   **Offline Mode:** Seamlessly falls back to a 100% air-gapped, local stack. It boots up our custom PyTorch model (`Rakshak-Text`), local `faster-whisper`, and `Qwen 2.5` to analyze data natively on the department's own hardware—ensuring zero data leakage.
+Police departments and banks deal with highly sensitive Personally Identifiable Information (PII) that cannot legally be sent to external cloud APIs. 
+*   **Cloud Mode:** Uses high-speed LPU infrastructure (like Groq + Llama 3.3) for rapid processing and scale on Vercel.
+*   **Offline Mode:** Seamlessly falls back to a 100% air-gapped, local stack. It boots up our custom PyTorch model (`Rakshak-Text`), local `faster-whisper`, and `Qwen 2.5` to analyze data natively on the department's own hardware, ensuring zero data leakage.
 
 ### 3. Physical & Cyber Convergence (The Counterfeit Tracker)
-We've unified digital and physical crime tracking. If a user uploads an image of a suspicious ₹500 note, the system bypasses the NLP engines and routes the image to our **Rakshak-Vision (MobileNetV3)** offline model. Physical counterfeits are mapped on a separate, dedicated "Emerald Green" layer on the Spatial Map, ensuring physical crimes don't pollute the cyber-threat graphs.
+We have unified digital and physical crime tracking. If a user uploads an image of a suspicious Rs 500 note, the system bypasses the NLP engines and routes the image to our Vision Engine. Physical counterfeits are mapped on a separate, dedicated layer on the Spatial Map, ensuring physical crimes do not pollute the cyber-threat graphs.
 
 ### 4. 6-Axis Threat DNA & Confidence Evolution
-A single report isn't instantly trusted. Our **RAIC Decision Core** generates a 6-Dimensional Score (Threat Severity, Behaviour, Network Linkage, Evidence Integrity, Impersonation, and Extraction). 
-As banks and police verify the data, the system uses Continuous Learning (RLHF) to evolve the **Confidence Score** from a baseline of ~50% up to a rock-solid 99% before issuing national blocks.
+A single report is not instantly trusted. Our **RAIC Decision Core** generates a 6-Dimensional Score (Threat Severity, Behaviour, Network Linkage, Evidence Integrity, Impersonation, and Extraction). As banks and police verify the data, the system evolves the **Confidence Score** from a baseline of ~50% up to a rock-solid 99% before issuing national blocks.
 
 ### 5. Empathic AI Voice Copilot
 Victims of financial fraud are often panicked. Instead of forcing them to navigate complex dropdown menus, they can simply **talk** to our AI Copilot. The system parses their voice, extracts the malicious UPIs and phone numbers, and fills out the intelligence report automatically.
 
 ### 6. Command Center & Hardware Telemetry
-The platform provides a real-time Tactical Command Center powered by dynamic PostgreSQL aggregations (calculating true financial exposure and active threat hubs) rather than static data. It also features a Live AI Health Governance Desk that monitors actual CPU/GPU hardware loads natively via `psutil`, dynamically adapting to whether it's running on Cloud Serverless architectures or Local Workstations.
+The platform provides a real-time Tactical Command Center powered by dynamic PostgreSQL aggregations (calculating true financial exposure and active threat hubs) rather than static data. It also features a Live AI Health Governance Desk that monitors actual CPU/GPU hardware loads dynamically.
 
 ---
 
 ## System Architecture
 
-Our platform is divided into a sleek Next.js frontend, a robust FastAPI orchestration layer, and a multi-database persistence layer—fully optimized for serverless deployments on Vercel.
+Our platform is divided into a sleek Next.js frontend, a robust FastAPI orchestration layer, and a multi-database persistence layer, fully optimized for serverless deployments on Vercel.
 
 ```mermaid
 graph TD
@@ -71,21 +66,29 @@ graph TD
 
     %% API Gateway
     subgraph Backend [Vercel Serverless Functions]
-        Router[FastAPI RAIC Core & Router]
+        Router[FastAPI Routing Layer]
         
-        %% Agents
-        subgraph MAIF [Multi-Agent Swarm]
-            TextA[Rakshak-Text NLP]
-            VisA[Rakshak-Vision Engine]
-            BehA[Behaviour Agent]
-            TrustA[Trust Validation Agent]
-            GeoA[Geo Agent]
+        %% RAIC DI Container
+        subgraph RAIC [RAIC Dependency Injection]
+            Factory[RAICFactory DI Container]
+            Registry[AgentRegistry]
+            Planner[ExecutionPlanner]
+            Orchestrator[RAICOrchestrator]
         end
         
-        %% External / Internal Models
-        subgraph Inference [Inference Engines]
-            Cloud[Cloud: Groq Llama 3]
-            Local[Local: Ollama Qwen 2.5]
+        %% Agents
+        subgraph Agents [Registered Agents]
+            ThreatA[Threat Agent]
+            BehA[Behaviour Agent]
+            CampA[Campaign Agent]
+            VisA[Vision Agent]
+            VoiceA[Voice Agent]
+        end
+        
+        %% RIE Runtimes
+        subgraph RIE [Intelligence Runtimes]
+            Cloud[Cloud: Groq Vision / LLM]
+            Local[Local: PyTorch / Ollama]
         end
     end
 
@@ -102,8 +105,13 @@ graph TD
     Admin -->|Overrides/Config| UI
     
     UI -->|API Requests| Router
-    Router -->|Orchestrates| MAIF
-    MAIF <--> Inference
+    Router -->|Initializes| Factory
+    Factory -->|Populates| Registry
+    Registry -->|Provides Agents to| Planner
+    Planner -->|Builds Graph for| Orchestrator
+    Orchestrator -->|Executes| Agents
+    Agents <--> RIE
+    
     Router -->|Fuses Intelligence| PG
     Router -->|Extracts Entities| Neo
     Router -->|Media/Evidence| Storage
@@ -123,7 +131,7 @@ We didn't just build an app; we built an enterprise intelligence engine using th
 *   **Relational & Vector Data:** **Neon Serverless Postgres** powered by SQLAlchemy 2.0 and `pgvector` for semantic clustering and high-performance connection pooling (PgBouncer).
 *   **Graph Intelligence:** **Neo4j AuraDB** for mapping complex relationships between scammers, UPI IDs, and phone numbers.
 *   **File Storage:** **Supabase Storage** for secure evidence and media retention.
-*   **AI Models:** Groq (Llama 3), PyTorch (MobileNetV3 for vision, XLM-RoBERTa for text), and Local Ollama (Qwen 2.5).
+*   **AI Models:** Groq (Llama 3, Qwen Vision), PyTorch (MobileNetV3 for vision, XLM-RoBERTa for text), and Local Ollama (Qwen 2.5).
 
 ---
 
@@ -166,7 +174,7 @@ Create a `.env.local` file in the `frontend` folder containing: `NEXT_PUBLIC_API
 ```bash
 npm run dev
 ```
-Open **`http://localhost:3000`** in your browser, and you're ready to explore!
+Open **`http://localhost:3000`** in your browser, and you are ready to explore!
 
 ---
 
@@ -175,14 +183,14 @@ Want to skip the manual setup? Pull our production-ready images directly from Do
 
 **Backend Service:**
 ```bash
-docker pull 1065925/digital-rakshak-backend:latest
-docker run -d -p 8000:8000 --env-file ./backend/.env --name dr-backend 1065925/digital-rakshak-backend:latest
+docker pull beastspirit2005/digital-rakshak-backend:latest
+docker run -d -p 8000:8000 --env-file ./backend/.env --name dr-backend beastspirit2005/digital-rakshak-backend:latest
 ```
 
 **Frontend Service:**
 ```bash
-docker pull 1065925/digital-rakshak-frontend:latest
-docker run -d -p 3000:3000 --env-file ./frontend/.env.local --name dr-frontend 1065925/digital-rakshak-frontend:latest
+docker pull beastspirit2005/digital-rakshak-frontend:latest
+docker run -d -p 3000:3000 --env-file ./frontend/.env.local --name dr-frontend beastspirit2005/digital-rakshak-frontend:latest
 ```
 
 ---
