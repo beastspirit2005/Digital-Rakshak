@@ -1,16 +1,16 @@
 import pytest
 import asyncio
-from backend.raic.orchestrator import RAICOrchestrator
-from backend.raic.planner import ExecutionPlanner
-from backend.raic.execution_engine import ExecutionEngine
-from backend.raic.decision.fusion import EvidenceFusion
-from backend.raic.decision.consensus import ConsensusEngine
-from backend.raic.decision.calibration import ConfidenceCalibration
-from backend.raic.decision.decision import DecisionEngine
-from backend.raic.decision.explainability import ExplainabilityEngine
-from backend.raic.agent_registry import AgentRegistry
-from backend.shared.contexts.investigation import InvestigationContext
-from backend.shared.events.investigation_events import InvestigationCreated, InvestigationClosed
+from raic.orchestrator import RAICOrchestrator
+from raic.planner import ExecutionPlanner
+from raic.execution_engine import ExecutionEngine
+from raic.decision.fusion import EvidenceFusion
+from raic.decision.consensus import ConsensusEngine
+from raic.decision.calibration import ConfidenceCalibration
+from raic.decision.decision import DecisionEngine
+from raic.decision.explainability import ExplainabilityEngine
+from raic.agent_registry import AgentRegistry
+from shared.contexts.investigation import InvestigationContext
+from shared.events.investigation_events import InvestigationCreated, InvestigationClosed
 
 class MockExecutionEngine(ExecutionEngine):
     async def execute(self, graph, investigation, state):

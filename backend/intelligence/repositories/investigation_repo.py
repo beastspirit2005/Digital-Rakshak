@@ -3,9 +3,9 @@ from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 from typing import Optional
 
-from backend.shared.contracts.repository import IInvestigationRepository
-from backend.shared.contexts.investigation import InvestigationContext, ExecutionContext, InvestigationMetadata, EvidenceContext, RuntimeContext
-from backend.intelligence.models import DBInvestigation, DBExecution, DBEvidence
+from shared.contracts.repository import IInvestigationRepository
+from shared.contexts.investigation import InvestigationContext, ExecutionContext, InvestigationMetadata, EvidenceContext, RuntimeContext
+from intelligence.models import DBInvestigation, DBExecution, DBEvidence
 import logging
 
 logger = logging.getLogger(__name__)

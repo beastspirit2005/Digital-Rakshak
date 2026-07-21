@@ -1,6 +1,6 @@
 from typing import Any, Dict
-from backend.shared.contracts.engine import IEngine
-from backend.rie.runtime_registry import RuntimeRegistry
+from shared.contracts.engine import IEngine
+from rie.runtime_registry import RuntimeRegistry
 
 class BehaviourIntelligenceEngine(IEngine):
     """

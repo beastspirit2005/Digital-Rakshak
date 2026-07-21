@@ -1,5 +1,5 @@
 from typing import Any, Dict
-from backend.shared.contracts.runtime import INERRuntime
+from shared.contracts.runtime import INERRuntime
 from infrastructure.ai.ml_client import RakshakNERClient
 import time
 

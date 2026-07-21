@@ -1,6 +1,6 @@
 from typing import Any, Dict
-from backend.shared.contracts.capability import ICapability
-from backend.shared.contracts.runtime import IVisionRuntime
+from shared.contracts.capability import ICapability
+from shared.contracts.runtime import IVisionRuntime
 
 class VisionCapability(ICapability):
     def __init__(self, runtime: IVisionRuntime):

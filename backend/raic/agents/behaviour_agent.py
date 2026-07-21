@@ -1,7 +1,7 @@
-from backend.shared.contracts.agent import IAgent
-from backend.shared.contracts.capability import ICapability
-from backend.shared.contexts.investigation import AgentContext
-from backend.shared.results.agent_result import AgentResult
+from shared.contracts.agent import IAgent
+from shared.contracts.capability import ICapability
+from shared.contexts.investigation import AgentContext
+from shared.results.agent_result import AgentResult
 
 class BehaviourAgent(IAgent):
     def __init__(self, capability: ICapability):

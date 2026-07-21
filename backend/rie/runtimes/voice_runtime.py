@@ -1,5 +1,5 @@
 from typing import Any, Dict
-from backend.shared.contracts.runtime import IVoiceRuntime
+from shared.contracts.runtime import IVoiceRuntime
 import time
 import os
 import asyncio

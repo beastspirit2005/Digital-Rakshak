@@ -1,6 +1,6 @@
 from typing import Any, Dict
-from backend.shared.contracts.capability import ICapability
-from backend.shared.contracts.engine import IEngine
+from shared.contracts.capability import ICapability
+from shared.contracts.engine import IEngine
 
 class ThreatCapability(ICapability):
     """

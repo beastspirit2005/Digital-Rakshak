@@ -1,6 +1,6 @@
 from typing import Dict, List
-from backend.shared.contracts.agent import IAgent
-from backend.shared.contexts.investigation import InvestigationContext
+from shared.contracts.agent import IAgent
+from shared.contexts.investigation import InvestigationContext
 import logging
 
 logger = logging.getLogger(__name__)

@@ -1,5 +1,5 @@
 from typing import Any, Dict
-from backend.shared.contracts.runtime import IVisionRuntime
+from shared.contracts.runtime import IVisionRuntime
 import time
 import os
 

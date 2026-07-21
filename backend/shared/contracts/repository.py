@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
-from backend.shared.contexts.investigation import InvestigationContext, EvidenceContext
+from shared.contexts.investigation import InvestigationContext, EvidenceContext
 
 class IRepository(ABC):
     """Base generic interface for all repositories."""

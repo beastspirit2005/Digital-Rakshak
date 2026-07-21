@@ -1,7 +1,7 @@
 import uuid
-from backend.raic.graph import ExecutionGraph, Stage, Parallelism, RetryPolicy, Priority
-from backend.shared.contexts.investigation import InvestigationContext
-from backend.raic.agent_registry import AgentRegistry
+from raic.graph import ExecutionGraph, Stage, Parallelism, RetryPolicy, Priority
+from shared.contexts.investigation import InvestigationContext
+from raic.agent_registry import AgentRegistry
 
 class ExecutionPlanner:
     """

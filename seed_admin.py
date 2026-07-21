@@ -1,4 +1,5 @@
 import asyncio
+import os
 from infrastructure.db.session import AsyncSessionLocal
 from domain.models.user import User
 from core.security import get_password_hash
@@ -19,7 +20,7 @@ async def seed_admin():
                     role="admin",
                     is_active=True,
                     is_approved=True,
-                    hashed_password=get_password_hash("Welcome@2029")
+                    hashed_password=get_password_hash(os.getenv("ADMIN_DEFAULT_PASSWORD", "Welcome@2029"))
                 )
                 session.add(admin_user)
                 print(f"Added admin user: {email}")
@@ -27,7 +28,7 @@ async def seed_admin():
                 existing_user.role = "admin"
                 existing_user.is_approved = True
                 existing_user.is_active = True
-                existing_user.hashed_password = get_password_hash("Welcome@2029")
+                existing_user.hashed_password = get_password_hash(os.getenv("ADMIN_DEFAULT_PASSWORD", "Welcome@2029"))
                 print(f"Updated existing user to admin: {email}")
                 
         await session.commit()

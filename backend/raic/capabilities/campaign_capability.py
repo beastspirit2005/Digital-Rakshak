@@ -1,6 +1,6 @@
 from typing import Any, Dict
-from backend.shared.contracts.capability import ICapability
-from backend.shared.contracts.runtime import IEmbeddingRuntime, INERRuntime
+from shared.contracts.capability import ICapability
+from shared.contracts.runtime import IEmbeddingRuntime, INERRuntime
 import asyncio
 
 class CampaignCapability(ICapability):

@@ -1,8 +1,8 @@
 import pytest
 import asyncio
-from backend.rie.engines.threat_intelligence_engine import ThreatIntelligenceEngine
-from backend.rie.runtime_registry import RuntimeRegistry
-from backend.shared.contracts.runtime import IRuntime
+from rie.engines.threat_intelligence_engine import ThreatIntelligenceEngine
+from rie.runtime_registry import RuntimeRegistry
+from shared.contracts.runtime import IRuntime
 from typing import Dict, Any
 
 class MockReasoningRuntime(IRuntime):

@@ -1,7 +1,7 @@
 import pytest
-from backend.raic.planner import ExecutionPlanner
-from backend.raic.agent_registry import AgentRegistry
-from backend.shared.contexts.investigation import InvestigationContext
+from raic.planner import ExecutionPlanner
+from raic.agent_registry import AgentRegistry
+from shared.contexts.investigation import InvestigationContext
 
 def test_planner_topological_stages():
     registry = AgentRegistry()

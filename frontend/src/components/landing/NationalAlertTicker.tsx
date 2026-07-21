@@ -2,32 +2,44 @@
 
 import React, { useEffect, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-
-const ALERT_ITEMS = [
-  <span key="1" className="flex items-center gap-1.5">
-    🛡 NATIONAL CYBER HELPLINE <span className="text-[#F59E0B] font-bold">1930</span>
-  </span>,
-  <span key="2">REPORT CYBER FRAUD IMMEDIATELY</span>,
-  <span key="3" className="flex items-center gap-1.5 text-[#F59E0B] font-semibold tracking-wide">
-    <a href="https://cybercrime.gov.in" target="_blank" rel="noopener noreferrer">
-       cybercrime.gov.in
-    </a>
-  </span>,
-  <span key="4">NEVER SHARE OTP</span>,
-  <span key="5">VERIFY UPI REQUESTS</span>,
-  <span key="6">REPORT WITHIN THE GOLDEN HOUR</span>,
-
-  <span key="7" className="flex items-center gap-1.5">
-     CALL <span className="text-[#F59E0B] font-bold">1930</span> FOR IMMEDIATE ASSISTANCE
-  </span>,
-];
+import { api } from "@/lib/api";
 
 export function NationalAlertTicker() {
   const [mounted, setMounted] = useState(false);
+  const [alertItems, setAlertItems] = useState<React.ReactNode[]>([
+    <span key="1" className="flex items-center gap-1.5">
+      🛡 NATIONAL CYBER HELPLINE <span className="text-[#F59E0B] font-bold">1930</span>
+    </span>,
+    <span key="2">REPORT CYBER FRAUD IMMEDIATELY</span>,
+    <span key="3" className="flex items-center gap-1.5 text-[#F59E0B] font-semibold tracking-wide">
+      <a href="https://cybercrime.gov.in" target="_blank" rel="noopener noreferrer">
+         cybercrime.gov.in
+      </a>
+    </span>,
+    <span key="4">NEVER SHARE OTP</span>,
+    <span key="5">VERIFY UPI REQUESTS</span>,
+    <span key="6">REPORT WITHIN THE GOLDEN HOUR</span>,
+    <span key="7" className="flex items-center gap-1.5">
+       CALL <span className="text-[#F59E0B] font-bold">1930</span> FOR IMMEDIATE ASSISTANCE
+    </span>,
+  ]);
   const reducedMotion = useReducedMotion();
 
   useEffect(() => {
     setMounted(true);
+    fetch(api("/cases/alerts"))
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && Array.isArray(data)) {
+          const liveAlerts = data.map((alert: any, idx: number) => (
+            <span key={`live-${idx}`} className="text-[#EF4444] font-bold">
+              {alert.text}
+            </span>
+          ));
+          setAlertItems((prev) => [...liveAlerts, ...prev]);
+        }
+      })
+      .catch((err) => console.error("Failed to fetch live alerts", err));
   }, []);
 
   if (!mounted) return null;
@@ -88,7 +100,7 @@ export function NationalAlertTicker() {
           >
             {/* Copy 1 */}
             <div className="flex items-center shrink-0">
-              {ALERT_ITEMS.map((item, idx) => (
+              {alertItems.map((item, idx) => (
                 <React.Fragment key={`set1-${idx}`}>
                   <span className="text-[11px] font-mono tracking-wider text-[#A7B4BD] font-medium uppercase flex items-center">
                     {item}
@@ -100,7 +112,7 @@ export function NationalAlertTicker() {
 
             {/* Copy 2 (Enables perfect seamless loop alignment) */}
             <div className="flex items-center shrink-0">
-              {ALERT_ITEMS.map((item, idx) => (
+              {alertItems.map((item, idx) => (
                 <React.Fragment key={`set2-${idx}`}>
                   <span className="text-[11px] font-mono tracking-wider text-[#A7B4BD] font-medium uppercase flex items-center">
                     {item}

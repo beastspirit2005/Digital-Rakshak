@@ -2,9 +2,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from typing import List
 
-from backend.shared.contracts.repository import IEvidenceRepository
-from backend.shared.contexts.investigation import EvidenceContext
-from backend.intelligence.models import DBEvidence
+from shared.contracts.repository import IEvidenceRepository
+from shared.contexts.investigation import EvidenceContext
+from intelligence.models import DBEvidence
 import logging
 
 logger = logging.getLogger(__name__)

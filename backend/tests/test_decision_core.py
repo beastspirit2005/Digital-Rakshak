@@ -1,8 +1,8 @@
 import pytest
-from backend.shared.contexts.execution_state import ExecutionState
-from backend.raic.decision.consensus import ConsensusEngine
-from backend.raic.decision.calibration import ConfidenceCalibration
-from backend.raic.decision.decision import DecisionEngine
+from shared.contexts.execution_state import ExecutionState
+from raic.decision.consensus import ConsensusEngine
+from raic.decision.calibration import ConfidenceCalibration
+from raic.decision.decision import DecisionEngine
 
 def test_consensus_engine():
     state = ExecutionState(case_id="123", correlation_id="abc")

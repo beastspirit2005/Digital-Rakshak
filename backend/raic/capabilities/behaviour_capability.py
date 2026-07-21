@@ -1,6 +1,6 @@
 from typing import Any, Dict
-from backend.shared.contracts.capability import ICapability
-from backend.shared.contracts.runtime import IBehaviourRuntime
+from shared.contracts.capability import ICapability
+from shared.contracts.runtime import IBehaviourRuntime
 
 class BehaviourCapability(ICapability):
     def __init__(self, runtime: IBehaviourRuntime):

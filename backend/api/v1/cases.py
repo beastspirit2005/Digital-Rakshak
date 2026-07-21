@@ -27,6 +27,32 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/login")
 # Model removed, now using Form fields directly for multipart/form-data
 
 
+@router.get("/alerts")
+@limiter.limit("20/minute")
+async def get_alerts(request: Request, db: AsyncSession = Depends(get_db)):
+    from sqlalchemy import desc
+    result = await db.execute(
+        select(Case)
+        .where(Case.severity == "critical")
+        .order_by(desc(Case.created_at))
+        .limit(3)
+    )
+    cases = result.scalars().all()
+    
+    alerts = []
+    for i, c in enumerate(cases):
+        alerts.append({
+            "id": i + 1,
+            "text": f"ALERT: {c.case_type.upper()} threat detected in {c.location}. Severity: CRITICAL."
+        })
+        
+    if not alerts:
+        alerts = [
+            {"id": 1, "text": "SYSTEM NORMAL: No critical threats currently active in your region."},
+            {"id": 2, "text": "REMINDER: Always verify UPI payment requests before entering your PIN."}
+        ]
+    return alerts
+
 
 @router.get("/")
 @router.get("")

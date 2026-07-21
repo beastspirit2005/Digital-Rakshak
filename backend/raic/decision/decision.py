@@ -1,5 +1,5 @@
 from typing import Dict, Any
-from backend.shared.contexts.execution_state import ExecutionState
+from shared.contexts.execution_state import ExecutionState
 
 class DecisionEngine:
     """

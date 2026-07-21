@@ -1,5 +1,5 @@
 from typing import Any, Dict, List
-from backend.shared.contracts.runtime import IReasoningRuntime
+from shared.contracts.runtime import IReasoningRuntime
 from infrastructure.ai.ollama_client import OllamaClient
 import time
 import logging

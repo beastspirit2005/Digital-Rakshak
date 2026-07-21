@@ -1,7 +1,7 @@
 from typing import Dict, Any, Type
-from backend.shared.contracts.runtime import IRuntime
-from backend.shared.contracts.engine import IEngine
-from backend.core.logger import get_logger
+from shared.contracts.runtime import IRuntime
+from shared.contracts.engine import IEngine
+from core.logger import get_logger
 
 logger = get_logger(__name__)
 
