@@ -24,11 +24,11 @@ class BehaviourAgent(IAgent):
             
             return AgentResult(
                 status="SUCCESS",
-                confidence=cap_result["confidence"],
-                execution_time_ms=cap_result["execution_time_ms"],
+                confidence=cap_result.get("confidence", 0.0),
+                execution_time_ms=cap_result.get("execution_time_ms", 0),
                 findings=[f"Detected {len(cap_result['raw_behaviors'])} social engineering indicators."],
                 evidence_links=cap_result["behaviors"], # Using evidence_links to store mapped behaviours temporarily
-                metadata=cap_result["metadata"]
+                metadata=cap_result.get("metadata", {})
             )
         except Exception as e:
             return AgentResult(

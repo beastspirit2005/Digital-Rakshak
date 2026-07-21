@@ -1083,20 +1083,19 @@ async def process_case_background(
                 
                 try:
                     from raic.orchestrator import RAICOrchestrator
-                    from raic.planner import ExecutionPlanner
-                    from raic.execution_engine import ExecutionEngine
-                    from raic.agent_registry import AgentRegistry
+                    from raic.factory import RAICFactory
                     from raic.decision.fusion import EvidenceFusion
                     from raic.decision.consensus import ConsensusEngine
                     from raic.decision.calibration import ConfidenceCalibration
                     from raic.decision.decision import DecisionEngine
                     from raic.decision.explainability import ExplainabilityEngine
                     from shared.contexts.investigation import InvestigationContext
+                    from core.config import settings
                     
-                    # Build dependencies
-                    registry = AgentRegistry()
-                    planner = ExecutionPlanner()
-                    engine = ExecutionEngine(registry)
+                    # Build fully-wired DI container via RAICFactory
+                    registry, planner, engine = RAICFactory.build(
+                        ai_mode=getattr(settings, "DEFAULT_AI_MODE", "groq")
+                    )
                     fusion = EvidenceFusion()
                     consensus = ConsensusEngine()
                     calibration = ConfidenceCalibration()
