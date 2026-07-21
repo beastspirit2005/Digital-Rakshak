@@ -1242,8 +1242,8 @@ async def override_ai_decision_rlhf(
 
     await broadcaster.emit_agent_event(
         case_id=case_number,
-        agent="RLHFFeedbackCore",
-        status_msg=f"HUMAN_OVERRIDE_APPLIED_{new_verdict.upper().replace(' ', '_')}",
+        agent_name="RLHFFeedbackCore",
+        status=f"HUMAN_OVERRIDE_APPLIED_{new_verdict.upper().replace(' ', '_')}",
         execution_ms=64,
         confidence=0.99
     )
