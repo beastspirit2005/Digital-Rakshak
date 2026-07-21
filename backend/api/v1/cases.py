@@ -1183,8 +1183,8 @@ async def verify_case_to_ntir(
 
     await broadcaster.emit_agent_event(
         case_id=case_number,
-        agent="NTIRVerificationDesk",
-        status_msg="OFFICER_VERIFIED_THREAT_LOCKED",
+        agent_name="NTIRVerificationDesk",
+        status="OFFICER_VERIFIED_THREAT_LOCKED",
         execution_ms=42,
         confidence=1.00
     )
