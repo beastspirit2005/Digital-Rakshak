@@ -1170,6 +1170,11 @@ async def process_case_background(
             case.ai_decision = fused_decision
             case.status = CaseStatus.under_review.value
             
+            # Extract scam type from AI decision to replace default 'CYBER' or 'UNKNOWN'
+            extracted_type = fused_decision.get("scam_type_classification") or fused_decision.get("threat_class") or fused_decision.get("scam_type")
+            if extracted_type:
+                case.scam_type_code = str(extracted_type).strip().replace(" ", "_").upper()
+            
             # Coordinates
             CITY_COORDINATES = {
                 "mumbai": {"lat": 19.0760, "lng": 72.8777},
