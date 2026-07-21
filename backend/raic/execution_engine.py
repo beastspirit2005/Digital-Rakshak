@@ -16,7 +16,7 @@ class ExecutionEngine:
     def __init__(self, registry: AgentRegistry):
         self._registry = registry
 
-    async def execute(self, graph: ExecutionGraph, investigation: InvestigationContext, state: ExecutionState):
+    async def execute(self, graph: ExecutionGraph, investigation: InvestigationContext, state: ExecutionState, on_agent_event=None):
         """
         Walks the ExecutionGraph stage by stage.
         """
@@ -35,12 +35,16 @@ class ExecutionEngine:
                 try:
                     agent = self._registry.get(agent_name)
                     
+                    
                     agent_context = AgentContext(
                         investigation_id=investigation.case_id,
                         correlation_id=state.correlation_id,
                         evidence_target=investigation.evidence[0] if investigation.evidence else None,
                         runtime=investigation.runtime
                     )
+                    
+                    if on_agent_event:
+                        await on_agent_event(investigation.case_id, agent_name, "Running...", message=f"Initializing {agent_name} context...")
                     
                     tasks.append(agent.execute(agent_context))
                     agent_names.append(agent_name)
@@ -57,9 +61,13 @@ class ExecutionEngine:
                     if isinstance(res, Exception):
                         logger.error("Agent execution failed", agent=name, error=str(res))
                         state.add_error(f"[{name}] {str(res)}")
+                        if on_agent_event:
+                            await on_agent_event(investigation.case_id, name, "Failed", message=str(res))
                     else:
                         state.ai_results[name] = res
                         logger.info("Agent completed", agent=name, result_status=res.status)
+                        if on_agent_event:
+                            await on_agent_event(investigation.case_id, name, "Completed", confidence=float(res.confidence))
             
             state.completed_stages.append(stage.stage_name)
             

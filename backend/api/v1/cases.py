@@ -1080,43 +1080,47 @@ async def process_case_background(
             else:
                 payload = {"text": processed_text, "ai_mode": ai_mode}
                 
-                from domain.agents.threat_agent import ThreatAnalysisAgent
-                from domain.agents.behaviour_agent import BehaviourAgent
-                from domain.agents.campaign_agent import CampaignAgent
-                from domain.agents.trust_validation_agent import TrustValidationAgent
-                from infrastructure.cache.agent_cache import agent_cache
+                from raic.orchestrator import RAICOrchestrator
+                from raic.planner import ExecutionPlanner
+                from raic.execution_engine import ExecutionEngine
+                from raic.agent_registry import AgentRegistry
+                from raic.decision.fusion import EvidenceFusion
+                from raic.decision.consensus import ConsensusEngine
+                from raic.decision.calibration import ConfidenceCalibration
+                from raic.decision.decision import DecisionEngine
+                from raic.decision.explainability import ExplainabilityEngine
+                from shared.contexts.investigation import InvestigationContext
                 
-                await broadcaster.emit_agent_event(case.case_number, "ThreatAnalysisAgent", "Running...", message="Analyzing threat vectors (Checking Redis/LRU Cache)...")
-                await broadcaster.emit_agent_event(case.case_number, "BehaviourAgent", "Running...", message="Evaluating behavioral intent...")
-                await broadcaster.emit_agent_event(case.case_number, "CampaignAgent", "Running...", message="Correlating attack campaigns...")
-                await broadcaster.emit_agent_event(case.case_number, "TrustValidationAgent", "Running...", message="Validating dynamic trust...")
+                # Build dependencies
+                registry = AgentRegistry()
+                planner = ExecutionPlanner()
+                engine = ExecutionEngine(registry)
+                fusion = EvidenceFusion()
+                consensus = ConsensusEngine()
+                calibration = ConfidenceCalibration()
+                decision = DecisionEngine()
+                explainability = ExplainabilityEngine()
                 
-                async def _run_cached(agent_inst, name, pld, c_no):
-                    hit = await agent_cache.get_cached_result(name, pld.get("text", ""))
-                    if hit:
-                        return hit
-                    out = await agent_inst.execute(pld, c_no)
-                    await agent_cache.set_cached_result(name, pld.get("text", ""), out)
-                    return out
+                orchestrator = RAICOrchestrator(
+                    planner, engine, fusion, consensus, calibration, decision, explainability
+                )
                 
-                t_task = asyncio.create_task(_run_cached(ThreatAnalysisAgent(), "ThreatAnalysisAgent", payload, case.case_number))
-                b_task = asyncio.create_task(_run_cached(BehaviourAgent(), "BehaviourAgent", payload, case.case_number))
-                c_task = asyncio.create_task(_run_cached(CampaignAgent(), "CampaignAgent", payload, case.case_number))
-                tr_task = asyncio.create_task(_run_cached(TrustValidationAgent(), "TrustValidationAgent", payload, case.case_number))
+                # Build Context
+                investigation = InvestigationContext(
+                    case_id=case.case_number,
+                    initial_report=payload.get("text", ""),
+                    evidence=[evidence_url] if evidence_url else [],
+                    runtime="API"
+                )
                 
-                t_res, b_res, c_res, tr_res = await asyncio.gather(t_task, b_task, c_task, tr_task)
+                async def _ws_callback(cid, agent_name, status, message=None, confidence=None):
+                    await broadcaster.emit_agent_event(cid, agent_name, status, message=message, confidence=confidence)
+                    
+                state = await orchestrator.execute_investigation(investigation, on_agent_event=_ws_callback)
                 
-                await broadcaster.emit_agent_event(case.case_number, "ThreatAnalysisAgent", "Completed", confidence=float(t_res.get("confidence", t_res.get("score", 0.85))))
-                await broadcaster.emit_agent_event(case.case_number, "BehaviourAgent", "Completed", confidence=float(b_res.get("confidence", b_res.get("score", 0.85))))
-                await broadcaster.emit_agent_event(case.case_number, "CampaignAgent", "Completed", confidence=float(c_res.get("confidence", c_res.get("score", 0.85))))
-                await broadcaster.emit_agent_event(case.case_number, "TrustValidationAgent", "Completed", confidence=float(tr_res.get("confidence", tr_res.get("score", 0.85))))
-                
-                # Phase 3: RAIC Decision Core Fusion
-                await broadcaster.emit_agent_event(case.case_number, "DecisionCore", "Running...", message="Calculating 6-factor consensus weights...")
-                from domain.agents.router import RAICDecisionCore
-                core = RAICDecisionCore()
-                fused_decision = await core.execute_fusion([t_res, b_res, c_res, tr_res], use_qwen_refinement=True, ai_mode=ai_mode)
-                await broadcaster.emit_agent_event(case.case_number, "DecisionCore", "Completed", confidence=float(fused_decision.get("confidence", 0.0)))
+                fused_decision = state.decision
+                if "confidence" not in fused_decision:
+                    fused_decision["confidence"] = state.confidence_score
             
             
             # Update Case Record locally in memory for now

@@ -44,7 +44,7 @@ class RAICOrchestrator:
         self.events.append(event)
         logger.info("Emitted Domain Event", event_type=event.__class__.__name__, event_id=event.event_id)
 
-    async def execute_investigation(self, investigation: InvestigationContext) -> ExecutionState:
+    async def execute_investigation(self, investigation: InvestigationContext, on_agent_event=None) -> ExecutionState:
         """
         Executes the entire multi-agent pipeline based on the provided investigation context.
         """
@@ -67,7 +67,10 @@ class RAICOrchestrator:
         graph = self._planner.plan(investigation)
         
         # Execute Pipeline
-        await self._engine.execute(graph, investigation, state)
+        await self._engine.execute(graph, investigation, state, on_agent_event=on_agent_event)
+        
+        if on_agent_event:
+            await on_agent_event(investigation.case_id, "DecisionCore", "Running...", message="Calculating 6-factor consensus weights...")
         
         # Decision Core Processing
         # 1. Fuse evidence
@@ -93,5 +96,8 @@ class RAICOrchestrator:
             case_id=investigation.case_id,
             final_status=decision_data["decision"]
         ))
+        
+        if on_agent_event:
+            await on_agent_event(investigation.case_id, "DecisionCore", "Completed", confidence=state.confidence_score)
         
         return state
