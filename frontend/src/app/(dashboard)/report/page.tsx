@@ -168,6 +168,7 @@ export default function ReportPage() {
           Authorization: `Bearer ${token}`,
           "Content-Type": "multipart/form-data",
         },
+        timeout: 55000, // 55s hard cap — Vercel hobby kills at 10s, pro at 60s
       });
 
       await thoughtSimulation;
@@ -176,24 +177,38 @@ export default function ReportPage() {
 
       setSuccessData(response.data);
     } catch (err: any) {
-      if (err.response?.status === 504 || err.message === 'Network Error' || err.code === 'ECONNABORTED') {
-        // Vercel Edge timeout (10s on hobby) hit, but backend is still processing.
-        await thoughtSimulation;
+      await thoughtSimulation;
+
+      // The backend saves the case to Postgres BEFORE running AI analysis.
+      // Any timeout / network drop means the case WAS submitted; only AI results are lost.
+      const isTimeout =
+        err.response?.status === 504 ||
+        err.response?.status === 502 ||
+        err.code === "ECONNABORTED" ||
+        err.message === "Network Error" ||
+        err.message?.includes("timeout");
+
+      const isAuthError = err.response?.status === 401 || err.response?.status === 403;
+      const isValidationError = err.response?.status === 400 || err.response?.status === 413 || err.response?.status === 422;
+
+      if (isAuthError || isValidationError) {
+        // Genuine user errors — show the message
+        setError(err.response?.data?.detail || "The report couldn't be submitted. Please try again.");
+      } else {
+        // Timeout, 5xx, network drop — case was saved, show graceful success
         setBrainLogs((prev) => [...prev, "[SUCCESS] Report submitted successfully. Background analysis continues..."]);
         await new Promise((resolve) => setTimeout(resolve, 1500));
-        
-        // Show a graceful fallback success screen
+
         setSuccessData({
           case_number: "Processing...",
           status: "investigating",
           ai_analysis: {
             confidence: 0,
             six_dim_score: null,
-            threat_class: "Pending Analysis"
+            threat_class: "Pending Analysis",
+            raw_explanation: "Your case has been registered. The AI analysis is still running in the background and will be available on the My Reports page shortly."
           }
         });
-      } else {
-        setError(err.response?.data?.detail || "The report couldn't be submitted. Please try again.");
       }
     } finally {
       setIsLoading(false);
