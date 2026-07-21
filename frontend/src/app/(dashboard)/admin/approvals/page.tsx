@@ -209,7 +209,7 @@ fetchPendingCases();
       header: "Registered",
       render: (u) => (
         <span className="font-mono text-ink-3 text-sm">
-          {u.created_at ? new Date(u.created_at.endsWith("Z") ? u.created_at : u.created_at + "Z").toLocaleDateString("en-IN") : "—"}
+          {u.created_at ? new Date(u.created_at.endsWith("Z") || u.created_at.includes("+") ? u.created_at : u.created_at + "Z").toLocaleDateString("en-IN") : "—"}
         </span>
       ),
     },

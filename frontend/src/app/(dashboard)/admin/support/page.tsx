@@ -68,7 +68,7 @@ export default function AdminSupportPage() {
         id: m.id,
         type: m.role === "admin" ? "admin" : m.role === "system" ? "system" : "user",
         content: m.content,
-        timestamp: new Date(m.created_at.endsWith("Z") ? m.created_at : m.created_at + "Z")
+        timestamp: new Date(m.created_at.endsWith("Z") || m.created_at.includes("+") ? m.created_at : m.created_at + "Z")
       }));
       setActiveChats(prev => ({ ...prev, [currentChatId]: msgs }));
     } catch (err) {
@@ -298,7 +298,7 @@ export default function AdminSupportPage() {
                        <div className="flex items-center gap-2 mb-3 pb-3 border-b border-line border-dashed">
                           <UserCircle className="w-5 h-5 text-ink-3" />
                           <span className="text-sm font-semibold text-ink">Citizen Request</span>
-                          <span className="text-xs text-ink-3 ml-auto">{new Date(selectedTicketDetails.created_at.endsWith("Z") ? selectedTicketDetails.created_at : selectedTicketDetails.created_at + "Z").toLocaleString()}</span>
+                          <span className="text-xs text-ink-3 ml-auto">{new Date(selectedTicketDetails.created_at.endsWith("Z") || selectedTicketDetails.created_at.includes("+") ? selectedTicketDetails.created_at : selectedTicketDetails.created_at + "Z").toLocaleString()}</span>
                        </div>
                        <p className="text-sm text-ink whitespace-pre-wrap">{selectedTicketDetails.message}</p>
                     </div>
@@ -310,7 +310,7 @@ export default function AdminSupportPage() {
                              <span className={`text-xs font-bold uppercase tracking-wider ${msg.sender === 'admin' ? 'text-primary' : 'text-ink-3'}`}>
                                 {msg.sender === 'admin' ? 'Admin' : 'Citizen'}
                              </span>
-                             <span className="text-[10px] text-ink-3 ml-auto">{new Date(msg.timestamp.endsWith("Z") ? msg.timestamp : msg.timestamp + "Z").toLocaleString()}</span>
+                             <span className="text-[10px] text-ink-3 ml-auto">{new Date(msg.timestamp.endsWith("Z") || msg.timestamp.includes("+") ? msg.timestamp : msg.timestamp + "Z").toLocaleString()}</span>
                           </div>
                           <p className="text-sm text-ink whitespace-pre-wrap">{msg.message}</p>
                        </div>
@@ -393,7 +393,7 @@ export default function AdminSupportPage() {
                   <div>
                      <p className="text-xs text-ink-3 font-semibold uppercase tracking-wider mb-1">Created At</p>
                      <p className="text-sm text-ink flex items-center gap-2">
-                        <Clock className="w-4 h-4 text-accent" /> {selectedTicketDetails.created_at ? new Date(selectedTicketDetails.created_at.endsWith("Z") ? selectedTicketDetails.created_at : selectedTicketDetails.created_at + "Z").toLocaleDateString() : "—"}
+                        <Clock className="w-4 h-4 text-accent" /> {selectedTicketDetails.created_at ? new Date(selectedTicketDetails.created_at.endsWith("Z") || selectedTicketDetails.created_at.includes("+") ? selectedTicketDetails.created_at : selectedTicketDetails.created_at + "Z").toLocaleDateString() : "—"}
                      </p>
                   </div>
                   <div>
