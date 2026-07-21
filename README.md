@@ -200,6 +200,7 @@ docker run -d -p 3000:3000 --env-file ./frontend/.env.local --name dr-frontend 1
 * **beastspirit2005 (Harshit Sharma)** - Backend and System Design
 * **pranikaK17 (Pranika)** - Frontend Design
 * **DikshaChopra2007 (RuntimeTerror)** - Frontend Design
+* **Tanmay Sao** - Documentation, testing, presentation and demo video
 
 ---
 
