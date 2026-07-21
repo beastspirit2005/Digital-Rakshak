@@ -159,14 +159,12 @@ export default function CommandCenterDashboard() {
     setSimulationMsg(`Executing mass automated takedown & bank freeze for ${syndCode}...`);
     try {
       const token = localStorage.getItem("token") || localStorage.getItem("access_token") || "";
-      await fetch(`${apiBase}/cases`, {
+      await fetch(`${apiBase}/mock-apis/npci/freeze-upi`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          case_type: "mass_takedown",
-          description: `Mass Takedown Order for syndicate ${syndCode}`,
-          platform: "Internal",
-          evidence_links: []
+          target_id: syndCode,
+          reason: `Mass Takedown Order for syndicate ${syndCode}`
         })
       });
       setStats((prev) => ({ ...prev, takedowns_executed: prev.takedowns_executed + 1 }));
