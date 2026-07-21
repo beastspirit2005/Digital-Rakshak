@@ -213,6 +213,21 @@ async def delete_user(user_id: str, admin: User = Depends(get_current_admin), db
     email = user.email
     full_name = user.full_name
 
+    from sqlalchemy import update
+    from domain.models.case import Case
+    from domain.models.evidence import Evidence
+    from domain.models.help_message import HelpMessage
+    from domain.models.support import SupportTicket
+    from domain.models.takedown import TakedownPolicy
+
+    # Nullify all foreign key constraints manually to prevent IntegrityError
+    await db.execute(update(Case).where(Case.submitted_by == user_id).values(submitted_by=None))
+    await db.execute(update(Case).where(Case.assigned_to == user_id).values(assigned_to=None))
+    await db.execute(update(Evidence).where(Evidence.evidence_owner == user_id).values(evidence_owner=None))
+    await db.execute(update(HelpMessage).where(HelpMessage.user_id == user_id).values(user_id=None))
+    await db.execute(update(SupportTicket).where(SupportTicket.user_id == user_id).values(user_id=None))
+    await db.execute(update(TakedownPolicy).where(TakedownPolicy.approved_by == user_id).values(approved_by=None))
+
     await db.delete(user)
     await db.commit()
 
