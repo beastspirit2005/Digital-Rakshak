@@ -40,7 +40,7 @@ export function CaseActivityTimeline({ events }: { events: any[] }) {
                 </div>
                 {event.timestamp && (
                   <span className="text-xs text-ink-3">
-                    {new Date(event.timestamp + "Z").toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "numeric", hour12: true })}
+                    {new Date(event.timestamp.endsWith("Z") ? event.timestamp : event.timestamp + "Z").toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "numeric", hour12: true })}
                   </span>
                 )}
               </div>

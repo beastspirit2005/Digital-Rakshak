@@ -524,7 +524,7 @@ export default function InvestigatorWorkspacePage() {
                                     logs.map((log) => (
                                       <tr key={log.id} className="border-b border-slate-800/60 hover:bg-slate-900/40">
                                         <td className="p-2.5 text-slate-400 whitespace-nowrap">
-                                          {log.timestamp ? new Date(log.timestamp + "Z").toLocaleString("en-IN") : "N/A"}
+                                          {log.timestamp ? new Date(log.timestamp.endsWith("Z") ? log.timestamp : log.timestamp + "Z").toLocaleString("en-IN") : "N/A"}
                                         </td>
                                         <td className="p-2.5 font-bold text-slate-300">{log.actor}</td>
                                         <td className="p-2.5">
@@ -757,7 +757,7 @@ export default function InvestigatorWorkspacePage() {
                   caseData.timeline_events.map((evt: any, idx: number) => (
                     <div key={evt.id || evt.timestamp || idx} className="relative flex gap-4 p-3 rounded-lg bg-slate-950 border border-slate-800/80">
                       <div className="w-32 shrink-0 text-slate-500 text-[11px]">
-                        {evt.timestamp ? new Date(evt.timestamp + "Z").toLocaleString("en-IN") : "N/A"}
+                        {evt.timestamp ? new Date(evt.timestamp.endsWith("Z") ? evt.timestamp : evt.timestamp + "Z").toLocaleString("en-IN") : "N/A"}
                       </div>
                       <div className="flex-1 space-y-1">
                         <div className="font-bold text-emerald-400 flex items-center gap-2">
