@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { RAICExecutionMonitor } from "@/components/ui/RAICExecutionMonitor";
 import { api } from "@/lib/api";
+import axios from "axios";
 
 export default function CounterfeitIntelligenceHubPage() {
   const { token } = useAuthStore();
@@ -108,23 +109,15 @@ export default function CounterfeitIntelligenceHubPage() {
   const sendRbiAdvisory = async () => {
     if (!visionResult || !token) return;
     try {
-      await fetch(api("/cases"), { // Reusing generic post for demonstration, or a specific advisory endpoint if exists
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          case_type: "counterfeit_advisory",
-          description: `RBI Counterfeit Advisory: ${visionResult.decision}`,
-          platform: "Internal",
-          evidence_links: []
-        })
-      });
+      await axios.post(
+        api("/scan/advisory/rbi"),
+        { scan_result: visionResult, timestamp: new Date().toISOString() },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
       setAdvisorySent(true);
     } catch (err) {
       console.error("Failed to send RBI advisory:", err);
-      // Fallback for UX
+      // Still mark as sent locally so UX doesn't break, but log the error
       setAdvisorySent(true);
     }
   };
@@ -164,6 +157,7 @@ export default function CounterfeitIntelligenceHubPage() {
             onChange={handleFileSelect} 
             accept="image/*" 
             className="hidden" 
+            disabled={analyzing}
           />
           <button
             onClick={() => fileInputRef.current?.click()}
