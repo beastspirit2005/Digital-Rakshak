@@ -12,11 +12,10 @@ import {
   CheckCheck, 
   Lock 
 } from "lucide-react";
-import { motion, useReducedMotion } from "framer-motion";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
 import { Card } from "@/components/ui/card";
 import { useAuthStore } from "@/lib/auth-store";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { BrandIdentity } from "@/components/brand-identity";
 import { BrandLogo } from "@/components/brand-logo";
 import { AnimatedCounter } from "@/components/animated-counter";
@@ -72,6 +71,17 @@ export default function LandingPage() {
   const [mounted, setMounted] = useState(false);
   const reduced = useReducedMotion();
 
+  const howItWorksRef = useRef<HTMLElement>(null);
+  const { scrollYProgress: howItWorksProgress } = useScroll({
+    target: howItWorksRef,
+    offset: ["start end", "start 0.35"],
+  });
+  const howItWorksBg = useTransform(
+    howItWorksProgress,
+    [0, 1],
+    ["#020617", "#ffffff"]
+  );
+
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -84,16 +94,22 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-[#F8FAFC] selection:bg-[#F59E0B] selection:text-[#08131A] overflow-x-hidden">
       {/* Premium Navy Header */}
-      <nav className="sticky top-0 z-50 bg-[#08131A]/95 border-b border-[#253540]/30 backdrop-blur-md">
+      <nav className="sticky top-0 z-50 bg-[#0a0a0c]/95 border-b border-white/8 backdrop-blur-md">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="hidden sm:block">
-            <BrandIdentity fixedDark />
-          </div>
+          <Link href="/" className="flex items-center gap-3 min-w-0">
+            <span className="flex items-center justify-center shrink-0 w-9 h-9 rounded-lg bg-[#18181c] border border-white/10">
+              <BrandLogo size={22} />
+            </span>
+            <span className="min-w-0">
+              <span className="block font-display text-[17px] font-bold tracking-tight leading-none text-[#E7EEF3]">
+                Digital Rakshak
+              </span>
+              <span className="hidden sm:block mt-1 text-[9px] font-medium tracking-[0.22em] uppercase text-[#8293AA]">
+                Cyber Threat Intelligence for India
+              </span>
+            </span>
+          </Link>
 
-          <div className="sm:hidden">
-            <BrandIdentity compact fixedDark />
-          </div>
-          
           <div className="hidden md:flex items-center gap-8">
             <a href="#about" className="text-sm font-medium text-[#A7B4BD] hover:text-[#E7EEF3] transition-colors">
               About
@@ -113,10 +129,9 @@ export default function LandingPage() {
           </div>
 
           <div className="flex items-center gap-4">
-            <ThemeToggle />
             <Link
               href="/auth/login"
-              className="inline-flex items-center h-9 px-4 rounded-control text-sm font-semibold bg-[#17232A] border border-[#253540] text-[#E7EEF3] hover:bg-[#1b282f] transition-all duration-150"
+              className="inline-flex items-center h-9 px-4 rounded-control text-sm font-semibold bg-[#18181c] border border-white/10 text-[#E7EEF3] hover:bg-[#232328] transition-all duration-150"
             >
               Sign in
             </Link>
@@ -507,7 +522,7 @@ export default function LandingPage() {
         {/* Animated Enterprise Trust Statistics */}
         <section
           id="features"
-          className="bg-[#F8FAFC] border-y border-[#E2E8F0] py-14"
+          className="bg-[#020617] border-y border-[#253540]/20 py-14"
         >
           <div className="max-w-[1500px] mx-auto px-6">
             <motion.div
@@ -541,9 +556,9 @@ export default function LandingPage() {
                       },
                     },
                   }}
-                  className="border-l-2 border-[#E2E8F0] pl-5 py-1"
+                  className="border-l-2 border-[#253540]/40 pl-5 py-1"
                 >
-                  <p className="font-display font-extrabold text-2xl sm:text-3xl tracking-tight text-[#08131A] tabular">
+                  <p className="font-display font-extrabold text-2xl sm:text-3xl tracking-tight text-[#E7EEF3] tabular">
                     <AnimatedCounter
                       value={stat.value}
                       decimals={stat.decimals}
@@ -552,7 +567,7 @@ export default function LandingPage() {
                     />
                   </p>
 
-                  <p className="text-xs font-semibold text-[#64748B] uppercase tracking-wider mt-1">
+                  <p className="text-xs font-semibold text-[#A7B4BD] uppercase tracking-wider mt-1">
                     {stat.label}
                   </p>
                 </motion.div>
@@ -561,8 +576,13 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* How it Works Section */}
-        <section id="how-it-works" className="bg-white py-20 sm:py-28">
+        {/* How it Works Section — background turns black→white as it scrolls into view */}
+        <motion.section
+          id="how-it-works"
+          ref={howItWorksRef}
+          style={reduced ? { backgroundColor: "#ffffff" } : { backgroundColor: howItWorksBg }}
+          className="py-20 sm:py-28"
+        >
           <div className="max-w-6xl mx-auto px-6">
             <div className="text-center max-w-2xl mx-auto mb-16">
               <p className="font-serif italic text-lg text-[#64748B] mb-2">How it works</p>
@@ -591,7 +611,7 @@ export default function LandingPage() {
               ))}
             </div>
           </div>
-        </section>
+        </motion.section>
 <FAQSection />
        
       </main>

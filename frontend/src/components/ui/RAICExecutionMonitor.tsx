@@ -121,7 +121,7 @@ export function RAICExecutionMonitor({
       );
     }
     return (
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-500/15 text-ink-3 border border-slate-500/30">
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-ink-3/15 text-ink-3 border border-ink-3/30">
         <Activity className="w-3.5 h-3.5 text-ink-3" /> {status}
       </span>
     );
@@ -137,7 +137,7 @@ export function RAICExecutionMonitor({
           <div className="flex gap-1.5">
             <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
             <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-            <span className={`w-2.5 h-2.5 rounded-full ${connected ? "bg-emerald-500 animate-pulse" : "bg-slate-600"}`} />
+            <span className={`w-2.5 h-2.5 rounded-full ${connected ? "bg-emerald-500 animate-pulse" : "bg-ink-3/60"}`} />
           </div>
           <Cpu className="w-4 h-4 text-emerald-400 ml-1" />
           <span className="text-xs font-mono font-bold text-ink tracking-wider uppercase">
@@ -221,7 +221,7 @@ export function RAICExecutionMonitor({
       </div>
 
       {/* Footer info */}
-      <div className="px-4 py-2 border-t border-slate-800 bg-slate-950 flex items-center justify-between text-[11px] text-slate-500 font-mono">
+      <div className="px-4 py-2 border-t border-line bg-bg flex items-center justify-between text-[11px] text-ink-3 font-mono">
         <div className="flex items-center gap-2">
           <span>Connection Status:</span>
           <span className={connected ? "text-emerald-400 font-bold" : "text-rose-400 font-bold"}>

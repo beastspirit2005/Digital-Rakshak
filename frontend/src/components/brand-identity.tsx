@@ -22,8 +22,12 @@ export function BrandIdentity({
      <div
   className={`
     flex items-center justify-center shrink-0
-    bg-[#16232B] border-[#263640]
     border
+    ${
+      fixedDark
+        ? "bg-[#18181c] border-white/10"
+        : "bg-surface-2 border-line"
+    }
     ${
       compact
         ? "w-10 h-10 rounded-xl"

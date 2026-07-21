@@ -233,7 +233,7 @@ const sidebarContent = (
       className="flex items-center gap-3 px-4 pt-5 pb-5 border-b border-line/15"
       onClick={() => setSidebarOpen(false)}
     >
-      <div className="w-12 h-12 rounded-2xl bg-[#111f27] border border-[#253540] flex items-center justify-center shrink-0">
+      <div className="w-12 h-12 rounded-2xl bg-surface-2 border border-line flex items-center justify-center shrink-0">
         <BrandLogo size={28} />
       </div>
 

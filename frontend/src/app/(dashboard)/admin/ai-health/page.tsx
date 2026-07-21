@@ -1,35 +1,17 @@
 "use client";
 
 import { api } from "@/lib/api";
-import React, { useState, useEffect } from "react";
-import {
-  Server,
-  Database,
-  Cloud,
-  Cpu,
-  Zap,
-  RefreshCw,
-  AlertTriangle,
-  CheckCircle2,
-  Lock,
-  Unlock,
-  ShieldCheck,
-  Activity,
-  Sliders,
-  History,
-  GitBranch,
-  ArrowRight,
-  Shield,
-  Layers
-} from "lucide-react";
+import { useEffect, useState } from "react";
+import { Cpu, Layers, History, ShieldCheck } from "lucide-react";
 import axios from "axios";
 import { useAuthStore } from "@/lib/auth-store";
-import { Card } from "@/components/ui/card";
+import { Card, CardHeader } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { Rise } from "@/components/ui/motion";
+import { DataTable, type Column } from "@/components/ui/data-table";
+import { TableSkeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 
 interface ModelConfig {
   id: string;
@@ -52,10 +34,42 @@ interface AuditLogEntry {
   verification_hash: string;
 }
 
+const auditColumns: Column<AuditLogEntry>[] = [
+  {
+    key: "timestamp",
+    header: "Timestamp (UTC)",
+    mobile: "meta",
+    render: (l) => <span className="font-mono text-xs text-ink-2 tabular">{l.timestamp}</span>,
+  },
+  {
+    key: "officer",
+    header: "Authorizing Officer",
+    mobile: "title",
+    render: (l) => <span className="font-semibold text-ink">{l.officer}</span>,
+  },
+  {
+    key: "action",
+    header: "Governance Action",
+    render: (l) => <span className="text-cyan-400 font-bold">{l.action}</span>,
+  },
+  {
+    key: "impact",
+    header: "Model Matrix Impact",
+    render: (l) => <span className="text-emerald-300">{l.impact}</span>,
+  },
+  {
+    key: "verification_hash",
+    header: "Verification Hash",
+    align: "right",
+    mobile: "trailing",
+    render: (l) => <span className="font-mono text-[11px] text-ink-3 tabular">{l.verification_hash}</span>,
+  },
+];
+
 export default function AIHealthGovernanceDashboard() {
   const { token } = useAuthStore();
   const toast = useToast();
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const [models, setModels] = useState<ModelConfig[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
@@ -66,7 +80,7 @@ export default function AIHealthGovernanceDashboard() {
       try {
         setLoading(true);
         const res = await axios.get(api("/health/ai-telemetry"), {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${token}` },
         });
         setModels(res.data.models);
         setAuditLogs(res.data.auditLogs);
@@ -80,139 +94,93 @@ export default function AIHealthGovernanceDashboard() {
 
     if (token) {
       fetchTelemetry();
-      const interval = setInterval(fetchTelemetry, 15000); // Live refresh every 15s
+      const interval = setInterval(fetchTelemetry, 15000);
       return () => clearInterval(interval);
     }
   }, [token]);
 
-
-
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 p-4 md:p-6 space-y-6 font-sans">
-      {/* Top Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-800">
-        <div className="flex items-center gap-3">
-          <div className="p-3 rounded-xl bg-cyan-900/40 border border-cyan-500/40 text-cyan-400 shadow-xl flex items-center justify-center">
-            <Cpu className="w-7 h-7" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl md:text-3xl font-black font-mono tracking-tight text-white uppercase">
-                AI Health & Model Governance Desk (`/admin/ai-health`)
-              </h1>
-              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">
-                Sprint 8 Governance Core
-              </span>
-            </div>
-            <p className="text-xs font-mono text-slate-400 mt-0.5 flex items-center gap-2">
-              <span>Model Versioning & Drift Auditing</span>
-              <span className="text-slate-600">•</span>
-              <span className="text-emerald-400 font-semibold">
-                {environment === "cloud" ? "Cloud Serverless Limits" : "Local Workstation Hardware"}
-              </span>
-            </p>
-          </div>
-        </div>
-      </div>
-      {/* Model Grid & Version Switcher */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="font-mono text-sm font-bold text-white uppercase tracking-wide flex items-center gap-2">
+    <div className="space-y-6 pt-2">
+      <Rise>
+        <PageHeader
+          title="AI Health & Model Governance Desk"
+          sub={`Model Versioning & Drift Auditing — ${environment === "cloud" ? "Cloud Serverless Limits" : "Local Workstation Hardware"}.`}
+          actions={
+            <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 flex items-center gap-1">
+              <ShieldCheck className="w-3.5 h-3.5" /> Sprint 8 Governance Core
+            </span>
+          }
+        />
+      </Rise>
+
+      <Rise index={1}>
+        <div className="flex items-center justify-between px-1">
+          <h3 className="font-display font-bold text-sm text-ink flex items-center gap-2">
             <Layers className="w-4 h-4 text-cyan-400" /> Active AI Inference Engines & Version Governance
           </h3>
-          <span className="text-xs font-mono text-slate-400">Drift Threshold: 0.10 max</span>
+          <span className="text-xs text-ink-3 font-medium">Drift Threshold: 0.10 max</span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 font-mono text-xs">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-3">
           {models.map((m) => (
-            <div
+            <Card
               key={m.id}
-              className={`p-4 rounded-xl border transition-all flex flex-col justify-between space-y-3 ${
-                m.is_active
-                  ? "bg-slate-900/90 border-cyan-500/50 shadow-xl"
-                  : "bg-slate-950/60 border-slate-800 opacity-70"
-              }`}
+              className={m.is_active ? "px-4 py-4" : "px-4 py-4 opacity-60"}
             >
-              <div>
-                <div className="flex items-center justify-between">
-                  <span className="font-black text-white truncate text-sm">{m.name}</span>
-                  <span
-                    className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
-                      m.status === "ONLINE"
-                        ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
-                        : "bg-amber-500/20 text-amber-400 border border-amber-500/40"
-                    }`}
-                  >
-                    {m.status}
-                  </span>
-                </div>
-                <div className="mt-1 text-[11px] text-cyan-300 font-bold">{m.version}</div>
-                <p className="text-slate-400 text-[11px] mt-2 leading-relaxed">{m.role}</p>
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-display font-bold text-ink text-sm truncate">{m.name}</span>
+                <span
+                  className={
+                    m.status === "ONLINE"
+                      ? "px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
+                      : "px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/40"
+                  }
+                >
+                  {m.status}
+                </span>
               </div>
+              <div className="mt-1 text-xs font-bold text-cyan-300">{m.version}</div>
+              <p className="text-xs text-ink-2 mt-2 leading-relaxed">{m.role}</p>
 
-              <div className="pt-3 border-t border-slate-800 space-y-2">
-                <div className="flex justify-between text-[11px]">
-                  <span className="text-slate-500">Avg Latency:</span>
-                  <strong className="text-emerald-400">{m.latency_ms} ms</strong>
+              <div className="mt-3 pt-3 border-t border-line/10 space-y-1.5 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-ink-3">Avg Latency:</span>
+                  <strong className="text-emerald-400 tabular">{m.latency_ms} ms</strong>
                 </div>
-                <div className="flex justify-between text-[11px]">
-                  <span className="text-slate-500">Drift Index:</span>
-                  <strong className={m.drift_index < 0.05 ? "text-emerald-400" : "text-amber-400"}>
+                <div className="flex justify-between">
+                  <span className="text-ink-3">Drift Index:</span>
+                  <strong className={m.drift_index < 0.05 ? "text-emerald-400 tabular" : "text-amber-400 tabular"}>
                     {m.drift_index} ({m.drift_index < 0.05 ? "STABLE" : "MONITOR"})
                   </strong>
                 </div>
                 {m.vram_usage && (
-                  <div className="flex justify-between text-[11px]">
-                    <span className="text-slate-500">VRAM Load:</span>
-                    <strong className="text-purple-300">{m.vram_usage}</strong>
+                  <div className="flex justify-between">
+                    <span className="text-ink-3">VRAM Load:</span>
+                    <strong className="text-purple-300 tabular">{m.vram_usage}</strong>
                   </div>
                 )}
-
               </div>
-            </div>
+            </Card>
           ))}
         </div>
-      </div>
+      </Rise>
 
-      {/* Model Drift & RLHF Audit Ledger */}
-      <div className="bg-slate-900/70 border border-slate-800 rounded-xl p-5 space-y-4 font-mono text-xs">
-        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-          <div className="flex items-center gap-2">
-            <History className="w-5 h-5 text-cyan-400" />
-            <h3 className="font-bold text-white uppercase tracking-wide">
-              Model Governance & RLHF Weight Tuning Audit Ledger
-            </h3>
-          </div>
-          <span className="text-slate-400">Chronological Immutable Record</span>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-slate-800 text-[10px] text-slate-500 uppercase tracking-wider">
-                <th className="py-2.5 px-3">Timestamp (UTC)</th>
-                <th className="py-2.5 px-3">Authorizing Officer</th>
-                <th className="py-2.5 px-3">Governance Action</th>
-                <th className="py-2.5 px-3">Model Matrix Impact</th>
-                <th className="py-2.5 px-3 text-right">Verification Hash</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/80 text-slate-300">
-              {auditLogs.map((log) => (
-                <tr key={log.id} className="hover:bg-slate-800/40 transition-all">
-                  <td className="py-3 px-3 text-slate-400 tabular-nums">{log.timestamp}</td>
-                  <td className="py-3 px-3 font-semibold text-white">{log.officer}</td>
-                  <td className="py-3 px-3 text-cyan-400 font-bold">{log.action}</td>
-                  <td className="py-3 px-3 text-emerald-300">{log.impact}</td>
-                  <td className="py-3 px-3 text-right text-slate-500 font-mono text-[10px] tabular-nums">
-                    {log.verification_hash}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <Rise index={2}>
+        <Card>
+          <CardHeader
+            title="Model Governance & RLHF Weight Tuning Audit Ledger"
+            sub="Chronological Immutable Record"
+            action={<History className="w-4 h-4 text-cyan-400" />}
+          />
+          {loading ? (
+            <TableSkeleton rows={5} />
+          ) : auditLogs.length === 0 ? (
+            <EmptyState icon={Cpu} title="No audit entries yet" body="Governance actions on the model matrix will appear here." />
+          ) : (
+            <DataTable columns={auditColumns} rows={auditLogs} rowKey={(l) => l.id} />
+          )}
+        </Card>
+      </Rise>
     </div>
   );
 }
