@@ -19,8 +19,8 @@ RUN apt-get update && apt-get install -y \
 # Install Python dependencies
 COPY requirements.docker.txt /app/requirements.txt
 RUN pip install --upgrade pip
-# We use --no-cache-dir to keep the image size as small as possible
-RUN pip install --no-cache-dir -r requirements.txt
+# We use --default-timeout=1000 to prevent connection drops on heavy AI packages
+RUN pip install --default-timeout=1000 -r requirements.txt
 
 # Copy the massive PyTorch models directly into the image
 # (This bypasses GitHub size limits as the models live permanently inside this Docker layer)
