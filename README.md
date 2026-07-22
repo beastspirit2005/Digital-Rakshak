@@ -137,7 +137,7 @@ We didn't just build an app; we built an enterprise intelligence engine using th
 
 ## 🔐 Demo Credentials (For Judges)
 
-The live platform is deployed at **[frontend-chi-lemon-78.vercel.app](https://frontend-chi-lemon-78.vercel.app)**
+The live platform is deployed at **[frontend-chi-lemon-78.vercel.app](https://rakshak-backend.vercel.app/)**
 
 Use the following credentials to explore each role:
 
