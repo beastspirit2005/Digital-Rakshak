@@ -135,6 +135,23 @@ We didn't just build an app; we built an enterprise intelligence engine using th
 
 ---
 
+## 🔐 Demo Credentials (For Judges)
+
+The live platform is deployed at **[frontend-chi-lemon-78.vercel.app](https://frontend-chi-lemon-78.vercel.app)**
+
+Use the following credentials to explore each role:
+
+| Role | Email | Password | Access |
+|------|-------|----------|--------|
+| 👮 Police / Investigator | `police1@rakshak.com` | `police@123` | Workbench, Case Assignment, Graph Intelligence |
+| 👤 Citizen / Victim | `citizen1@rakshak.com` | `citizen@123` | Report a Crime, Track Case Status, Help Chat |
+| 🏛️ Admin | `admin1@rakshak.com` | `admin@123` | Command Center, User Management, Full Platform |
+| 🏦 Banker / Nodal Officer | `banker1@rakshak.com` | `banker@123` | Case Verification, Evidence Review |
+
+> **Note:** All accounts are pre-seeded with sample cases and intelligence data for demonstration purposes.
+
+---
+
 ## Getting Started (Run it locally!)
 
 You can spin up the entire intelligence platform on your local machine.
@@ -200,7 +217,6 @@ docker run -d -p 3000:3000 --env-file ./frontend/.env.local --name dr-frontend 1
 * **beastspirit2005 (Harshit Sharma)** - Backend and System Design
 * **pranikaK17 (Pranika)** - Frontend Design
 * **DikshaChopra2007 (RuntimeTerror)** - Frontend Design
-* **Tanmay Sao** - Documentation, testing, presentation and demo video
 
 ---
 
