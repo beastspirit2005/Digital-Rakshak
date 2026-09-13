@@ -782,9 +782,18 @@ async def escalate_transaction_to_case(
         raise HTTPException(status_code=404, detail=f"Transaction {id} not found")
 
     # Check if this transaction has already been escalated
-    existing_case_query = select(Case).where(Case.case_number.like(f"%{txn.transaction_id}%"))
-    existing_case_res = await db.execute(existing_case_query)
-    existing_case = existing_case_res.scalar_one_or_none()
+    existing_case = None
+    if txn.raw_metadata and txn.raw_metadata.get("escalated_case_number"):
+        existing_case_res = await db.execute(
+            select(Case).where(Case.case_number == txn.raw_metadata["escalated_case_number"])
+        )
+        existing_case = existing_case_res.scalar_one_or_none()
+
+    if not existing_case:
+        existing_case_res = await db.execute(
+            select(Case).where(Case.scam_text.like(f"%{txn.transaction_id}%"))
+        )
+        existing_case = existing_case_res.scalar_one_or_none()
 
     if existing_case:
         return {
