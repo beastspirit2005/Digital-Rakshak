@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     GROQ_API_KEY: Optional[str] = None
     GOOGLE_API_KEY: Optional[str] = None  # For Gemini Flash vision (free tier)
     OLLAMA_HOST: str = "http://localhost:11434"
+    OLLAMA_MODEL: str = "llama3:8b"
     FORCE_LOCAL_INFERENCE: bool = False
     DEFAULT_AI_MODE: str = "groq"
     

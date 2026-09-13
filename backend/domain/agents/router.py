@@ -124,7 +124,7 @@ class RAICDecisionCore:
                 from infrastructure.ai.groq_client import GroqClient
                 qwen_res = await GroqClient().analyze(refine_prompt, context={}, model_name="openai/gpt-oss-20b")
             else:
-                qwen_res = await self.ollama.analyze(refine_prompt, context={}, model_name="qwen2.5:7b")
+                qwen_res = await self.ollama.analyze(refine_prompt, context={}, model_name="llama3:8b")
                 
             if isinstance(qwen_res, dict) and qwen_res.get("decision"):
                 # Do not leak Ollama connection errors to the frontend

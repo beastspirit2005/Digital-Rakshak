@@ -1,11 +1,11 @@
 "use client";
 
 import { createContext, useCallback, useContext, useState } from "react";
-import { CheckCircle2, AlertCircle, Info } from "lucide-react";
+import { CheckCircle2, AlertCircle, AlertTriangle, Info } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 
-type ToastTone = "success" | "danger" | "info";
+type ToastTone = "success" | "danger" | "warning" | "info";
 interface Toast {
   id: number;
   tone: ToastTone;
@@ -21,12 +21,14 @@ export function useToast() {
 const icons: Record<ToastTone, typeof Info> = {
   success: CheckCircle2,
   danger: AlertCircle,
+  warning: AlertTriangle,
   info: Info,
 };
 
 const toneClass: Record<ToastTone, string> = {
   success: "text-success",
   danger: "text-danger",
+  warning: "text-warning",
   info: "text-ink-2",
 };
 

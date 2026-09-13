@@ -24,6 +24,25 @@ export function api(path: string): string {
   return `${API_BASE_URL}${normalizedPath}`;
 }
 
+/**
+ * Helper to build WebSocket URLs matching API_BASE_URL.
+ * Usage: wsApi("/transactions/ws") → "ws://127.0.0.1:8000/v1/transactions/ws"
+ */
+export function wsApi(path: string): string {
+  const cleanPath = path.replace(/^\/api\/v1/, "").replace(/^\/v1/, "");
+  const normalizedPath = cleanPath.startsWith("/") ? cleanPath : `/${cleanPath}`;
+
+  if (typeof window !== "undefined") {
+    if (API_BASE_URL.startsWith("http://") || API_BASE_URL.startsWith("https://")) {
+      const wsUrl = API_BASE_URL.replace(/^http/, "ws");
+      return `${wsUrl}${normalizedPath}`;
+    }
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    return `${protocol}//${window.location.host}/api/v1${normalizedPath}`;
+  }
+  return `ws://127.0.0.1:8000/v1${normalizedPath}`;
+}
+
 // Request Interceptor to attach the token automatically
 axios.interceptors.request.use(
   (config) => {

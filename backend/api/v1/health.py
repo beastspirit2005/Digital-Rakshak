@@ -72,7 +72,7 @@ async def health_check(db: AsyncSession = Depends(get_db)):
                 response = await httpx_client.get(f"{settings.OLLAMA_HOST}")
                 response.raise_for_status()
             provider = "Ollama (Offline)"
-            model = "Qwen 2.5"
+            model = getattr(settings, "OLLAMA_MODEL", "llama3:8b")
             
         latency = round((time.time() - start_time) * 1000, 2)
         health_status["services"]["ai"] = {

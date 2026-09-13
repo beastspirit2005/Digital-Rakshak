@@ -1,6 +1,14 @@
 import json
 from typing import Dict, Any
 import ollama
+from core.config import settings
+
+LEGACY_MODEL_MAP = {
+    "mistral": "llama3:8b",
+    "qwen2.5:7b": "llama3:8b",
+    "qwen2.5": "llama3:8b",
+    "mistral:7b": "llama3:8b"
+}
 
 class OllamaClient:
     """
@@ -9,16 +17,19 @@ class OllamaClient:
     """
     
     def __init__(self):
-        # We assume Ollama is running locally (e.g. via Docker or native service)
-        # on the default port 11434. The ollama SDK connects there by default.
-        self.default_model = "mistral" # 7B quantized model fits in 8GB VRAM
-        self.client = ollama.AsyncClient()
+        self.default_model = getattr(settings, "OLLAMA_MODEL", "llama3:8b")
+        self.client = ollama.AsyncClient(host=settings.OLLAMA_HOST)
+
+    def _resolve_model(self, model_name: str = None) -> str:
+        if not model_name:
+            return self.default_model
+        return LEGACY_MODEL_MAP.get(model_name, model_name)
 
     async def analyze(self, prompt: str, context: Dict[str, Any], model_name: str = None) -> Dict[str, Any]:
         """
         Sends a prompt and JSON context to local Ollama.
         """
-        model = model_name or self.default_model
+        model = self._resolve_model(model_name)
         
         full_prompt = f"""
         You are an elite cyber threat intelligence AI.
@@ -81,7 +92,7 @@ class OllamaClient:
         """
         Sends a raw prompt to Ollama for a conversational or unstructured text response.
         """
-        model = model_name or self.default_model
+        model = self._resolve_model(model_name)
         try:
             response = await self.client.chat(
                 model=model,

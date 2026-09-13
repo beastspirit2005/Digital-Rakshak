@@ -14,9 +14,16 @@ interface Message {
   role: "user" | "assistant";
   content: string;
   timestamp: number;
+  engine?: string;
 }
 
 import { usePathname } from "next/navigation";
+
+function stripThinkingTags(content: string): string {
+  if (!content) return "";
+  const cleaned = content.replace(/<think>[\s\S]*?<\/think>/g, "").replace(/<think>[\s\S]*$/g, "").trim();
+  return cleaned || content;
+}
 
 export function GlobalChatWidget() {
   const { user, token } = useAuthStore();
@@ -26,6 +33,7 @@ export function GlobalChatWidget() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [aiMode, setAiMode] = useState("groq");
+  const [lastAnswerEngine, setLastAnswerEngine] = useState<string>("");
   const [caseId, setCaseId] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const reduced = useReducedMotion();
@@ -92,11 +100,15 @@ export function GlobalChatWidget() {
         }
       );
 
+      const engine = response.data.engine || (aiMode === "ollama" ? "Ollama (local)" : "Groq (cloud)");
+      setLastAnswerEngine(engine);
+
       const aiMsg: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
         content: response.data.reply,
         timestamp: Date.now(),
+        engine: engine,
       };
       setMessages((prev) => [...prev, aiMsg]);
     } catch (err: any) {
@@ -208,8 +220,16 @@ export function GlobalChatWidget() {
                       {msg.role === "user" ? (
                         <div className="whitespace-pre-wrap">{msg.content}</div>
                       ) : (
-                        <div className="chat-markdown [&_p]:leading-snug [&_p+p]:mt-2 [&_pre]:bg-surface [&_pre]:p-2 [&_pre]:rounded-control [&_pre]:text-xs [&_code]:text-xs [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_a]:underline">
-                          <ReactMarkdown>{msg.content}</ReactMarkdown>
+                        <div className="space-y-1">
+                          <div className="chat-markdown [&_p]:leading-snug [&_p+p]:mt-2 [&_pre]:bg-surface [&_pre]:p-2 [&_pre]:rounded-control [&_pre]:text-xs [&_code]:text-xs [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_a]:underline">
+                            <ReactMarkdown>{stripThinkingTags(msg.content)}</ReactMarkdown>
+                          </div>
+                          {msg.engine && (
+                            <div className="text-[10px] text-ink-3 font-mono flex items-center gap-1 pt-1 border-t border-line/10">
+                              <span className={`w-1.5 h-1.5 rounded-full ${msg.engine.toLowerCase().includes("ollama") ? "bg-emerald-500" : "bg-sky-500"}`} />
+                              <span>via {msg.engine}</span>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -236,14 +256,18 @@ export function GlobalChatWidget() {
             </div>
 
             {/* input */}
-            <div className="p-3 border-t border-line">
+            <div className="p-3 border-t border-line flex flex-col gap-1.5 bg-surface">
               <form onSubmit={handleSend} className="relative flex items-center">
                 <input
                   type="text"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder="Ask a question"
-                  className="w-full h-10 bg-surface-2 rounded-pill pl-4 pr-11 text-sm text-ink placeholder:text-ink-3 border border-transparent focus:border-accent-text focus:outline-none transition-colors"
+                  placeholder={
+                    lastAnswerEngine
+                      ? `Ask a question (answered by ${lastAnswerEngine})...`
+                      : `Ask a question (${aiMode === "ollama" ? "Ollama — local" : "Groq — cloud"})...`
+                  }
+                  className="w-full h-10 bg-surface-2 rounded-pill pl-4 pr-11 text-sm text-ink placeholder:text-ink-3/80 border border-transparent focus:border-accent-text focus:outline-none transition-colors"
                   disabled={isLoading}
                 />
                 <button
@@ -255,6 +279,21 @@ export function GlobalChatWidget() {
                   <Send className="w-3.5 h-3.5" />
                 </button>
               </form>
+
+              {/* Explicit engine specification in the text input box container */}
+              <div className="flex items-center justify-between px-1 text-[11px] text-ink-3">
+                <span className="flex items-center gap-1.5">
+                  <span className={`w-1.5 h-1.5 rounded-full ${aiMode === "ollama" ? "bg-emerald-500 animate-pulse" : "bg-sky-500 animate-pulse"}`} />
+                  <span>
+                    Routing: <strong className="text-ink font-medium">{aiMode === "ollama" ? "Ollama (Local)" : "Groq (Cloud)"}</strong>
+                  </span>
+                </span>
+                {lastAnswerEngine && (
+                  <span className="text-[10px] font-mono text-ink-3 bg-surface-2 px-1.5 py-0.5 rounded border border-line/20">
+                    Answered by: <strong className="text-ink-2">{lastAnswerEngine}</strong>
+                  </span>
+                )}
+              </div>
             </div>
           </motion.div>
         )}

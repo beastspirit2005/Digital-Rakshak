@@ -16,6 +16,12 @@ interface ChatBubbleProps {
   message: ChatMessage;
 }
 
+function stripThinkingTags(content: string): string {
+  if (!content) return "";
+  const cleaned = content.replace(/<think>[\s\S]*?<\/think>/g, "").replace(/<think>[\s\S]*$/g, "").trim();
+  return cleaned || content;
+}
+
 export function ChatBubble({ message }: ChatBubbleProps) {
   const isUser = message.type === "user";
   const isSystem = message.type === "system";
@@ -54,7 +60,7 @@ export function ChatBubble({ message }: ChatBubbleProps) {
             ? "bg-primary text-primary-foreground rounded-tr-sm" 
             : "bg-surface-2 text-ink border border-line rounded-tl-sm"
         )}>
-          {message.content}
+          {stripThinkingTags(message.content)}
         </div>
         <div className={cn("text-[10px] text-ink-3 mt-1 px-1", isUser && "text-right")}>
           {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

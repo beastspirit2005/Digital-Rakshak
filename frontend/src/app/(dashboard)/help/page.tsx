@@ -19,7 +19,7 @@ export default function HelpPage() {
   // --- Chat Settings State ---
   const [forceLocal, setForceLocal] = useState(false);
   const [availableModels, setAvailableModels] = useState<any[]>([]);
-  const [selectedModel, setSelectedModel] = useState<string>("mistral");
+  const [selectedModel, setSelectedModel] = useState<string>("llama3:8b");
 
   // --- Chat State ---
   const [messages, setMessages] = useState<ChatMessage[]>([]);

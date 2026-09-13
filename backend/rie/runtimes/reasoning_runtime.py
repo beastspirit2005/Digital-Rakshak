@@ -38,7 +38,7 @@ class RakshakReasoningRuntime(IReasoningRuntime):
                 engine = "Rakshak-Reasoning-Groq"
             else:
                 client = OllamaClient()
-                result = await client.analyze(prompt, context=context, model_name="qwen2.5:7b")
+                result = await client.analyze(prompt, context=context, model_name="llama3:8b")
                 engine = "Rakshak-Reasoning-Ollama"
                 
             execution_time_ms = int((time.time() - start_time) * 1000)

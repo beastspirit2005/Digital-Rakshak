@@ -13,7 +13,7 @@ from shared.contexts.investigation import InvestigationContext
 from shared.events.investigation_events import InvestigationCreated, InvestigationClosed
 
 class MockExecutionEngine(ExecutionEngine):
-    async def execute(self, graph, investigation, state):
+    async def execute(self, graph, investigation, state, on_agent_event=None, **kwargs):
         # Mock execution that just populates AI results
         state.ai_results = {
             "threat_agent": {"confidence": 0.9, "threat_class": "PHISHING"}

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, UploadFile, File
 from api.deps import get_current_user, get_current_admin, get_current_user_allow_unapproved
 from domain.models.user import User
+from core.config import settings
 import ollama
 import logging
 
@@ -34,7 +35,7 @@ async def list_models(user: User = Depends(get_current_user_allow_unapproved)):
     
     # 2. Add Local Models (Fetch from Ollama)
     try:
-        client = ollama.AsyncClient()
+        client = ollama.AsyncClient(host=settings.OLLAMA_HOST)
         response = await client.list()
         
         models_list = response.get("models", []) if isinstance(response, dict) else getattr(response, "models", [])
@@ -48,15 +49,18 @@ async def list_models(user: User = Depends(get_current_user_allow_unapproved)):
             if not model_name:
                 continue
             
+            # Filter out legacy models that may linger
+            if any(old in model_name.lower() for old in ["mistral", "qwen2.5:7b"]):
+                continue
+
             # Determine if it's heavy based on parameter size naming conventions
-            is_heavy = any(size in model_name for size in ["14b", "32b", "70b", "8x7b"])
+            is_heavy = any(size in model_name for size in ["14b", "27b", "32b", "70b", "8x7b"])
             
-            # Recommend Qwen2.5 7B based on system architecture 
+            # Recommend llama3:8b as the fast, default local offline model
             is_recommended = False
-            if "qwen2.5" in model_name and "7b" in model_name:
+            if "llama3" in model_name and "8b" in model_name:
                 is_recommended = True
-            elif "mistral" in model_name and not any(r["is_recommended"] for r in models if r["provider"] == "ollama"):
-                # Fallback recommendation to mistral if qwen is missing
+            elif "qwen3.8" in model_name and not any(r["is_recommended"] for r in models if r["provider"] == "ollama"):
                 is_recommended = True
                 
             models.append({
@@ -68,13 +72,27 @@ async def list_models(user: User = Depends(get_current_user_allow_unapproved)):
             })
     except Exception as e:
         logger.warning(f"Failed to fetch Ollama models: {e}. Is Ollama running?")
-        # Provide fallback if Ollama is down
+        # Provide fallback if Ollama is down with current device models
         models.append({
-            "id": "ollama:mistral",
-            "name": "Mistral (Local Offline)",
+            "id": "ollama:llama3:8b",
+            "name": "Llama 3 (8B Local Offline)",
             "provider": "ollama",
             "is_heavy": False,
             "is_recommended": True
+        })
+        models.append({
+            "id": "ollama:qwen3.8:27b",
+            "name": "Qwen 3.8 (27B Local Offline)",
+            "provider": "ollama",
+            "is_heavy": True,
+            "is_recommended": False
+        })
+        models.append({
+            "id": "ollama:gemma4:12b",
+            "name": "Gemma 4 (12B Local Offline)",
+            "provider": "ollama",
+            "is_heavy": False,
+            "is_recommended": False
         })
         
     return {"models": models}

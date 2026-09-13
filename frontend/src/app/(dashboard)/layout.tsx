@@ -27,6 +27,7 @@ import {
   MoreHorizontal,
   X,
   Eye,
+  CreditCard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -43,6 +44,7 @@ const adminSections = [
     items: [
       { name: "Admin dashboard", short: "Admin", href: "/admin", icon: Activity },
       { name: "Tactical command center", short: "Command", href: "/admin/command-center", icon: Siren },
+      { name: "Fraud intelligence", short: "Fraud", href: "/banker/transactions", icon: CreditCard },
       { name: "Users", short: "Users", href: "/admin/users", icon: Users },
       { name: "Reports", short: "Reports", href: "/admin/reports", icon: FileText },
       { name: "Approvals", short: "Approvals", href: "/admin/approvals", icon: CheckSquare },
@@ -57,6 +59,7 @@ const adminSections = [
     items: [
       { name: "Workbench", short: "Workbench", href: "/workbench", icon: Siren },
       { name: "Case register", short: "Cases", href: "/workbench/reports", icon: FileText },
+      { name: "Fraud intelligence", short: "Fraud", href: "/banker/transactions", icon: CreditCard },
       { name: "Spatial map", short: "Map", href: "/workbench/map", icon: Map },
       { name: "Graph explorer", short: "Graph", href: "/workbench/graph", icon: Network },
       { name: "Counterfeit hub", short: "Counterfeit", href: "/workbench/counterfeit", icon: Eye },
@@ -68,6 +71,7 @@ const adminSections = [
     label: "Nodal desk",
     items: [
       { name: "Nodal dashboard", short: "Desk", href: "/banker", icon: Building },
+      { name: "Fraud intelligence", short: "Fraud", href: "/banker/transactions", icon: CreditCard },
       { name: "Report a scam", short: "Report", href: "/report", icon: ShieldAlert },
       { name: "Prevention", short: "Prevent", href: "/prevention", icon: ShieldCheck },
       { name: "Spatial map", short: "Map", href: "/workbench/map", icon: Map },

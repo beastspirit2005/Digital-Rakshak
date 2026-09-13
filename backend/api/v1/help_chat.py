@@ -8,6 +8,7 @@ import logging
 import httpx
 import ollama
 import asyncio
+import re
 from core.config import settings
 from infrastructure.db.session import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,6 +20,24 @@ from domain.models.user import User
 from api.deps import get_current_user, get_current_user_allow_unapproved, get_current_user_optional
 
 logger = logging.getLogger(__name__)
+
+def strip_thinking_tags(text: str) -> str:
+    """Removes <think>...</think> reasoning blocks from model output."""
+    if not text:
+        return text
+    cleaned = re.sub(r'<think>[\s\S]*?</think>', '', text, flags=re.DOTALL).strip()
+    if '<think>' in cleaned:
+        cleaned = re.sub(r'<think>[\s\S]*$', '', cleaned, flags=re.DOTALL).strip()
+    if not cleaned:
+        inside = re.search(r'<think>([\s\S]*?)</think>', text, flags=re.DOTALL)
+        if inside:
+            raw_inside = inside.group(1).strip()
+            draft = re.search(r'(?:draft response|final response|response):\s*(.+)', raw_inside, flags=re.IGNORECASE)
+            if draft:
+                cleaned = draft.group(1).strip()
+        if not cleaned:
+            cleaned = "Hello! How can I assist you today with the Digital Rakshak platform?"
+    return cleaned
 
 router = APIRouter()
 limiter = Limiter(key_func=get_remote_address)
@@ -146,38 +165,50 @@ async def chat_endpoint(
     else:
         full_reply = ""
         try:
-            # Check local vs cloud
+            # Check platform default settings
             settings_result = await db.execute(select(PlatformSettings).where(PlatformSettings.id == 1))
             db_settings = settings_result.scalar_one_or_none()
             force_local = settings.FORCE_LOCAL_INFERENCE
             if db_settings:
                 force_local = db_settings.force_local_inference or db_settings.default_ai_mode == "ollama"
 
-            if force_local:
+            # Determine routing from client request or defaults
+            req_model_str = (req.model or "").lower().strip()
+            wants_local = (
+                "ollama" in req_model_str
+                or "local" in req_model_str
+                or force_local
+            ) and req_model_str != "groq"
+
+            # 1. Local Ollama Execution
+            if wants_local:
                 try:
-                    client = ollama.AsyncClient()
-                    model_to_use = req.model if req.model else 'mistral'
+                    client = ollama.AsyncClient(host=settings.OLLAMA_HOST)
+                    raw_model = (req.model or "").replace("ollama:", "").strip()
+                    if not raw_model or raw_model.lower() in ("ollama", "local", "default"):
+                        model_to_use = getattr(settings, 'OLLAMA_MODEL', 'llama3:8b')
+                    else:
+                        model_to_use = raw_model
+
                     logger.info(f"Using local Ollama model: {model_to_use}")
                     resp = await client.chat(model=model_to_use, messages=formatted_messages, stream=False)
                     full_reply = resp.get('message', {}).get('content', "").strip()
                     
                     if not full_reply:
                         logger.warning(f"Ollama returned empty response for model {model_to_use}")
-                        full_reply = "Sorry, I couldn't generate a response. Please try again."
                 except Exception as ollama_err:
-                    logger.error(f"Ollama error: {ollama_err}")
-                    full_reply = ""  # Clear so cloud fallback triggers below
-                    force_local = False  # Fallback to Groq
-            
-            # Cloud fallback
-            if not force_local and not full_reply:
+                    logger.error(f"Ollama execution error: {ollama_err}")
+                    full_reply = ""
+
+            # 2. Cloud Groq Execution (when requested or as fallback)
+            if not full_reply:
                 if not settings.GROQ_API_KEY:
                     logger.error("Groq API key is missing")
-                    full_reply = "Groq API key is not configured."
+                    full_reply = "AI service is currently unavailable. Please ensure local Ollama is running or configure a cloud API key."
                 else:
                     try:
                         async with httpx.AsyncClient(timeout=30.0) as client:
-                            logger.info("Calling Groq API")
+                            logger.info("Calling Groq API for chat response")
                             resp = await client.post(
                                 "https://api.groq.com/openai/v1/chat/completions",
                                 headers={"Authorization": f"Bearer {settings.GROQ_API_KEY}"},
@@ -190,23 +221,42 @@ async def chat_endpoint(
                             resp.raise_for_status()
                             data = resp.json()
                             full_reply = data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
-                            
-                            if not full_reply:
-                                logger.warning("Groq API returned empty content")
-                                full_reply = "Sorry, I couldn't generate a response. Please try again."
                     except httpx.TimeoutException:
-                        logger.error("Groq API timeout")
-                        full_reply = "Request timed out. Please try again."
+                        logger.error("Groq API timeout, falling back to local Ollama")
+                        try:
+                            client = ollama.AsyncClient(host=settings.OLLAMA_HOST)
+                            resp = await client.chat(model=getattr(settings, 'OLLAMA_MODEL', 'llama3:8b'), messages=formatted_messages, stream=False)
+                            full_reply = resp.get('message', {}).get('content', "").strip()
+                        except Exception:
+                            pass
+                        if not full_reply:
+                            full_reply = "Request timed out. Please try again."
                     except httpx.HTTPStatusError as http_err:
-                        logger.error(f"Groq API HTTP error: {http_err.response.status_code} - {http_err}")
-                        full_reply = f"AI service error: {http_err.response.status_code}. Please try again."
+                        logger.warning(f"Groq API HTTP error {http_err.response.status_code}, falling back to local Ollama")
+                        try:
+                            client = ollama.AsyncClient(host=settings.OLLAMA_HOST)
+                            resp = await client.chat(model=getattr(settings, 'OLLAMA_MODEL', 'llama3:8b'), messages=formatted_messages, stream=False)
+                            full_reply = resp.get('message', {}).get('content', "").strip()
+                        except Exception as fb_err:
+                            logger.error(f"Ollama fallback failed: {fb_err}")
+                        if not full_reply:
+                            full_reply = f"AI service error: {http_err.response.status_code}. Please try again."
                     except Exception as groq_err:
-                        logger.error(f"Groq API error: {groq_err}")
-                        full_reply = "Cloud service unavailable. Please try again."
-                        
+                        logger.warning(f"Groq API error {groq_err}, falling back to local Ollama")
+                        try:
+                            client = ollama.AsyncClient(host=settings.OLLAMA_HOST)
+                            resp = await client.chat(model=getattr(settings, 'OLLAMA_MODEL', 'llama3:8b'), messages=formatted_messages, stream=False)
+                            full_reply = resp.get('message', {}).get('content', "").strip()
+                        except Exception as fb_err:
+                            logger.error(f"Ollama fallback failed: {fb_err}")
+                        if not full_reply:
+                            full_reply = "Cloud service unavailable. Please try again."
         except Exception as e:
             logger.error(f"Unexpected error in chat endpoint: {e}", exc_info=True)
-            full_reply = "Sorry, our AI system is currently experiencing issues."
+    engine_used = "Ollama (local)" if wants_local else "Groq (cloud)"
+
+    # Clean thinking blocks from model output
+    full_reply = strip_thinking_tags(full_reply)
 
     # Ensure full_reply is not empty
     if not full_reply or not full_reply.strip():
@@ -222,7 +272,11 @@ async def chat_endpoint(
     db.add(ai_msg)
     await db.commit()
     
-    return {"status": "success", "reply": full_reply}
+    return {
+        "status": "success", 
+        "reply": full_reply,
+        "engine": engine_used
+    }
 
 @router.post("/escalate")
 async def escalate_endpoint(
@@ -298,7 +352,7 @@ async def get_citizen_messages(
         {
             "id": str(msg.id),
             "role": msg.role,
-            "content": msg.content,
+            "content": strip_thinking_tags(msg.content),
             "created_at": msg.created_at.isoformat() if msg.created_at else None
         } for msg in messages
     ]}
@@ -373,7 +427,7 @@ async def get_session_messages(
         {
             "id": str(msg.id),
             "role": msg.role,
-            "content": msg.content,
+            "content": strip_thinking_tags(msg.content),
             "created_at": msg.created_at.isoformat() if msg.created_at else None
         } for msg in messages
     ]}

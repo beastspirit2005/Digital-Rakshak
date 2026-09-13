@@ -76,12 +76,14 @@ class RAICFactory:
         from raic.agents.campaign_agent  import CampaignAgent
         from raic.agents.vision_agent    import VisionAgent
         from raic.agents.voice_agent     import VoiceAgent
+        from raic.agents.transaction_agent import TransactionAgent
 
         threat_agent    = ThreatAgent(threat_cap)
         behaviour_agent = BehaviourAgent(behaviour_cap)
         campaign_agent  = CampaignAgent(campaign_cap)
         vision_agent    = VisionAgent(vision_cap)
         voice_agent     = VoiceAgent(voice_cap)
+        transaction_agent = TransactionAgent()
         logger.info("RAIC Agents built.")
 
         # ── 5. Build Synthetic Agents for Decision Core stages ───────────────
@@ -104,13 +106,14 @@ class RAICFactory:
         registry.register("campaign_agent",  campaign_agent)
         registry.register("vision_agent",    vision_agent)
         registry.register("voice_agent",     voice_agent)
+        registry.register("transaction_agent", transaction_agent)
         # Pipeline stage stubs
         registry.register("evidence_agent",      evidence_agent)
         registry.register("knowledge_agent",     knowledge_agent)
         registry.register("consensus_agent",     consensus_agent)
         registry.register("decision_agent",      decision_agent)
         registry.register("explainability_agent", explainability_agent)
-        logger.info("AgentRegistry populated with 10 agents.")
+        logger.info("AgentRegistry populated with 11 agents.")
 
         # ── 7. Build Planner and Engine ──────────────────────────────────────
         planner = ExecutionPlanner(registry)

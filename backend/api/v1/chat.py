@@ -148,7 +148,7 @@ async def global_chatbot(
         else:
             from infrastructure.ai.ollama_client import OllamaClient
             client = OllamaClient()
-            reply_text = await client.generate_text(prompt=full_prompt, model_name="mistral")
+            reply_text = await client.generate_text(prompt=full_prompt, model_name="llama3:8b")
             
         return ChatResponse(reply=reply_text)
     except Exception as e:
@@ -242,7 +242,7 @@ async def case_copilot_chat(
         else:
             from infrastructure.ai.ollama_client import OllamaClient
             client = OllamaClient()
-            reply_text = await client.generate_text(prompt=full_prompt, model_name="mistral")
+            reply_text = await client.generate_text(prompt=full_prompt, model_name="llama3:8b")
         
         return ChatResponse(reply=reply_text)
     except Exception as e:

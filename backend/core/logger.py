@@ -1,7 +1,13 @@
 import logging
-import structlog
 import contextvars
 from typing import Any, Dict
+
+try:
+    import structlog
+    HAS_STRUCTLOG = True
+except ImportError:
+    structlog = None
+    HAS_STRUCTLOG = False
 
 # Context variables for structured logging
 correlation_id_cv = contextvars.ContextVar("correlation_id", default=None)
@@ -48,7 +54,11 @@ def inject_contextvars(
 
 
 def setup_logger():
-    """Configure structlog for the application."""
+    """Configure structlog for the application or fallback to logging."""
+    if not HAS_STRUCTLOG:
+        logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+        return
+
     structlog.configure(
         processors=[
             structlog.stdlib.filter_by_level,
@@ -89,7 +99,9 @@ def setup_logger():
     root_logger.setLevel(logging.INFO)
 
 def get_logger(name: str):
-    return structlog.get_logger(name)
+    if HAS_STRUCTLOG:
+        return structlog.get_logger(name)
+    return logging.getLogger(name)
 
 # Ensure setup is called on import
 setup_logger()

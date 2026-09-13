@@ -23,28 +23,34 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 from fastapi import Request, HTTPException
 from fastapi.responses import JSONResponse
+
+def _cors_headers_for_request(request: Request) -> dict:
+    origin = request.headers.get("origin")
+    if origin:
+        return {
+            "Access-Control-Allow-Origin": origin,
+            "Access-Control-Allow-Credentials": "true"
+        }
+    return {"Access-Control-Allow-Origin": "*"}
+
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
-    print(f'HTTP Exception: {exc.status_code} - {exc.detail} on {request.url}')
+    logger.warning(f"HTTP Exception: {exc.status_code} - {exc.detail} on {request.url}")
     return JSONResponse(
         status_code=exc.status_code, 
         content={'detail': exc.detail},
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Credentials": "true"
-        }
+        headers=_cors_headers_for_request(request)
     )
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    print(f'Unhandled Exception: {str(exc)} on {request.url}')
+    logger.error(f"Unhandled Exception on {request.url}: {exc}", exc_info=True)
+    is_cloud = os.environ.get("VERCEL") == "1"
+    err_detail = "Internal Server Error" if is_cloud else str(exc)
     return JSONResponse(
         status_code=500, 
-        content={'detail': "Internal Server Error", 'error': str(exc)},
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Credentials": "true"
-        }
+        content={'detail': "Internal Server Error", 'error': err_detail},
+        headers=_cors_headers_for_request(request)
     )
 
 # OpenTelemetry Setup
@@ -111,6 +117,7 @@ from api.v1.evidence import router as evidence_router
 from api.v1.stream_router import router as stream_router
 from api.v1.entities import router as entities_router
 from api.v1.cache_router import router as cache_router
+from api.v1.transactions import router as transactions_router
 
 app.include_router(auth_router, prefix=f"{settings.API_V1_STR}/auth", tags=["auth"])
 app.include_router(users_router, prefix=f"{settings.API_V1_STR}/users", tags=["users"])
@@ -118,6 +125,7 @@ app.include_router(cases_router, prefix=f"{settings.API_V1_STR}/cases", tags=["c
 app.include_router(graph_router, prefix=f"{settings.API_V1_STR}/graph", tags=["graph"])
 app.include_router(agents_router, prefix=f"{settings.API_V1_STR}/agents", tags=["agents"])
 app.include_router(takedowns_router, prefix=f"{settings.API_V1_STR}/takedowns", tags=["takedowns"])
+app.include_router(transactions_router, prefix=f"{settings.API_V1_STR}/transactions", tags=["transactions"])
 app.include_router(analytics_router, prefix=f"{settings.API_V1_STR}")
 app.include_router(health_router, prefix=f"{settings.API_V1_STR}")
 app.include_router(chat_router, prefix=f"{settings.API_V1_STR}/cases")

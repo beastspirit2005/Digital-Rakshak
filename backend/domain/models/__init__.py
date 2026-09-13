@@ -9,3 +9,18 @@ from domain.models.settings import PlatformSettings
 from domain.models.help_message import HelpMessage
 from infrastructure.db.knowledge import RegulatoryGuideline, MistakeCorrection, FraudPattern
 from domain.models.audit_log import AIAuditLog
+from domain.models.transaction import (
+    Transaction,
+    TransactionFeature,
+    TransactionScore,
+    TransactionDecision,
+    DeviceProfile,
+    BeneficiaryProfile,
+    TransactionFeedback,
+    PolicyRule,
+    TransactionType,
+    TransactionStatus,
+    RiskBand,
+    FrictionAction,
+    FeedbackDecision,
+)
