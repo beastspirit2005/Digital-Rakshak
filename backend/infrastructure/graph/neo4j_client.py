@@ -3,6 +3,7 @@ import logging
 import re
 import asyncio
 import threading
+from typing import Optional, List, Dict, Any, Tuple
 from core.config import settings
 
 logger = logging.getLogger(__name__)

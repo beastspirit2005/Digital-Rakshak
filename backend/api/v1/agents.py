@@ -2,6 +2,8 @@ from fastapi import APIRouter, Depends, UploadFile, File
 from api.deps import get_current_user, get_current_admin, get_current_user_allow_unapproved
 from domain.models.user import User
 from core.config import settings
+import asyncio
+import os
 import ollama
 import logging
 
