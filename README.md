@@ -59,116 +59,116 @@ Digital Rakshak couples a high-performance Next.js 14 App Router frontend with a
 ```mermaid
 graph TD
     %% Personas & External Switches
-    Citizen((Citizen / Victim))
-    Banker((Nodal Officer / Banker))
-    Police((Police / LEA Investigator))
-    BankSwitch((Bank Switch / NPCI / CBS))
+    Citizen(["Citizen / Victim"])
+    Banker(["Nodal Officer / Banker"])
+    Police(["Police / LEA Investigator"])
+    BankSwitch(["Bank Switch / NPCI / CBS"])
 
     %% Frontend Subsystem
-    subgraph Frontend [Next.js 14 Edge / Client Tier]
-        UI[App Router Responsive Shell]
-        Map[Spatial Map WebGL Layer]
-        GraphVis[Neo4j Syndicate Visualizer]
-        TxCockpit[Live Transaction Monitor & Cytoscape 2-Hop Cockpit]
-        IngestModal[Ingest Modal: Real Txn / Bulk CSV / Hook Guide]
-        PoliceWorkbench[Police Workbench: Case Register & Section 91 CrPC]
-        ChatWidget[Copilot Chat Widget with Engine Attribution]
+    subgraph Frontend ["Next.js 14 Edge / Client Tier"]
+        UI["App Router Responsive Shell"]
+        Map["Spatial Map WebGL Layer"]
+        GraphVis["Neo4j Syndicate Visualizer"]
+        TxCockpit["Live Transaction Monitor & Cytoscape 2-Hop Cockpit"]
+        IngestModal["Ingest Modal: Real Txn / Bulk CSV / Hook Guide"]
+        PoliceWorkbench["Police Workbench: Case Register & Section 91 CrPC"]
+        ChatWidget["Copilot Chat Widget with Engine Attribution"]
     end
 
     %% Ingestion & Streaming Layer
-    subgraph Ingestion [FastAPI Ingestion & Streaming Gateway]
-        APIRouter[REST API Routing Engine]
-        SwitchHook[Pre-Debit Switch In-Line Hook /switch/authorize]
-        CSVParser[Bulk Statement Ingestion Engine /upload-csv]
-        Escalator[1-Click Police Case Escalator /{id}/escalate-to-case]
-        WSManager[TransactionStreamManager WebSocket / SSE]
-        RateLimitSentinel[Failover Sentinel: Groq ↔ Ollama]
-        CoTSanitizer[CoT Reasoning Sanitizer]
+    subgraph Ingestion ["FastAPI Ingestion & Streaming Gateway"]
+        APIRouter["REST API Routing Engine"]
+        SwitchHook["Pre-Debit Switch In-Line Hook /switch/authorize"]
+        CSVParser["Bulk Statement Ingestion Engine /upload-csv"]
+        Escalator["1-Click Police Case Escalator /:id/escalate-to-case"]
+        WSManager["TransactionStreamManager WebSocket / SSE"]
+        RateLimitSentinel["Failover Sentinel: Groq ↔ Ollama"]
+        CoTSanitizer["CoT Reasoning Sanitizer"]
     end
 
     %% Core Intelligence Engines
-    subgraph Intelligence [Core Intelligence Subsystems]
+    subgraph Intelligence ["Core Intelligence Subsystems"]
         %% MAIF Swarm
-        subgraph MAIF [MAIF Agent Swarm]
-            Factory[RAIC Dependency Injection Factory]
-            Registry[AgentRegistry]
-            ThreatA[Threat Agent]
-            BehA[Behaviour Agent]
-            CampA[Campaign Agent]
-            VisA[Vision Agent]
-            VoiceA[Voice Agent]
+        subgraph MAIF ["MAIF Agent Swarm"]
+            Factory["RAIC Dependency Injection Factory"]
+            Registry["AgentRegistry"]
+            ThreatA["Threat Agent"]
+            BehA["Behaviour Agent"]
+            CampA["Campaign Agent"]
+            VisA["Vision Agent"]
+            VoiceA["Voice Agent"]
         end
 
         %% Transaction Fraud Intelligence
-        subgraph TxEngine [Transaction Fraud Intelligence Core]
-            FeatureEng[Streaming FeatureEngine Z-Scores & Velocity]
-            AttackDNA[Sequential AttackDNAMatcher 5+ Signatures]
-            ScoringEng[Multi-Factor ScoringEngine 0-100]
-            FrictionEng[Adaptive Friction Decision Matrix ISO 8583]
+        subgraph TxEngine ["Transaction Fraud Intelligence Core"]
+            FeatureEng["Streaming FeatureEngine Z-Scores & Velocity"]
+            AttackDNA["Sequential AttackDNAMatcher 5+ Signatures"]
+            ScoringEng["Multi-Factor ScoringEngine 0-100"]
+            FrictionEng["Adaptive Friction Decision Matrix ISO 8583"]
         end
 
         %% Dual-Mode RIE
-        subgraph RIE [Dual-Mode RIE Runtimes]
-            GroqCloud[Cloud LPU: Groq Llama 3.3 / Qwen Vision]
-            LocalOllama[Local Air-Gapped: Ollama Llama 3 / PyTorch / Whisper]
+        subgraph RIE ["Dual-Mode RIE Runtimes"]
+            GroqCloud["Cloud LPU: Groq Llama 3.3 / Qwen Vision"]
+            LocalOllama["Local Air-Gapped: Ollama Llama 3 / PyTorch / Whisper"]
         end
     end
 
     %% Multi-Model Persistence & Security
-    subgraph Persistence [Persistence & Cryptographic Security Layer]
-        PIIShield[PII Encryption Service: AES-256 Fernet + PBKDF2]
-        PG[(Neon Serverless Postgres + pgvector)]
-        Neo[(Neo4j AuraDB Syndicate Graph)]
-        MemBuffer[(In-Memory Rolling State & Sliding Windows)]
-        Storage[(Supabase Encrypted Storage + SHA-256 Vault)]
+    subgraph Persistence ["Persistence & Cryptographic Security Layer"]
+        PIIShield["PII Encryption Service: AES-256 Fernet + PBKDF2"]
+        PG[("Neon Serverless Postgres + pgvector")]
+        Neo[("Neo4j AuraDB Syndicate Graph")]
+        MemBuffer[("In-Memory Rolling State & Sliding Windows")]
+        Storage[("Supabase Encrypted Storage + SHA-256 Vault")]
     end
 
     %% Ingestion Connections
-    Citizen -->|Voice / Text / Evidence Upload| UI
-    Banker -->|Transaction Verification & Manual Ingest| TxCockpit
-    Banker -->|Trigger Ingestion / Bulk CSV| IngestModal
-    Police -->|FIR Registration & Evidence Freezes| PoliceWorkbench
-    BankSwitch -->|Pre-Debit Authorization Hook <50ms| SwitchHook
+    Citizen -->|"Voice / Text / Evidence Upload"| UI
+    Banker -->|"Transaction Verification & Manual Ingest"| TxCockpit
+    Banker -->|"Trigger Ingestion / Bulk CSV"| IngestModal
+    Police -->|"FIR Registration & Evidence Freezes"| PoliceWorkbench
+    BankSwitch -->|"Sub-50ms Pre-Debit Authorization Hook"| SwitchHook
 
-    UI -->|REST Endpoints| APIRouter
-    IngestModal -->|CSV Upload & Real Entry| APIRouter
-    ChatWidget -->|Streaming Chat| APIRouter
-    TxCockpit <-->|Bi-Directional Telemetry /ws| WSManager
+    UI -->|"REST Endpoints"| APIRouter
+    IngestModal -->|"CSV Upload & Real Entry"| APIRouter
+    ChatWidget -->|"Streaming Chat"| APIRouter
+    TxCockpit <-->|"Bi-Directional Telemetry /ws"| WSManager
 
     APIRouter --> RateLimitSentinel
     RateLimitSentinel --> CoTSanitizer
     CoTSanitizer <--> RIE
 
     %% Pipeline Dispatches
-    APIRouter -->|Case Ingestion| Factory
+    APIRouter -->|"Case Ingestion"| Factory
     Factory --> Registry
     Registry --> ThreatA & BehA & CampA & VisA & VoiceA
     MAIF <--> RIE
 
-    SwitchHook -->|Synchronous Stream Ingest| FeatureEng
-    CSVParser -->|Batch Row Processing| FeatureEng
-    WSManager -->|WebSocket Ingestion| FeatureEng
+    SwitchHook -->|"Synchronous Stream Ingest"| FeatureEng
+    CSVParser -->|"Batch Row Processing"| FeatureEng
+    WSManager -->|"WebSocket Ingestion"| FeatureEng
     FeatureEng --> MemBuffer
     FeatureEng --> AttackDNA
     AttackDNA --> ScoringEng
     ScoringEng --> FrictionEng
-    FrictionEng -->|ISO 8583 Action Code: 00, 75, 05, 43| SwitchHook
-    FrictionEng -->|Live Stream Broadcast| WSManager
+    FrictionEng -->|"ISO 8583 Action Code: 00, 75, 05, 43"| SwitchHook
+    FrictionEng -->|"Live Stream Broadcast"| WSManager
     WSManager --> TxCockpit
 
     %% 1-Click Police Escalation
-    TxCockpit -->|1-Click Escalate to Case| Escalator
-    Escalator -->|Create Official Case Record| PIIShield
-    Escalator -.->|Auto-Reflected in Police Dossier| PoliceWorkbench
+    TxCockpit -->|"1-Click Escalate to Case"| Escalator
+    Escalator -->|"Create Official Case Record"| PIIShield
+    Escalator -.->|"Auto-Reflected in Police Dossier"| PoliceWorkbench
 
     %% Persistence Interconnects
     ThreatA & BehA & CampA --> PIIShield
-    PIIShield -->|Encrypted PII Columns| PG
-    CampA & FrictionEng -->|Mule Rings & 2-Hop Graphs| Neo
-    VisA & VoiceA -->|Immutable Cryptographic Evidence| Storage
-    PG -->|Geo-Spatial Aggregations| Map
-    Neo -->|Ego-Networks & 2-Hop Expansions| GraphVis
-    Neo -->|2-Hop Account Subgraphs| TxCockpit
+    PIIShield -->|"Encrypted PII Columns"| PG
+    CampA & FrictionEng -->|"Mule Rings & 2-Hop Graphs"| Neo
+    VisA & VoiceA -->|"Immutable Cryptographic Evidence"| Storage
+    PG -->|"Geo-Spatial Aggregations"| Map
+    Neo -->|"Ego-Networks & 2-Hop Expansions"| GraphVis
+    Neo -->|"2-Hop Account Subgraphs"| TxCockpit
 ```
 
 ---
