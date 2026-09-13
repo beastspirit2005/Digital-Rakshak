@@ -115,12 +115,16 @@ async def approve_user(user_id: str, admin: User = Depends(get_current_admin), d
     await db.commit()
     
     # Send welcome email now that they are approved
+    email_sent = False
     try:
-        await send_welcome_email(user.email, user.full_name, user.role)
+        email_sent = await send_welcome_email(user.email, user.full_name, user.role)
     except Exception as e:
         print(f"Failed to send welcome email to {user.email}: {e}")
     
-    return {"message": f"User {user.email} has been approved and welcome email sent."}
+    return {
+        "message": f"User {user.email} has been approved.",
+        "email_sent": email_sent
+    }
 
 def generate_secure_password(length=12):
     lowercase = string.ascii_lowercase
