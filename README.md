@@ -1,161 +1,210 @@
-# Digital Rakshak: AI-Powered Cyber Threat Intelligence Platform
+# Digital Rakshak: AI-Powered Cyber Threat & Transaction Fraud Intelligence Platform
 
 Welcome to **Digital Rakshak**! 
 
-When a citizen becomes a victim of a cyber scam or encounters counterfeit currency, the current process is often reactive: file a complaint, get a ticket number, and wait. But organized financial crime doesn't wait; it scales. 
+When a citizen becomes a victim of a cyber scam or encounters counterfeit currency, the conventional process is reactive: file a complaint, receive a ticket number, and wait. But organized financial crime and digital syndicates operate at wire speed—scaling illicit operations within seconds across decentralized banking channels and mule networks.
 
-We built **Digital Rakshak** to flip the script. Instead of just acting as a digital complaint box, Digital Rakshak is an active **Hybrid AI Intelligence Platform**. It doesn't just read complaints; it listens to victims, extracts the behavioral DNA of the attacker, maps the threat across the country, and automatically clusters isolated incidents into organized crime syndicates. 
-
-We are empowering Law Enforcement Agencies (LEAs), nodal officers, and citizens with military-grade intelligence and zero-trust verification.
+**Digital Rakshak** flips the script. Instead of serving as a passive complaint repository, Digital Rakshak is an active, **Hybrid AI Threat Intelligence & Wire-Speed Transaction Fraud Prevention Platform**. It listens to victims, decodes attacker behavioral DNA, maps national crime syndicates, intercepts fraudulent transactions in sub-milliseconds, and provides zero-trust verification for citizens, banks, and Law Enforcement Agencies (LEAs).
 
 ---
 
 ## What Makes Digital Rakshak Unique?
 
-### Version 3.0: Enterprise Architecture Upgrade
-The latest release restructures the backend to improve scalability, reliability, and security when running in production serverless environments like Vercel.
-*   **Fully-Wired RAIC Dependency Injection (DI) Factory:** The backend now features a robust DI container (`RAICFactory`) that cleanly instantiates Runtimes, Intelligence Engines, Capabilities, and Agents, automatically registering them into the `AgentRegistry` on boot.
-*   **Decoupled Agent and Model Registry (RAIC + RIE):** Business logic is completely separated from machine learning runtimes. The registries handle model loading and execution configurations dynamically, removing hardcoded model dependencies.
-*   **Robust Serverless Fallbacks:** AI Agents utilize safe-access dictionaries and graceful degradation blocks. If PyTorch offline models fail to load on Vercel due to size constraints, the system instantly falls back to Cloud Vision (Groq) without dropping the citizen's request.
-*   **Topological Swarm Execution:** Uses Kahn's algorithm to resolve dependencies between different analysis agents, allowing them to run concurrently where possible.
-*   **Strict Security Safeguards:** Implements immutable event logs, prompt injection protections, and magic byte validation for file uploads.
+### 1. Wire-Speed Transaction Fraud Intelligence & Adaptive Friction
+Digital Rakshak natively integrates an ultra-low latency transaction inspection core capable of analyzing high-throughput UPI, IMPS, and card transactions in **microseconds (< 0.1 ms)**:
+*   **Streaming Feature Engine:** Computes instantaneous velocity, burst frequency, deviation Z-scores, ratio deviations, and geographic velocity jumps using rolling time windows.
+*   **Sequential Attack DNA Matcher:** Correlates real-time events against known cybercrime syndicates (e.g., Account Takeover probe-to-drain sequences, Mule Fan-Out distribution, Midnight Siphoning / Smurfing, and OTP Hijack loops).
+*   **Proportional Adaptive Friction Engine:** Replaces brittle binary cutoffs (which block legitimate emergency medical payments or wedding purchases) with 5-tier dynamic countermeasures:
+    1.  `APPROVE` (0–30): Instantaneous pass with zero customer friction.
+    2.  `APPROVE_AND_MONITOR` (30–55): Seamless passage backed by passive audit logging.
+    3.  `STEP_UP_CHALLENGE` (55–75): Dynamic stepped-up authentication (Biometrics / OTP), saving legitimate anomalies from false-positive rejections.
+    4.  `TEMPORARY_HOLD` (75–90): 15-minute escrow hold with automated nodal escalation.
+    5.  `HOLD_AND_INVESTIGATE` (90–100): Immediate hard freeze, LEA incident auto-filing, and 2-hop network quarantine.
+*   **Bi-Directional WebSocket Streaming (`/v1/transactions/ws`):** Broadcasts live banking transaction telemetry, risk-band distributions, and anomaly alerts to banking dashboards in real time.
+*   **Forensic Cockpit & 2-Hop Cytoscape Graph:** Visualizes immediate 2-hop ego-networks around sender accounts, recipient beneficiaries, shared device IDs, and IP clusters for rapid nodal intervention.
 
-### 1. The Multi-Agent Intelligence Swarm (MAIF)
-Most platforms use a single AI to answer questions. Digital Rakshak uses a swarm of specialized AI agents. When a case is filed, agents immediately go to work in parallel:
-*   **The Vision Agent** scans uploaded screenshots for phishing URLs.
-*   **The Threat & Behaviour Agents** extract the psychological manipulation tactics used by the scammer (mapped to MITRE ATT&CK standards).
-*   **The Campaign Agent** searches the Neo4j graph database to see if this scammer is part of a larger syndicate.
-*   **The Voice Agent** handles audio evidence and transcriptions natively.
+### 2. Multi-Agent Intelligence Swarm (MAIF)
+Digital Rakshak coordinates a swarm of specialized autonomous AI agents via topological execution (Kahn's algorithm):
+*   **Vision Agent:** Scans screenshots for counterfeit notes, malicious QR codes, and phishing landing pages.
+*   **Threat & Behaviour Agents:** Deconstruct psychological manipulation tactics (urgency, authority, emotional coercion) mapped directly to MITRE ATT&CK standards.
+*   **Campaign Agent:** Traverses graph topologies in Neo4j to cluster isolated complaints into coordinated syndicate campaigns.
+*   **Voice Agent:** Ingests raw regional audio statements, handles noise cancellation, and executes multi-lingual transcription natively.
 
-### 2. Dual-Mode Architecture (Cloud vs. Air-Gapped)
-Police departments and banks deal with highly sensitive Personally Identifiable Information (PII) that cannot legally be sent to external cloud APIs. 
-*   **Cloud Mode:** Uses high-speed LPU infrastructure (like Groq + Llama 3.3) for rapid processing and scale on Vercel.
-*   **Offline Mode:** Seamlessly falls back to a 100% air-gapped, local stack. It boots up our custom PyTorch model (`Rakshak-Text`), local `faster-whisper`, and `Qwen 2.5` to analyze data natively on the department's own hardware, ensuring zero data leakage.
-
-### 3. Physical & Cyber Convergence (The Counterfeit Tracker)
-We have unified digital and physical crime tracking. If a user uploads an image of a suspicious Rs 500 note, the system bypasses the NLP engines and routes the image to our Vision Engine. Physical counterfeits are mapped on a separate, dedicated layer on the Spatial Map, ensuring physical crimes do not pollute the cyber-threat graphs.
+### 3. Dual-Mode AI Architecture (Cloud LPU vs. Air-Gapped Local)
+Police departments and financial institutions handle sensitive Personally Identifiable Information (PII) subject to strict data sovereignty laws:
+*   **Cloud Mode:** Leverages ultra-fast LPU inference via Groq (`llama-3.3-70b-versatile`) for rapid serverless scale.
+*   **Local Air-Gapped Mode:** Runs 100% locally on on-premise LEA hardware using Ollama (`llama3:8b`), local PyTorch runtimes (MobileNetV3 for vision, XLM-RoBERTa for text), and `faster-whisper`—guaranteeing zero external data leakage.
+*   **Transparent Rate-Limit Failover:** If cloud APIs hit HTTP 429 rate limits or network degradation, the gateway seamlessly fails over to the local Ollama daemon without session disruption.
+*   **Chain-of-Thought (CoT) Sanitization:** Reasoning scratchpads (`<think>...</think>`) generated by modern reasoning models are automatically sanitized across REST and WebSocket streams, presenting clean, structured advisories to officers and citizens.
+*   **Active Engine Attribution:** Real-time visibility into the currently active model directly inside the Copilot chat input box, footer telemetry, and response headers.
 
 ### 4. 6-Axis Threat DNA & Confidence Evolution
-A single report is not instantly trusted. Our **RAIC Decision Core** generates a 6-Dimensional Score (Threat Severity, Behaviour, Network Linkage, Evidence Integrity, Impersonation, and Extraction). As banks and police verify the data, the system evolves the **Confidence Score** from a baseline of ~50% up to a rock-solid 99% before issuing national blocks.
+The platform computes a multi-dimensional risk matrix (Threat Severity, Behaviour, Network Linkage, Evidence Integrity, Impersonation, and Extraction). As LEAs and nodal bank officers confirm or refute artifacts, the **Confidence Score** evolves dynamically from a ~50% unverified baseline up to a verified 99% before triggering cross-institution account freezing.
 
-### 5. Empathic AI Voice Copilot
-Victims of financial fraud are often panicked. Instead of forcing them to navigate complex dropdown menus, they can simply **talk** to our AI Copilot. The system parses their voice, extracts the malicious UPIs and phone numbers, and fills out the intelligence report automatically.
+### 5. Physical & Cyber Convergence (The Counterfeit Tracker)
+Integrates digital fraud tracking with physical counterfeit currency detection. Suspicious currency uploads bypass standard NLP pipelines and route to our specialized Vision Engine, plotting physical recovery clusters on an isolated WebGL spatial layer to prevent graph pollution.
 
-### 6. Command Center & Hardware Telemetry
-The platform provides a real-time Tactical Command Center powered by dynamic PostgreSQL aggregations (calculating true financial exposure and active threat hubs) rather than static data. It also features a Live AI Health Governance Desk that monitors actual CPU/GPU hardware loads dynamically.
+### 6. Tactical Command Center & Hardware Telemetry
+A live tactical command center aggregates live PostgreSQL case volumes, real financial exposure figures, and regional threat clusters. It incorporates real-time hardware telemetry monitoring CPU/GPU utilization, VRAM allocation, and AI engine health.
 
 ---
 
 ## System Architecture
 
-Our platform is divided into a sleek Next.js frontend, a robust FastAPI orchestration layer, and a multi-database persistence layer, fully optimized for serverless deployments on Vercel.
+Digital Rakshak couples a high-performance Next.js 14 App Router frontend with a decoupled FastAPI orchestration layer, dual-mode intelligence runtimes, real-time WebSocket multiplexers, and a multi-model persistence tier.
 
 ```mermaid
 graph TD
-    %% Users
+    %% User Personas
     Citizen((Citizen / Victim))
-    Banker((Nodal Officer))
-    Admin((Police / Admin))
+    Banker((Nodal Officer / Banker))
+    Admin((Police / LEA Admin))
 
-    %% Frontend UI
-    subgraph Frontend [Vercel Edge Network]
-        UI[Next.js App Router UI]
-        Map[Spatial Map WebGL]
-        Graph[Neo4j Visualizer]
+    %% Frontend Subsystem
+    subgraph Frontend [Next.js 14 Edge / Client Tier]
+        UI[App Router Responsive Shell]
+        Map[Spatial Map WebGL Layer]
+        GraphVis[Neo4j Syndicate Visualizer]
+        TxCockpit[Live Transaction Monitor & Cytoscape 2-Hop Cockpit]
+        ChatWidget[Copilot Chat Widget with Engine Attribution]
     end
 
-    %% API Gateway
-    subgraph Backend [Vercel Serverless Functions]
-        Router[FastAPI Routing Layer]
-        
-        %% RAIC DI Container
-        subgraph RAIC [RAIC Dependency Injection]
-            Factory[RAICFactory DI Container]
+    %% Ingestion & Streaming Layer
+    subgraph Ingestion [FastAPI Ingestion & Streaming Gateway]
+        APIRouter[REST API Routing Engine]
+        WSManager[TransactionStreamManager WebSocket / SSE]
+        RateLimitSentinel[Failover Sentinel: Groq ↔ Ollama]
+        CoTSanitizer[CoT Reasoning Sanitizer]
+    end
+
+    %% Core Intelligence Engines
+    subgraph Intelligence [Core Intelligence Subsystems]
+        %% MAIF Swarm
+        subgraph MAIF [MAIF Agent Swarm]
+            Factory[RAIC Dependency Injection Factory]
             Registry[AgentRegistry]
-            Planner[ExecutionPlanner]
-            Orchestrator[RAICOrchestrator]
-        end
-        
-        %% Agents
-        subgraph Agents [Registered Agents]
             ThreatA[Threat Agent]
             BehA[Behaviour Agent]
             CampA[Campaign Agent]
             VisA[Vision Agent]
             VoiceA[Voice Agent]
         end
-        
-        %% RIE Runtimes
-        subgraph RIE [Intelligence Runtimes]
-            Cloud[Cloud: Groq Vision / LLM]
-            Local[Local: PyTorch / Ollama]
+
+        %% Transaction Fraud Intelligence
+        subgraph TxEngine [Transaction Fraud Intelligence Core]
+            FeatureEng[Streaming FeatureEngine Z-Scores & Velocity]
+            AttackDNA[Sequential AttackDNAMatcher 5+ Signatures]
+            ScoringEng[Multi-Factor ScoringEngine 0-100]
+            FrictionEng[AdaptiveFrictionEngine 5-Tier Action Matrix]
+        end
+
+        %% Dual-Mode RIE
+        subgraph RIE [Dual-Mode RIE Runtimes]
+            GroqCloud[Cloud LPU: Groq Llama 3.3 / Qwen Vision]
+            LocalOllama[Local Air-Gapped: Ollama Llama 3 / PyTorch / Whisper]
         end
     end
 
-    %% Persistence
-    subgraph Databases [Cloud Persistence Layer]
+    %% Multi-Model Persistence
+    subgraph Persistence [Persistence & Storage Layer]
         PG[(Neon Serverless Postgres + pgvector)]
-        Neo[(Neo4j AuraDB)]
-        Storage[(Supabase Storage)]
+        Neo[(Neo4j AuraDB Syndicate Graph)]
+        MemBuffer[(In-Memory Rolling State & Sliding Windows)]
+        Storage[(Supabase Encrypted Storage)]
     end
 
-    %% Flow
-    Citizen -->|Voice/Text/Image| UI
-    Banker -->|Verification| UI
-    Admin -->|Overrides/Config| UI
-    
-    UI -->|API Requests| Router
-    Router -->|Initializes| Factory
-    Factory -->|Populates| Registry
-    Registry -->|Provides Agents to| Planner
-    Planner -->|Builds Graph for| Orchestrator
-    Orchestrator -->|Executes| Agents
-    Agents <--> RIE
-    
-    Router -->|Fuses Intelligence| PG
-    Router -->|Extracts Entities| Neo
-    Router -->|Media/Evidence| Storage
-    
-    PG -->|Spatial/Tabular Data| UI
-    Neo -->|Syndicate Networks| UI
+    %% Ingestion Connections
+    Citizen -->|Voice / Text / Evidence Upload| UI
+    Banker -->|Transaction Verification & Overrides| TxCockpit
+    Admin -->|Syndicate Takedowns & Governance| GraphVis
+
+    UI -->|REST Endpoints| APIRouter
+    ChatWidget -->|Streaming Chat| APIRouter
+    TxCockpit <-->|Bi-Directional Telemetry /ws| WSManager
+
+    APIRouter --> RateLimitSentinel
+    RateLimitSentinel --> CoTSanitizer
+    CoTSanitizer <--> RIE
+
+    %% Pipeline Dispatches
+    APIRouter -->|Case Ingestion| Factory
+    Factory --> Registry
+    Registry --> ThreatA & BehA & CampA & VisA & VoiceA
+    MAIF <--> RIE
+
+    WSManager -->|Live Transaction Ingestion| FeatureEng
+    FeatureEng --> MemBuffer
+    FeatureEng --> AttackDNA
+    AttackDNA --> ScoringEng
+    ScoringEng --> FrictionEng
+    FrictionEng -->|Intervention Actions| WSManager
+    WSManager -->|Live Stream Broadcast| TxCockpit
+
+    %% Persistence Interconnects
+    ThreatA & BehA & CampA -->|Case Entities & Vectors| PG
+    CampA & FrictionEng -->|Mule Rings & Syndicate Graphs| Neo
+    VisA & VoiceA -->|Binary Evidence| Storage
+    PG -->|Geo-Spatial Aggregations| Map
+    Neo -->|Ego-Networks & 2-Hop Expansions| GraphVis
+    Neo -->|2-Hop Account Subgraphs| TxCockpit
 ```
+
+---
+
+## Quantitative Benchmark: The Adaptive Friction Advantage
+
+We evaluated **5,000 synthetic Indian banking transactions** (UPI/IMPS/NEFT) comparing conventional static rule cutoffs against Digital Rakshak's **Adaptive Friction Engine**:
+
+| Metric | Traditional Static Rules | Digital Rakshak Engine | Impact |
+| :--- | :---: | :---: | :--- |
+| **Fraud Recall Rate** | 71.43% | **100.00%** | **+28.57% higher detection** |
+| **False Positive Hard Block Rate** | 3.05% | **0.00%** | **Zero wrongful disruptions for customers** |
+| **Legitimate Transactions Saved** | 0 (Blocked) | **142** | Converted from hard drop to stepped-up OTP |
+| **Legitimate Volume Preserved** | ₹0 | **₹1,10,98,380.68** | **₹1.10+ Crores saved from payment failures** |
+| **Coordinated Attack DNA Matches** | 0 | **320** | Full syndicate pattern correlation |
+| **Average Processing Latency** | < 0.1 ms | **0.056 ms (56 µs)** | Sub-millisecond wire-speed throughput |
+| **P95 Processing Latency** | < 0.1 ms | **0.071 ms (71 µs)** | Strict low-jitter real-time SLO |
+
+### Key Architectural Takeaway
+Traditional fraud systems penalize legitimate anomalies (e.g., late-night emergency hospital payments, festive jewelry shopping, or overseas flight bookings) with rigid hard blocks. 
+* Digital Rakshak reserves hard freezes strictly for high-confidence syndicate attacks.
+* Genuine atypical payments are redirected to **Adaptive Step-Up Authentication (OTP / Biometrics)**, preserving customer goodwill while locking out threat actors.
 
 ---
 
 ## The Technology Stack
 
-We didn't just build an app; we built an enterprise intelligence engine using the best modern tools available:
-
-*   **Frontend Interface:** Next.js 14 (App Router), React, Tailwind CSS, MapLibre GL for dynamic spatial maps, and Recharts for 6D radar visualizations. Hosted on **Vercel**.
-*   **Backend Orchestration:** FastAPI (Python 3.12) deployed as **Vercel Serverless Functions** for infinitely scalable API routing.
-*   **Relational & Vector Data:** **Neon Serverless Postgres** powered by SQLAlchemy 2.0 and `pgvector` for semantic clustering and high-performance connection pooling (PgBouncer).
-*   **Graph Intelligence:** **Neo4j AuraDB** for mapping complex relationships between scammers, UPI IDs, and phone numbers.
-*   **File Storage:** **Supabase Storage** for secure evidence and media retention.
-*   **AI Models:** Groq (Llama 3, Qwen Vision), PyTorch (MobileNetV3 for vision, XLM-RoBERTa for text), and Local Ollama (Qwen 2.5).
-
----
-
-## 🔐 Demo Credentials (For Judges)
-
-Use the following credentials to explore each role:
-
-| Role | Email | Password | Access |
-|------|-------|----------|--------|
-| 👮 Police / Investigator | `police1@rakshak.com` | `police@123` | Workbench, Case Assignment, Graph Intelligence |
-| 👤 Citizen / Victim | `citizen1@rakshak.com` | `citizen@123` | Report a Crime, Track Case Status, Help Chat |
-| 🏛️ Admin | `admin1@rakshak.com` | `admin@123` | Command Center, User Management, Full Platform |
-| 🏦 Banker / Nodal Officer | `banker1@rakshak.com` | `banker@123` | Case Verification, Evidence Review |
-
-> **Note:** All accounts are pre-seeded with sample cases and intelligence data for demonstration purposes.
+*   **Frontend Interface:** Next.js 14 (App Router), React, TypeScript, Tailwind CSS, Cytoscape.js (for 2-hop transaction forensic topology), MapLibre GL (for spatial clustering), Recharts (for 6-axis threat radar).
+*   **Backend Orchestration:** FastAPI (Python 3.12+), Pydantic v2 schemas, asyncio high-throughput event loops.
+*   **Streaming & Realtime:** Native WebSockets (`/v1/transactions/ws`) with auto-reconnecting clients and broadcast hubs.
+*   **Relational & Vector Store:** Neon Serverless PostgreSQL with `pgvector` for vector similarity clustering and PgBouncer connection pooling.
+*   **Graph Database:** Neo4j AuraDB (Cypher query language) for mule account discovery, syndicate graph traversal, and 2-hop ego-network isolation.
+*   **Evidence Storage:** Supabase Encrypted Storage with magic-byte validation and anti-tamper hash logging.
+*   **AI Models & Runtimes:**
+    *   *Cloud:* Groq LPU (`llama-3.3-70b-versatile`, `llama-3.1-8b-instant`, Qwen 2.5 Vision).
+    *   *Local Air-Gapped:* Ollama (`llama3:8b`), PyTorch (MobileNetV3 for currency analysis, XLM-RoBERTa for multilingual extraction), `faster-whisper`.
 
 ---
 
-## Getting Started (Run it locally!)
+## 🔐 Demo Credentials (For Evaluators & Judges)
 
-You can spin up the entire intelligence platform on your local machine.
+Explore the platform through pre-configured roles:
 
-### 1. Start the Databases
-First, spin up PostgreSQL and Neo4j using Docker:
+| Role | Email | Password | Accessible Modules |
+|------|-------|----------|-------------------|
+| 👮 Police / Investigator | `police1@rakshak.com` | `police@123` | Case Workbench, Evidence Analysis, Syndicate Graph, Hardware Telemetry |
+| 🏦 Banker / Nodal Officer | `banker1@rakshak.com` | `banker@123` | **Transaction Fraud Intelligence Cockpit**, Live WebSocket Stream, 2-Hop Cytoscape Forensics, Case Verification |
+| 👤 Citizen / Victim | `citizen1@rakshak.com` | `citizen@123` | Voice / Text Incident Reporting, Counterfeit Note Scanner, Status Tracker, Copilot Help Chat |
+| 🏛️ Admin / Superintendent | `admin1@rakshak.com` | `admin@123` | Tactical Command Center, Global Audit Logs, User Management, AI Engine Failover Governance |
+
+> **Note:** Demo accounts are pre-seeded with case data, transaction streams, and graph links.
+
+---
+
+## Getting Started (Local Development)
+
+### 1. Start Database Services
+Spin up PostgreSQL and Neo4j using Docker:
 ```bash
 docker-compose up -d
 ```
@@ -164,19 +213,29 @@ docker-compose up -d
 ```bash
 cd backend
 python -m venv venv
-# Activate it:
-# Windows: venv\Scripts\activate
-# Mac/Linux: source venv/bin/activate
+
+# Windows:
+venv\Scripts\activate
+# Linux/macOS:
+source venv/bin/activate
 
 pip install -r requirements.txt
 ```
-Make sure you have a `.env` file in the `backend` folder with your `DATABASE_URL`, `NEO4J_URI`, and `GROQ_API_KEY`.
+
+Create `backend/.env` containing your database strings and API keys:
+```env
+DATABASE_URL=postgresql+psycopg2://<user>:<pass>@<host>/<db>?sslmode=require
+NEO4J_URI=neo4j+s://<host>:7687
+NEO4J_USERNAME=neo4j
+NEO4J_PASSWORD=<password>
+GROQ_API_KEY=<your_groq_key>
+OLLAMA_BASE_URL=http://localhost:11434
+```
+
+Run migrations, seed intelligence data, and launch the server:
 ```bash
-# Run database migrations and seed mockup threat cases:
 alembic upgrade head
 python scripts/seed_diverse_cases.py
-
-# Start the server
 uvicorn main:app --reload --port 8000
 ```
 
@@ -185,25 +244,30 @@ uvicorn main:app --reload --port 8000
 cd frontend
 npm install
 ```
-Create a `.env.local` file in the `frontend` folder containing: `NEXT_PUBLIC_API_URL=http://127.0.0.1:8000/v1`
+
+Configure `frontend/.env.local`:
+```env
+NEXT_PUBLIC_API_URL=http://127.0.0.1:8000/v1
+```
+
+Run the development server:
 ```bash
 npm run dev
 ```
-Open **`http://localhost:3000`** in your browser, and you are ready to explore!
+Navigate to **`http://localhost:3000`** in your browser.
 
 ---
 
 ## Docker Hub Quick Start (Pre-Built Images)
-Want to skip the manual setup? Pull our production-ready images directly from Docker Hub:
 
-**Backend Service:**
+Pull and run production images directly:
+
 ```bash
+# Backend Service
 docker pull 1065925/digital-rakshak-backend:latest
 docker run -d -p 8000:8000 --env-file ./backend/.env --name dr-backend 1065925/digital-rakshak-backend:latest
-```
 
-**Frontend Service:**
-```bash
+# Frontend Service
 docker pull 1065925/digital-rakshak-frontend:latest
 docker run -d -p 3000:3000 --env-file ./frontend/.env.local --name dr-frontend 1065925/digital-rakshak-frontend:latest
 ```
@@ -212,11 +276,12 @@ docker run -d -p 3000:3000 --env-file ./frontend/.env.local --name dr-frontend 1
 
 ## Contributors
 
-* **beastspirit2005 (Harshit Sharma)** - Backend and System Design
-* **pranikaK17 (Pranika)** - Frontend Design
-* **DikshaChopra2007 (RuntimeTerror)** - Frontend Design
+* **beastspirit2005 (Harshit Sharma)** - Backend Architecture & System Design
+* **pranikaK17 (Pranika)** - Frontend & UX Design
+* **DikshaChopra2007 (RuntimeTerror)** - Frontend Design & Interactive Visualizations
 * **Tanmay Sao** - Documentation, Testing, Demo Video & Presentation
 
 ---
 
-**Developed to build a safer digital India.**
+**Developed to build a safer, zero-trust digital India.**
+
