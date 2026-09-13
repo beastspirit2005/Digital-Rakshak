@@ -21,10 +21,17 @@ class RegisterRequest(BaseModel):
     @field_validator('role')
     @classmethod
     def validate_role(cls, v: str):
-        allowed_roles = {"citizen", "police", "cyber_cell", "bank_employee"}
-        if v not in allowed_roles:
-            raise ValueError(f"Invalid role. Allowed roles for registration: {', '.join(allowed_roles)}")
-        return v
+        role_map = {
+            "citizen": "citizen",
+            "police": "police",
+            "cyber_cell": "cyber_cell",
+            "banker": "bank_employee",
+            "bank_employee": "bank_employee",
+            "admin": "admin"
+        }
+        if v not in role_map:
+            raise ValueError(f"Invalid role '{v}'. Allowed roles: citizen, police, cyber_cell, banker, admin")
+        return role_map[v]
     
     @field_validator('email')
     @classmethod

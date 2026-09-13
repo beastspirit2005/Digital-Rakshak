@@ -1,7 +1,7 @@
   "use client";
 
-  import { Suspense, useState } from "react";
-  import { api } from "@/lib/api";
+import { Suspense, useState } from "react";
+import { api, formatApiError } from "@/lib/api";
   import Link from "next/link";
   import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
   import axios from "axios";
@@ -84,10 +84,9 @@
           router.replace(destination);
         } catch (err: any) {
           const status = err.response?.status;
-          const detail = err.response?.data?.detail;
-          if (status === 403) setError(detail || "Your account hasn't been approved yet.");
+          if (status === 403) setError(formatApiError(err, "Your account hasn't been approved yet."));
           else if (status === 401) setError("That email or password doesn't match.");
-          else setError(detail || "Sign-in failed. Try again.");
+          else setError(formatApiError(err, "Sign-in failed. Try again."));
         } finally {
           setIsLoading(false);
         }
@@ -112,10 +111,9 @@
         router.replace(destination);
       } catch (err: any) {
         const status = err.response?.status;
-        const detail = err.response?.data?.detail;
-        if (status === 403) setError(detail || "Your account hasn't been approved yet.");
+        if (status === 403) setError(formatApiError(err, "Your account hasn't been approved yet."));
         else if (status === 401) setError("That code is invalid or has expired.");
-        else setError(detail || "Sign-in failed. Try again.");
+        else setError(formatApiError(err, "Sign-in failed. Try again."));
       } finally {
         setIsLoading(false);
       }

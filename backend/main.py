@@ -33,6 +33,26 @@ def _cors_headers_for_request(request: Request) -> dict:
         }
     return {"Access-Control-Allow-Origin": "*"}
 
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    raw_errors = exc.errors()
+    messages = []
+    for err in raw_errors:
+        loc = [str(l) for l in err.get("loc", []) if l != "body"]
+        field = " -> ".join(loc)
+        msg = str(err.get("msg", "Invalid input")).replace("Value error, ", "")
+        messages.append(f"{field}: {msg}" if field else msg)
+    clean_message = "; ".join(messages) if messages else "Validation failed"
+    logger.warning(f"Validation error on {request.url}: {clean_message}")
+    return JSONResponse(
+        status_code=422,
+        content={"detail": clean_message, "errors": jsonable_encoder(raw_errors)},
+        headers=_cors_headers_for_request(request)
+    )
+
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
     logger.warning(f"HTTP Exception: {exc.status_code} - {exc.detail} on {request.url}")

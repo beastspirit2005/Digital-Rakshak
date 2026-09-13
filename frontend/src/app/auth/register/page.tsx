@@ -1,6 +1,6 @@
 "use client";
 
-import { api } from "@/lib/api";
+import { api, formatApiError } from "@/lib/api";
 import { useState } from "react";
 import Link from "next/link";
 import { CheckCircle2 } from "lucide-react";
@@ -35,12 +35,12 @@ export default function RegisterPage() {
       await axios.post(api("/auth/register"), {
         email,
         full_name: fullName,
-        role,
+        role: role === "banker" ? "bank_employee" : role,
         password,
       });
       setSuccess(true);
     } catch (err: any) {
-      setError(err.response?.data?.detail || "Registration failed. Try again.");
+      setError(formatApiError(err, "Registration failed. Try again."));
     } finally {
       setIsLoading(false);
     }

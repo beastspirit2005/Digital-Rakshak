@@ -37,13 +37,26 @@ export const Select = forwardRef<HTMLSelectElement, React.SelectHTMLAttributes<H
 
 export function FormError({ children }: { children: React.ReactNode }) {
   if (!children) return null;
+
+  let content = children;
+  if (Array.isArray(children)) {
+    content = children.map((c) => {
+      if (typeof c === "object" && c !== null && !("$$typeof" in (c as any))) {
+        return (c as any).msg || (c as any).message || JSON.stringify(c);
+      }
+      return c;
+    }).join("; ");
+  } else if (typeof children === "object" && children !== null && !("$$typeof" in (children as any))) {
+    content = (children as any).msg || (children as any).message || JSON.stringify(children);
+  }
+
   return (
     <div
       role="alert"
       className="flex items-start gap-2 rounded-control border border-danger/20 bg-danger-tint px-3.5 py-3 text-sm text-danger"
     >
       <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-      <p>{children}</p>
+      <div className="flex-1">{content}</div>
     </div>
   );
 }

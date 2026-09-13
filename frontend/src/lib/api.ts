@@ -25,6 +25,33 @@ export function api(path: string): string {
 }
 
 /**
+ * Safely extract a human-readable error message from Axios / FastAPI response errors.
+ * Formats Pydantic 422 error arrays, object details, and network error messages.
+ */
+export function formatApiError(err: any, fallback = "An unexpected error occurred"): string {
+  if (!err) return fallback;
+  const detail = err.response?.data?.detail;
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    return detail
+      .map((item: any) => {
+        if (typeof item === "string") return item;
+        if (item && typeof item === "object") {
+          const loc = Array.isArray(item.loc) ? item.loc.filter((l: any) => l !== "body").join(" ") : "";
+          const msg = item.msg || item.message || JSON.stringify(item);
+          return loc ? `${loc}: ${msg}` : msg;
+        }
+        return String(item);
+      })
+      .join("; ");
+  }
+  if (detail && typeof detail === "object") {
+    return detail.msg || detail.message || JSON.stringify(detail);
+  }
+  return err.message || fallback;
+}
+
+/**
  * Helper to build WebSocket URLs matching API_BASE_URL.
  * Usage: wsApi("/transactions/ws") → "ws://127.0.0.1:8000/v1/transactions/ws"
  */
