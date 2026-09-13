@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   postgres:
     build: 
@@ -7,9 +5,9 @@ services:
       dockerfile: Dockerfile.postgres
     container_name: dr-postgres
     environment:
-      POSTGRES_USER: rakshak_admin
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-admin123}
-      POSTGRES_DB: digital_rakshak
+      POSTGRES_USER: ${POSTGRES_USER:-rakshak_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rakshak_secure_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-digital_rakshak}
     ports:
       - "5454:5432"
     volumes:
@@ -25,7 +23,7 @@ services:
     image: neo4j:5.20.0
     container_name: dr-neo4j
     environment:
-      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:-neo4j1234}
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:-rakshak_neo4j_pass}
       NEO4J_apoc_export_file_enabled: "true"
       NEO4J_apoc_import_file_enabled: "true"
       NEO4J_apoc_import_file_use__neo4j__config: "true"
@@ -67,16 +65,8 @@ services:
     restart: unless-stopped
     ports:
       - "8000:8000"
-    environment:
-      PORT: 8000
-      DATABASE_URL: postgresql+psycopg2://rakshak_admin:${POSTGRES_PASSWORD:-admin123}@postgres:5432/digital_rakshak
-      NEO4J_URI: bolt://neo4j:7687
-      NEO4J_USERNAME: neo4j
-      NEO4J_PASSWORD: ${NEO4J_PASSWORD:-neo4j1234}
-      OLLAMA_BASE_URL: http://ollama:11434
-      GROQ_API_KEY: ${GROQ_API_KEY:-}
-      SUPABASE_URL: ${SUPABASE_URL:-}
-      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
+    env_file:
+      - ./backend/.env
     depends_on:
       postgres:
         condition: service_healthy
@@ -100,8 +90,9 @@ services:
       - "3000:3000"
     environment:
       PORT: 3000
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000/v1}
       API_PROXY_TARGET: http://backend:8000
+    env_file:
+      - ./frontend/.env.local
     depends_on:
       - backend
     healthcheck:
