@@ -14,6 +14,7 @@ import { Rise } from "@/components/ui/motion";
 import { TransactionRiskGraph } from "@/components/graph/transaction-risk-graph";
 import {
   ArrowLeft,
+  ArrowRight,
   ShieldAlert,
   ShieldCheck,
   AlertTriangle,
@@ -123,6 +124,7 @@ export default function TransactionCockpitPage() {
   const [reviewDecision, setReviewDecision] = useState<string>("CONFIRMED_FRAUD");
   const [reviewNotes, setReviewNotes] = useState("");
   const [submittingReview, setSubmittingReview] = useState(false);
+  const [escalating, setEscalating] = useState(false);
 
   const fetchTransaction = useCallback(async () => {
     if (!id) return;
@@ -179,6 +181,33 @@ export default function TransactionCockpitPage() {
       pushToast("danger", "Failed to enrich narrative. Local AI offline.");
     } finally {
       setAnalyzing(false);
+    }
+  };
+
+  const handleEscalateToPolice = async () => {
+    if (!id || !transaction) return;
+    try {
+      setEscalating(true);
+      const res = await axios.post(
+        api(`/transactions/${id}/escalate-to-case`),
+        {},
+        token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
+      );
+      const caseNumber = res.data.case_number;
+      setTransaction({
+        ...transaction,
+        raw_metadata: {
+          ...transaction.raw_metadata,
+          escalated_case_number: caseNumber,
+          escalated_at: res.data.created_at
+        }
+      });
+      pushToast("success", `Transaction escalated to Police Case Register as ${caseNumber}.`);
+    } catch (err: any) {
+      console.error("Failed to escalate to case:", err);
+      pushToast("danger", err.response?.data?.detail || "Failed to escalate transaction to case register.");
+    } finally {
+      setEscalating(false);
     }
   };
 
@@ -329,6 +358,26 @@ export default function TransactionCockpitPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          {transaction.raw_metadata?.escalated_case_number ? (
+            <Link href="/workbench/reports">
+              <Badge tone="danger" className="font-mono text-xs gap-1.5 py-1 px-2.5 hover:opacity-85 transition-opacity cursor-pointer flex items-center">
+                <ShieldAlert className="w-3.5 h-3.5 text-danger" />
+                Case: {transaction.raw_metadata.escalated_case_number}
+              </Badge>
+            </Link>
+          ) : (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleEscalateToPolice}
+              disabled={escalating}
+              className="gap-1.5 text-xs text-danger hover:text-danger hover:border-danger/40 border-line/20"
+            >
+              <ShieldAlert className={`w-3.5 h-3.5 ${escalating ? "animate-spin" : "text-danger"}`} />
+              {escalating ? "Escalating..." : "Escalate to Police Register"}
+            </Button>
+          )}
+
           <Button
             variant="secondary"
             size="sm"
@@ -349,6 +398,27 @@ export default function TransactionCockpitPage() {
           </Button>
         </div>
       </div>
+
+      {/* Law Enforcement Escalation Banner (Conditional) */}
+      {transaction.raw_metadata?.escalated_case_number && (
+        <div className="rounded-card border border-rose-500/40 bg-rose-950/20 p-3.5 flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2.5">
+            <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0" />
+            <div>
+              <span className="font-bold text-ink">Official Case Registered with Law Enforcement</span>
+              <span className="text-ink-3 ml-2">
+                Case #{transaction.raw_metadata.escalated_case_number} registered in Police Case Register (/workbench/reports) for FIR & account freeze.
+              </span>
+            </div>
+          </div>
+          <Link href="/workbench/reports">
+            <Button variant="secondary" size="sm" className="text-xs gap-1 font-semibold text-rose-400 hover:text-rose-300">
+              <span>Open Police Workbench</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Button>
+          </Link>
+        </div>
+      )}
 
       {/* Attack DNA Signature Alert Banner (Conditional) */}
       {attackDNA && attackDNA.matched && (

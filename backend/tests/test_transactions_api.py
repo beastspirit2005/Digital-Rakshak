@@ -110,4 +110,51 @@ async def test_api_ingest_and_review_fraud_transaction():
         assert "nodes" in net_data
         assert "edges" in net_data
 
+        # 7. Test Bank Switch In-Line Authorization Hook
+        switch_payload = {
+            "transaction_id": f"TXN-SWITCH-{uuid.uuid4().hex[:6].upper()}",
+            "account_id": "ACC-TEST-SWITCH-1",
+            "beneficiary_id": "merchant_grocery@upi",
+            "amount": 420.0,
+            "channel": "UPI",
+            "transaction_type": "TRANSFER",
+            "city": "Bengaluru",
+            "state": "Karnataka"
+        }
+        switch_resp = await ac.post("/v1/transactions/switch/authorize", json=switch_payload)
+        assert switch_resp.status_code == 200
+        switch_data = switch_resp.json()
+        assert "action_code" in switch_data
+        assert switch_data["action_code"] == "00"
+        assert switch_data["action_status"] in ["APPROVED", "APPROVED_MONITORED"]
+
+        # 8. Test Sample CSV Download
+        sample_csv_resp = await ac.get("/v1/transactions/sample-csv")
+        assert sample_csv_resp.status_code == 200
+        assert "account_id,beneficiary_id,amount" in sample_csv_resp.text
+
+        # 9. Test Bulk CSV Statement Upload
+        csv_file_content = (
+            "account_id,beneficiary_id,amount,channel,transaction_type,city,state,device_id\n"
+            "ACC-BULK-01,merchant_chai@upi,50.00,UPI,TRANSFER,Pune,Maharashtra,DEV-A1\n"
+            "ACC-BULK-02,syndicate_mule@ybl,150000.00,UPI,TRANSFER,Mewat,Haryana,DEV-EMU-1\n"
+        )
+        upload_resp = await ac.post(
+            "/v1/transactions/upload-csv",
+            files={"file": ("test_statement.csv", csv_file_content, "text/csv")}
+        )
+        assert upload_resp.status_code == 200
+        upload_data = upload_resp.json()
+        assert upload_data["status"] == "success"
+        assert upload_data["total_processed"] == 2
+        assert "prevented_loss_amount" in upload_data
+
+        # 10. Test 1-Click Police Case Register Escalation
+        escalate_resp = await ac.post(f"/v1/transactions/{txn_code}/escalate-to-case")
+        assert escalate_resp.status_code == 200
+        esc_data = escalate_resp.json()
+        assert esc_data["status"] in ["success", "already_escalated"]
+        assert "case_number" in esc_data
+        assert "CASE-TXN" in esc_data["case_number"]
+
     await engine.dispose()

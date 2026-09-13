@@ -29,9 +29,14 @@ import {
   Layers,
   ArrowUpRight,
   Wifi,
-  WifiOff
+  WifiOff,
+  Plus,
+  CreditCard,
+  UploadCloud,
+  Code2
 } from "lucide-react";
 import { useTransactionStream, TransactionStreamItem, ReviewStreamItem } from "@/hooks/use-transaction-stream";
+import { IngestTransactionModal } from "@/components/transactions/ingest-transaction-modal";
 
 interface RiskFeedItem {
   id: string;
@@ -74,7 +79,9 @@ export default function TransactionMonitoringPage() {
   const [selectedBand, setSelectedBand] = useState<string>("ALL");
   const [selectedStatus, setSelectedStatus] = useState<string>("ALL");
 
-  // Simulation modal state
+  // Real Transaction Ingestion Modal state
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalTab, setModalTab] = useState<"manual" | "csv" | "webhook">("manual");
   const [isSimulating, setIsSimulating] = useState(false);
   const [simType, setSimType] = useState<"normal" | "fraud">("fraud");
 
@@ -341,26 +348,43 @@ export default function TransactionMonitoringPage() {
               Refresh
             </Button>
 
-            {/* Test Simulation Controls */}
-            <div className="hidden sm:flex items-center gap-1.5 ml-2 pl-2 border-l border-line/15">
-              <select
-                value={simType}
-                onChange={(e: any) => setSimType(e.target.value)}
-                className="bg-surface-2 border border-line/20 rounded-md text-xs px-2 py-1.5 text-ink outline-none"
+            {/* Real Transaction Ingestion & Bank Switch Hooks */}
+            <div className="flex items-center gap-1.5 ml-2 pl-2 border-l border-line/15">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  setModalTab("csv");
+                  setModalOpen(true);
+                }}
+                className="text-xs gap-1.5 font-medium"
               >
-                <option value="fraud">Fraud Attack (Hold)</option>
-                <option value="normal">Normal UPI (Approve)</option>
-              </select>
+                <UploadCloud className="w-3.5 h-3.5 text-accent" />
+                Bulk Statement CSV
+              </Button>
               <Button
                 variant="primary"
                 size="sm"
-                onClick={handleSimulate}
-                disabled={isSimulating}
-                className="text-xs gap-1"
+                onClick={() => {
+                  setModalTab("manual");
+                  setModalOpen(true);
+                }}
+                className="text-xs gap-1.5 font-bold shadow-sm"
               >
-                <Zap className="w-3.5 h-3.5" />
-                {isSimulating ? "Streaming..." : "Simulate & Stream"}
+                <Plus className="w-3.5 h-3.5" />
+                Ingest Transaction
               </Button>
+              <button
+                type="button"
+                onClick={() => {
+                  setModalTab("webhook");
+                  setModalOpen(true);
+                }}
+                title="View Bank & UPI Switch Webhook Integration Guide"
+                className="p-1.5 rounded-md text-ink-3 hover:text-accent hover:bg-surface-2 transition-colors border border-line/15"
+              >
+                <Code2 className="w-3.5 h-3.5" />
+              </button>
             </div>
           </div>
         }
@@ -619,6 +643,14 @@ export default function TransactionMonitoringPage() {
           </div>
         </Card>
       </Rise>
+
+      {/* In-Line Hook & Bulk Statement Ingestion Modal */}
+      <IngestTransactionModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        defaultTab={modalTab}
+        onSuccess={fetchData}
+      />
     </div>
   );
 }

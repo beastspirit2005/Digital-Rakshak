@@ -2,14 +2,16 @@ import asyncio
 import json
 import uuid
 import logging
+import csv
+import io
 from datetime import datetime, timezone
 from typing import List, Optional, Dict, Any
 
 from fastapi import (
     APIRouter, Depends, HTTPException, status, Query, Request, BackgroundTasks,
-    WebSocket, WebSocketDisconnect
+    WebSocket, WebSocketDisconnect, UploadFile, File
 )
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc, func, or_
 from sqlalchemy.orm import selectinload
@@ -17,6 +19,7 @@ from sqlalchemy.orm import selectinload
 from infrastructure.db.session import get_db
 from api.deps import get_current_user, get_current_user_optional
 from domain.models.user import User
+from domain.models.case import Case, CaseStatus, CasePriority
 from domain.models.transaction import (
     Transaction,
     TransactionFeature,
@@ -75,6 +78,43 @@ async def _get_txn_by_id_or_code(db: AsyncSession, identifier: str) -> Optional[
 
     result = await db.execute(query)
     return result.scalar_one_or_none()
+
+
+def _map_switch_action_code(decision: str) -> Dict[str, str]:
+    """
+    Maps Digital Rakshak's adaptive friction decision into standard ISO 8583 / NPCI
+    authorization response action codes for Core Banking Systems & UPI switches.
+    """
+    if decision == FrictionAction.APPROVE.value:
+        return {
+            "action_code": "00",
+            "action_status": "APPROVED",
+            "action_message": "Transaction authorized successfully."
+        }
+    elif decision == FrictionAction.APPROVE_AND_MONITOR.value:
+        return {
+            "action_code": "00",
+            "action_status": "APPROVED_MONITORED",
+            "action_message": "Authorized with background passive audit logging."
+        }
+    elif decision == FrictionAction.STEP_UP_VERIFICATION.value:
+        return {
+            "action_code": "75",
+            "action_status": "STEP_UP_REQUIRED",
+            "action_message": "Stepped-up authentication required (Biometrics / OTP Challenge)."
+        }
+    elif decision == FrictionAction.TEMPORARY_HOLD.value:
+        return {
+            "action_code": "05",
+            "action_status": "TEMPORARY_HOLD",
+            "action_message": "Do not honor. Suspicious transaction velocity; 15-minute escrow hold placed."
+        }
+    else:  # HOLD_AND_INVESTIGATE
+        return {
+            "action_code": "43",
+            "action_status": "DECLINED_FRAUD_HOLD",
+            "action_message": "Quarantined. Critical fraud signature or coordinated Attack DNA match."
+        }
 
 
 # ----------------------------------------------------------------------
@@ -330,6 +370,7 @@ async def ingest_transaction(
     background_tasks.add_task(_bg_graph_record)
 
     # 14. Broadcast real-time transaction event to connected bankers (WebSocket & SSE)
+    action_meta = _map_switch_action_code(decision_val)
     stream_payload = {
         "id": str(new_txn.id),
         "transaction_id": txn_id_str,
@@ -342,6 +383,9 @@ async def ingest_transaction(
         "timestamp": now.isoformat(),
         "status": txn_status,
         "decision": decision_val,
+        "action_code": action_meta["action_code"],
+        "action_status": action_meta["action_status"],
+        "action_message": action_meta["action_message"],
         "risk_score": analysis["risk_score"],
         "risk_band": analysis["risk_band"],
         "confidence": analysis["confidence"],
@@ -356,6 +400,9 @@ async def ingest_transaction(
         "transaction_id": txn_id_str,
         "status": txn_status,
         "decision": decision_val,
+        "action_code": action_meta["action_code"],
+        "action_status": action_meta["action_status"],
+        "action_message": action_meta["action_message"],
         "risk_score": analysis["risk_score"],
         "risk_band": analysis["risk_band"],
         "confidence": analysis["confidence"],
@@ -364,6 +411,155 @@ async def ingest_transaction(
         "attack_dna": analysis["attack_dna"],
         "signals": analysis["signals"],
         "sub_scores": analysis["sub_scores"]
+    }
+
+
+# ----------------------------------------------------------------------
+# 1B. Bank & Payment Switch In-Line Hook & Bulk Statement Ingestion
+# ----------------------------------------------------------------------
+@router.post("/switch/authorize", response_model=Dict[str, Any], status_code=status.HTTP_200_OK)
+async def switch_authorize(
+    payload: TransactionCreate,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    user: Optional[User] = Depends(get_current_user_optional)
+):
+    """
+    Dedicated synchronous In-Line Hook for Bank & Payment Switches (NPCI/UPI/CBS).
+    Returns real-time ISO 8583 / NPCI authorization response action codes within microsecond budget.
+    Action Codes:
+      - '00': APPROVED (Proceed with debit)
+      - '75': STEP_UP_REQUIRED (Prompt for 2FA / Biometric Challenge)
+      - '05': TEMPORARY_HOLD (Do Not Honor, velocity / rapid hopping throttle)
+      - '43': DECLINED_FRAUD_HOLD (Immediate Quarantine, stolen account / attack DNA)
+    """
+    return await ingest_transaction(payload, background_tasks, db, user)
+
+
+@router.get("/sample-csv")
+async def download_sample_csv():
+    """
+    Returns a downloadable CSV template with representative transactions
+    for bulk statement analysis and stress-testing fraud detection.
+    """
+    csv_content = (
+        "account_id,beneficiary_id,amount,channel,transaction_type,city,state,device_id\n"
+        "ACC-9823412,payee_merchant@upi,250.00,UPI,TRANSFER,Bengaluru,Karnataka,DEV-ANDR-8821\n"
+        "ACC-9823412,crypto_mule@ybl,195000.00,UPI,TRANSFER,Mewat,Haryana,DEV-EMU-ROOT-991\n"
+        "ACC-1102948,utility_bill@okaxis,1450.00,NETBANKING,PAYMENT,Mumbai,Maharashtra,DEV-IOS-2210\n"
+        "ACC-5510293,suspicious_ring@ibl,48000.00,IMPS,TRANSFER,Jamtara,Jharkhand,DEV-SPOOF-3102\n"
+        "ACC-7718290,trusted_family@okicici,5000.00,UPI,TRANSFER,Delhi,Delhi,DEV-ANDR-1092\n"
+    )
+    return Response(
+        content=csv_content,
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": "attachment; filename=rakshak_sample_transactions.csv"
+        }
+    )
+
+
+@router.post("/upload-csv", response_model=Dict[str, Any])
+async def upload_transactions_csv(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    user: Optional[User] = Depends(get_current_user_optional)
+):
+    """
+    Bulk statement ingestion: parses CSV of transaction records,
+    evaluates each transaction synchronously or in batch, persists records,
+    and returns aggregated prevention metrics.
+    """
+    if not file.filename.endswith(".csv"):
+        raise HTTPException(status_code=400, detail="Only CSV files (.csv) are supported")
+
+    content_bytes = await file.read()
+    try:
+        text = content_bytes.decode("utf-8")
+    except UnicodeDecodeError:
+        text = content_bytes.decode("latin-1")
+
+    reader = csv.DictReader(io.StringIO(text))
+    
+    total_processed = 0
+    total_amount = 0.0
+    approved_count = 0
+    flagged_count = 0
+    quarantined_count = 0
+    prevented_loss_amount = 0.0
+    processed_items = []
+
+    # Process up to 100 transactions per CSV upload for performance
+    for idx, row in enumerate(reader):
+        if idx >= 100:
+            break
+            
+        account_id = row.get("account_id") or f"ACC-AUTO-{idx+1}"
+        beneficiary_id = row.get("beneficiary_id") or f"BEN-AUTO-{idx+1}"
+        try:
+            amount = float(row.get("amount", 0.0))
+        except (ValueError, TypeError):
+            amount = 100.0
+        
+        channel = row.get("channel") or "UPI"
+        tx_type = row.get("transaction_type") or "TRANSFER"
+        city = row.get("city") or "Bengaluru"
+        state_val = row.get("state") or "Karnataka"
+        device_id = row.get("device_id") or None
+        
+        tx_payload = TransactionCreate(
+            account_id=account_id,
+            beneficiary_id=beneficiary_id,
+            amount=amount,
+            channel=channel,
+            transaction_type=tx_type,
+            city=city,
+            state=state_val,
+            device_id=device_id
+        )
+        
+        try:
+            res = await ingest_transaction(tx_payload, background_tasks, db, user)
+            total_processed += 1
+            total_amount += amount
+            
+            dec = res.get("decision", "APPROVE")
+            if dec in [FrictionAction.APPROVE.value, FrictionAction.APPROVE_AND_MONITOR.value]:
+                approved_count += 1
+            elif dec == FrictionAction.STEP_UP_VERIFICATION.value:
+                flagged_count += 1
+            else:
+                quarantined_count += 1
+                prevented_loss_amount += amount
+
+            if len(processed_items) < 25:
+                processed_items.append({
+                    "transaction_id": res.get("transaction_id"),
+                    "account_id": account_id,
+                    "beneficiary_id": beneficiary_id,
+                    "amount": amount,
+                    "channel": channel,
+                    "decision": dec,
+                    "action_code": res.get("action_code"),
+                    "action_status": res.get("action_status"),
+                    "risk_score": res.get("risk_score"),
+                    "risk_band": res.get("risk_band")
+                })
+        except Exception as e:
+            logger.warning(f"Error processing CSV row {idx}: {e}")
+            continue
+
+    return {
+        "status": "success",
+        "filename": file.filename,
+        "total_processed": total_processed,
+        "total_amount_evaluated": round(total_amount, 2),
+        "approved_count": approved_count,
+        "flagged_count": flagged_count,
+        "quarantined_count": quarantined_count,
+        "prevented_loss_amount": round(prevented_loss_amount, 2),
+        "processed_sample": processed_items
     }
 
 
@@ -563,6 +759,100 @@ async def review_transaction(
         "new_status": txn.status,
         "investigator_id": investigator,
         "recorded_at": feedback.created_at.isoformat()
+    }
+
+
+# ----------------------------------------------------------------------
+# 5B. 1-Click Police Case Register Escalation
+# ----------------------------------------------------------------------
+@router.post("/{id}/escalate-to-case", response_model=Dict[str, Any])
+async def escalate_transaction_to_case(
+    id: str,
+    db: AsyncSession = Depends(get_db),
+    user: Optional[User] = Depends(get_current_user_optional)
+):
+    """
+    1-Click Banker-to-Law-Enforcement Escalation:
+    Directly converts a suspicious/quarantined banking transaction into an official
+    Law Enforcement Case in the Police Case Register (/workbench/reports) for
+    FIR registration, Section 91 CrPC notice dispatch, and immediate account freezing.
+    """
+    txn = await _get_txn_by_id_or_code(db, id)
+    if not txn:
+        raise HTTPException(status_code=404, detail=f"Transaction {id} not found")
+
+    # Check if this transaction has already been escalated
+    existing_case_query = select(Case).where(Case.case_number.like(f"%{txn.transaction_id}%"))
+    existing_case_res = await db.execute(existing_case_query)
+    existing_case = existing_case_res.scalar_one_or_none()
+
+    if existing_case:
+        return {
+            "status": "already_escalated",
+            "message": f"This transaction is already associated with Case {existing_case.case_number}.",
+            "case_id": str(existing_case.id),
+            "case_number": existing_case.case_number,
+            "priority": existing_case.priority.value if hasattr(existing_case.priority, 'value') else str(existing_case.priority),
+            "created_at": existing_case.created_at.isoformat() if existing_case.created_at else None
+        }
+
+    risk_score_val = float(txn.score.risk_score) if txn.score else 0.85
+    case_priority = CasePriority.critical if risk_score_val >= 0.75 else CasePriority.high
+    case_num = f"CASE-TXN-{datetime.now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
+
+    scam_desc = (
+        f"Bank Switch Escalation: Flagged Transaction {txn.transaction_id}. "
+        f"Remitter Account {txn.account_id} transferred INR {float(txn.amount):,.2f} to Beneficiary {txn.beneficiary_id} "
+        f"via {txn.channel}. "
+        f"Decision: {txn.decision.decision if txn.decision else 'HELD'}. "
+        f"Risk Score: {risk_score_val:.2f}. "
+        f"Reason: {txn.decision.explanation_text if txn.decision else 'Automated AI switch fraud quarantine'}."
+    )
+
+    new_case = Case(
+        case_number=case_num,
+        submitted_by=user.id if user else None,
+        scam_text=scam_desc,
+        scam_type_code=f"FIN-TXN-{txn.channel.upper()}" if txn.channel else "FIN-PAY-UPI",
+        city=txn.city or "New Delhi",
+        state=txn.state or "Delhi",
+        latitude=float(txn.latitude) if txn.latitude else None,
+        longitude=float(txn.longitude) if txn.longitude else None,
+        threat_confidence_score=risk_score_val,
+        status=CaseStatus.escalated,
+        priority=case_priority,
+        estimated_amount=float(txn.amount),
+        ai_decision={
+            "source": "BANK_TRANSACTION_ENGINE",
+            "transaction_id": txn.transaction_id,
+            "decision": txn.decision.decision if txn.decision else "HELD",
+            "risk_score": risk_score_val,
+            "confidence": float(txn.score.confidence) if txn.score else 0.9,
+            "reason_codes": txn.decision.reason_codes if txn.decision else [],
+            "explanation": txn.decision.explanation_text if txn.decision else "Escalated by Bank Fraud Desk.",
+            "escalated_at": datetime.now(timezone.utc).isoformat()
+        },
+        attack_dna=(txn.raw_metadata or {}).get("attack_dna")
+    )
+    db.add(new_case)
+
+    # Also update transaction metadata to link the case
+    if txn.raw_metadata is None:
+        txn.raw_metadata = {}
+    txn.raw_metadata["escalated_case_number"] = case_num
+    txn.raw_metadata["escalated_at"] = datetime.now(timezone.utc).isoformat()
+
+    await db.commit()
+    await db.refresh(new_case)
+
+    return {
+        "status": "success",
+        "message": f"Successfully escalated to Police Case Register as {case_num}.",
+        "case_id": str(new_case.id),
+        "case_number": new_case.case_number,
+        "transaction_id": txn.transaction_id,
+        "priority": new_case.priority.value if hasattr(new_case.priority, 'value') else str(new_case.priority),
+        "created_at": new_case.created_at.isoformat() if new_case.created_at else None
     }
 
 
