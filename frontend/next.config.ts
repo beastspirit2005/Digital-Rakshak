@@ -9,11 +9,10 @@ const nextConfig: NextConfig = {
     const isVercel = process.env.VERCEL === "1" || !!process.env.VERCEL_URL || !!process.env.VERCEL_ENV;
     // On Vercel, NEVER rewrite — experimental services handle /api routing
     if (isVercel) return [];
-    // Local dev only
     return [
       {
         source: "/api/v1/:path*",
-        destination: "http://127.0.0.1:8000/v1/:path*", // Proxy to backend
+        destination: `${proxyTarget}/v1/:path*`, // Proxy to backend (supports docker network & localhost)
       },
     ];
   },

@@ -1,13 +1,30 @@
-.venv
-venv
-env
-ENV
-__pycache__
-*.pyc
-*.pyo
-.git
+# Virtual environment
+venv/
+.venv/
+env/
+
+# Python cache and bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local sensitive environment files
 .env
 .env.*
-.vscode
-.idea
+!.env.example
+
+# Large offline training datasets (keep trained models in models/ directory)
+data/currency/
+data/raw/
+uploads/
+
+# Git and dev artifacts
+.git/
+.gitignore
+.github/
 *.log
+.DS_Store
