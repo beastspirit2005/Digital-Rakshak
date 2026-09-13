@@ -15,11 +15,14 @@ Digital Rakshak natively integrates an ultra-low latency transaction inspection 
 *   **Streaming Feature Engine:** Computes instantaneous velocity, burst frequency, deviation Z-scores, ratio deviations, and geographic velocity jumps using rolling time windows.
 *   **Sequential Attack DNA Matcher:** Correlates real-time events against known cybercrime syndicates (e.g., Account Takeover probe-to-drain sequences, Mule Fan-Out distribution, Midnight Siphoning / Smurfing, and OTP Hijack loops).
 *   **Proportional Adaptive Friction Engine:** Replaces brittle binary cutoffs (which block legitimate emergency medical payments or wedding purchases) with 5-tier dynamic countermeasures:
-    1.  `APPROVE` (0–30): Instantaneous pass with zero customer friction.
-    2.  `APPROVE_AND_MONITOR` (30–55): Seamless passage backed by passive audit logging.
-    3.  `STEP_UP_CHALLENGE` (55–75): Dynamic stepped-up authentication (Biometrics / OTP), saving legitimate anomalies from false-positive rejections.
-    4.  `TEMPORARY_HOLD` (75–90): 15-minute escrow hold with automated nodal escalation.
-    5.  `HOLD_AND_INVESTIGATE` (90–100): Immediate hard freeze, LEA incident auto-filing, and 2-hop network quarantine.
+    1.  `APPROVE` (0–30): Instantaneous pass with zero customer friction (ISO 8583 Code `00`).
+    2.  `APPROVE_AND_MONITOR` (30–55): Seamless passage backed by passive audit logging (ISO 8583 Code `00`).
+    3.  `STEP_UP_CHALLENGE` (55–75): Dynamic stepped-up authentication (Biometrics / OTP), saving legitimate anomalies from false-positive rejections (ISO 8583 Code `75`).
+    4.  `TEMPORARY_HOLD` (75–90): 15-minute escrow hold with automated nodal escalation (ISO 8583 Code `05`).
+    5.  `HOLD_AND_INVESTIGATE` (90–100): Immediate hard freeze, LEA incident auto-filing, and 2-hop network quarantine (ISO 8583 Code `43`).
+*   **Bank & Payment Switch Pre-Debit In-Line Hook (`/switch/authorize`):** Direct synchronous integration endpoint for Core Banking Systems (CBS) and UPI switches (NPCI, PhonePe, Google Pay, Paytm) to receive sub-50ms authorization verdicts before debiting customer accounts.
+*   **Bulk Statement CSV Ingestion Engine (`/upload-csv` & `/sample-csv`):** High-throughput statement parser evaluating batches of historical or settlement clearing transactions, automatically computing clearance rates, quarantined counts, and **Prevented Fraud Loss Amount (₹)**.
+*   **1-Click Police Case Register Escalation (`/{id}/escalate-to-case`):** Seamless operational bridge converting quarantined banking transactions into official legal case dossiers in the Police Workbench (`/workbench/reports`) with auto-generated Section 91 CrPC notice dispatch for immediate inter-bank account freezing.
 *   **Bi-Directional WebSocket Streaming (`/v1/transactions/ws`):** Broadcasts live banking transaction telemetry, risk-band distributions, and anomaly alerts to banking dashboards in real time.
 *   **Forensic Cockpit & 2-Hop Cytoscape Graph:** Visualizes immediate 2-hop ego-networks around sender accounts, recipient beneficiaries, shared device IDs, and IP clusters for rapid nodal intervention.
 
@@ -55,10 +58,11 @@ Digital Rakshak couples a high-performance Next.js 14 App Router frontend with a
 
 ```mermaid
 graph TD
-    %% User Personas
+    %% Personas & External Switches
     Citizen((Citizen / Victim))
     Banker((Nodal Officer / Banker))
-    Admin((Police / LEA Admin))
+    Police((Police / LEA Investigator))
+    BankSwitch((Bank Switch / NPCI / CBS))
 
     %% Frontend Subsystem
     subgraph Frontend [Next.js 14 Edge / Client Tier]
@@ -66,12 +70,17 @@ graph TD
         Map[Spatial Map WebGL Layer]
         GraphVis[Neo4j Syndicate Visualizer]
         TxCockpit[Live Transaction Monitor & Cytoscape 2-Hop Cockpit]
+        IngestModal[Ingest Modal: Real Txn / Bulk CSV / Hook Guide]
+        PoliceWorkbench[Police Workbench: Case Register & Section 91 CrPC]
         ChatWidget[Copilot Chat Widget with Engine Attribution]
     end
 
     %% Ingestion & Streaming Layer
     subgraph Ingestion [FastAPI Ingestion & Streaming Gateway]
         APIRouter[REST API Routing Engine]
+        SwitchHook[Pre-Debit Switch In-Line Hook /switch/authorize]
+        CSVParser[Bulk Statement Ingestion Engine /upload-csv]
+        Escalator[1-Click Police Case Escalator /{id}/escalate-to-case]
         WSManager[TransactionStreamManager WebSocket / SSE]
         RateLimitSentinel[Failover Sentinel: Groq ↔ Ollama]
         CoTSanitizer[CoT Reasoning Sanitizer]
@@ -95,7 +104,7 @@ graph TD
             FeatureEng[Streaming FeatureEngine Z-Scores & Velocity]
             AttackDNA[Sequential AttackDNAMatcher 5+ Signatures]
             ScoringEng[Multi-Factor ScoringEngine 0-100]
-            FrictionEng[AdaptiveFrictionEngine 5-Tier Action Matrix]
+            FrictionEng[Adaptive Friction Decision Matrix ISO 8583]
         end
 
         %% Dual-Mode RIE
@@ -105,20 +114,24 @@ graph TD
         end
     end
 
-    %% Multi-Model Persistence
-    subgraph Persistence [Persistence & Storage Layer]
+    %% Multi-Model Persistence & Security
+    subgraph Persistence [Persistence & Cryptographic Security Layer]
+        PIIShield[PII Encryption Service: AES-256 Fernet + PBKDF2]
         PG[(Neon Serverless Postgres + pgvector)]
         Neo[(Neo4j AuraDB Syndicate Graph)]
         MemBuffer[(In-Memory Rolling State & Sliding Windows)]
-        Storage[(Supabase Encrypted Storage)]
+        Storage[(Supabase Encrypted Storage + SHA-256 Vault)]
     end
 
     %% Ingestion Connections
     Citizen -->|Voice / Text / Evidence Upload| UI
-    Banker -->|Transaction Verification & Overrides| TxCockpit
-    Admin -->|Syndicate Takedowns & Governance| GraphVis
+    Banker -->|Transaction Verification & Manual Ingest| TxCockpit
+    Banker -->|Trigger Ingestion / Bulk CSV| IngestModal
+    Police -->|FIR Registration & Evidence Freezes| PoliceWorkbench
+    BankSwitch -->|Pre-Debit Authorization Hook <50ms| SwitchHook
 
     UI -->|REST Endpoints| APIRouter
+    IngestModal -->|CSV Upload & Real Entry| APIRouter
     ChatWidget -->|Streaming Chat| APIRouter
     TxCockpit <-->|Bi-Directional Telemetry /ws| WSManager
 
@@ -132,22 +145,55 @@ graph TD
     Registry --> ThreatA & BehA & CampA & VisA & VoiceA
     MAIF <--> RIE
 
-    WSManager -->|Live Transaction Ingestion| FeatureEng
+    SwitchHook -->|Synchronous Stream Ingest| FeatureEng
+    CSVParser -->|Batch Row Processing| FeatureEng
+    WSManager -->|WebSocket Ingestion| FeatureEng
     FeatureEng --> MemBuffer
     FeatureEng --> AttackDNA
     AttackDNA --> ScoringEng
     ScoringEng --> FrictionEng
-    FrictionEng -->|Intervention Actions| WSManager
-    WSManager -->|Live Stream Broadcast| TxCockpit
+    FrictionEng -->|ISO 8583 Action Code: 00, 75, 05, 43| SwitchHook
+    FrictionEng -->|Live Stream Broadcast| WSManager
+    WSManager --> TxCockpit
+
+    %% 1-Click Police Escalation
+    TxCockpit -->|1-Click Escalate to Case| Escalator
+    Escalator -->|Create Official Case Record| PIIShield
+    Escalator -.->|Auto-Reflected in Police Dossier| PoliceWorkbench
 
     %% Persistence Interconnects
-    ThreatA & BehA & CampA -->|Case Entities & Vectors| PG
-    CampA & FrictionEng -->|Mule Rings & Syndicate Graphs| Neo
-    VisA & VoiceA -->|Binary Evidence| Storage
+    ThreatA & BehA & CampA --> PIIShield
+    PIIShield -->|Encrypted PII Columns| PG
+    CampA & FrictionEng -->|Mule Rings & 2-Hop Graphs| Neo
+    VisA & VoiceA -->|Immutable Cryptographic Evidence| Storage
     PG -->|Geo-Spatial Aggregations| Map
     Neo -->|Ego-Networks & 2-Hop Expansions| GraphVis
     Neo -->|2-Hop Account Subgraphs| TxCockpit
 ```
+
+---
+
+## UPI Payment Protection Architecture (NPCI & Mobile Ecosystem)
+
+Digital Rakshak provides end-to-end defense across the complete Indian UPI payment lifecycle through **three complementary connection mechanisms**:
+
+### 1. In-Line Bank Switch Pre-Debit Hook (Core Banking Level)
+* **Direct CBS / Switch Integration**: Core Banking Systems (e.g. SBI, HDFC, ICICI, Axis) and payment switches connect synchronously to `POST /api/v1/transactions/switch/authorize`.
+* **Microsecond SLA (< 50 µs)**: Evaluates incoming debits before balance commitment, returning standard **ISO 8583 / NPCI Action Codes**:
+  - `00` **APPROVED**: Instant pass-through for legitimate everyday commerce.
+  - `75` **STEP_UP_REQUIRED**: Dynamic biometric/OTP challenge on the mobile device.
+  - `05` **TEMPORARY_HOLD**: 15-minute escrow pause for rapid velocity hopping.
+  - `43` **DECLINED_FRAUD_HOLD**: Immediate quarantine for stolen accounts or syndicate mule VPAs.
+
+### 2. Embedded Mobile SDK (Partner UPI Apps)
+* Lightweight client SDK (`in.digitalrakshak:upi-security-sdk`) integrated into partner UPI applications (PhonePe, Paytm, BHIM, Cred):
+  - **Reverse "Collect Request" Scam Shield**: Detects deceitful collect requests claiming "Enter PIN to receive prize/refund" and flags in bold red: *"Entering PIN will DEDUCT funds from your account."*
+  - **Screen-Sharing Trojan Detection**: Scans for active background screen-mirroring tools (AnyDesk, TeamViewer, RustDesk) and suppresses PIN entry.
+
+### 3. Standalone Android Citizen Shield (Intent & Screen Overlay)
+* For consumers without bank app modifications:
+  - Registers for the open `upi://pay` URI scheme to pre-screen payment links in SMS/WhatsApp.
+  - Utilizes Android Accessibility Services to read on-screen VPAs when scanning physical store QR codes, projecting a floating Rakshak Shield (🟢 Verified / 🔴 Known Mule Scammer).
 
 ---
 
