@@ -13,7 +13,7 @@ class GroqClient:
     def __init__(self):
         self.api_key = settings.GROQ_API_KEY
         self.base_url = "https://api.groq.com/openai/v1/chat/completions"
-        self.default_model = "llama-3.3-70b-versatile"
+        self.default_model = "qwen/qwen3.6-27b"
 
     async def analyze(self, prompt: str, context: Dict[str, Any], model_name: str = None) -> Dict[str, Any]:
         """

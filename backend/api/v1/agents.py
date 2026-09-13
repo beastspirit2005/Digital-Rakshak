@@ -18,17 +18,17 @@ async def list_models(user: User = Depends(get_current_user_allow_unapproved)):
     
     # 1. Add Cloud Models (Hardcoded Groq)
     models.append({
-        "id": "groq:llama-3.3-70b-versatile",
-        "name": "Llama 3.3 (70B) Intelligence",
+        "id": "groq:openai/gpt-oss-20b",
+        "name": "GPT-OSS 20B (Groq)",
         "provider": "groq",
         "is_heavy": False,
         "is_recommended": True
     })
     models.append({
-        "id": "groq:mixtral-8x7b-32768",
-        "name": "Mixtral 8x7b (Groq)",
+        "id": "groq:llama-3.2-3b-preview",
+        "name": "Llama 3.2 (3B) Fast",
         "provider": "groq",
-        "is_heavy": True,
+        "is_heavy": False,
         "is_recommended": False
     })
     
@@ -158,7 +158,7 @@ Respond ONLY with a JSON object:
     
     try:
         client = GroqClient()
-        response_text = await client.generate_text(analysis_prompt, model_name="llama-3.3-70b-versatile")
+        response_text = await client.generate_text(analysis_prompt, model_name="openai/gpt-oss-120b")
         
         import re
         json_match = re.search(r'\{.*\}', response_text, re.DOTALL)

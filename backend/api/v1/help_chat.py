@@ -182,7 +182,7 @@ async def chat_endpoint(
                                 "https://api.groq.com/openai/v1/chat/completions",
                                 headers={"Authorization": f"Bearer {settings.GROQ_API_KEY}"},
                                 json={
-                                    "model": "llama-3.3-70b-versatile",
+                                    "model": "qwen/qwen3.6-27b",
                                     "messages": formatted_messages,
                                     "temperature": 0.3,
                                 },

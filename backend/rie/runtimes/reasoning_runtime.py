@@ -34,7 +34,7 @@ class RakshakReasoningRuntime(IReasoningRuntime):
             if resolved_mode == "groq":
                 from infrastructure.ai.groq_client import GroqClient
                 client = GroqClient()
-                result = await client.analyze(prompt, context=context, model_name="llama-3.1-8b-instant")
+                result = await client.analyze(prompt, context=context, model_name="openai/gpt-oss-20b")
                 engine = "Rakshak-Reasoning-Groq"
             else:
                 client = OllamaClient()

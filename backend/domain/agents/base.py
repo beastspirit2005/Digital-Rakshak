@@ -110,10 +110,10 @@ class BaseAgent(ABC):
                 inference_result = await groq.analyze(
                     prompt=f"{system_injection}\n\nTEXT TO ANALYZE:\n{prompt}", 
                     context=context,
-                    model_name="llama-3.3-70b-versatile"
+                    model_name="qwen/qwen3.6-27b"
                 )
                 inference_result["engine"] = "Groq-Cloud"
-                inference_result["engine_version"] = "llama-3.3-70b"
+                inference_result["engine_version"] = "qwen/qwen3.6-27b"
             except Exception as e:
                 print(f"{self.agent_name} Groq Cloud inference failed: {e}. Falling back to offline inference.")
                 inference_result = await self.inference(prompt, context)

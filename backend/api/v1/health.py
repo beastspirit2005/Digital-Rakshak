@@ -63,7 +63,7 @@ async def health_check(db: AsyncSession = Depends(get_db)):
         if ai_mode == "groq":
             from infrastructure.ai.groq_client import GroqClient
             client = GroqClient()
-            await client.generate_text("ping", model_name="llama3-8b-8192")
+            await client.generate_text("ping", model_name="openai/gpt-oss-20b")
             provider = "Groq (Cloud)"
             model = "Llama 3 70B/8B"
         else:
@@ -198,9 +198,9 @@ async def ai_telemetry(db: AsyncSession = Depends(get_db)):
         "cpu_utilization": cpu_utilization,
         "models": [
             {
-                "id": "groq-llama-3.3",
-                "name": "Groq Llama-3.3-70B-Versatile",
-                "version": "llama-3.3-70b-v",
+                "id": "groq-qwen-3.6",
+                "name": "Groq Qwen 3.6-27B",
+                "version": "qwen/qwen3.6-27b",
                 "role": "Primary RAIC 6-Factor Consensus & Deep Threat Synthesis",
                 "status": status,
                 "latency_ms": latency_ms,

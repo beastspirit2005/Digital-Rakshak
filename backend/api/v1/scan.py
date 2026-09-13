@@ -63,7 +63,7 @@ async def live_prevention_scan(
                 groq_res = await groq.analyze(
                     prompt=f"Is this text or URL a scam? Answer yes or no, and classify it. Payload: '{payload_to_scan}'", 
                     context={}, 
-                    model_name="llama3-8b-8192"
+                    model_name="openai/gpt-oss-20b"
                 )
                 
                 confidence = float(groq_res.get("score", 0.0))

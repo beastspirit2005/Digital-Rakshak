@@ -70,6 +70,7 @@ class IntelligenceGraph:
                 logger.info(f"Created link from Case {case_id} to {safe_type} {entity_value}")
             except Exception as e:
                 logger.error(f"Neo4j Error creating link: {e}")
+                raise
 
     async def get_related_cases(self, entity_type: str, entity_value: str):
         """
