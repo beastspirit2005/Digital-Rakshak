@@ -200,7 +200,7 @@ async def ai_telemetry(db: AsyncSession = Depends(get_db)):
             {
                 "id": "groq-qwen-3.6",
                 "name": "Groq Qwen 3.6-27B",
-                "version": "qwen/qwen3.6-27b",
+                "version": "qwen/qwen3.8-27b",
                 "role": "Primary RAIC 6-Factor Consensus & Deep Threat Synthesis",
                 "status": status,
                 "latency_ms": latency_ms,

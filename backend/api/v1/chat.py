@@ -144,7 +144,7 @@ async def global_chatbot(
         if ai_mode == "groq" or ai_mode == "cloud":
             from infrastructure.ai.groq_client import GroqClient
             client = GroqClient()
-            reply_text = await client.generate_text(prompt=full_prompt, model_name="openai/gpt-oss-20b")
+            reply_text = await client.generate_text(prompt=full_prompt, model_name="qwen/qwen3.8-27b")
         else:
             from infrastructure.ai.ollama_client import OllamaClient
             client = OllamaClient()
@@ -238,7 +238,7 @@ async def case_copilot_chat(
         if ai_mode == "groq" or ai_mode == "cloud":
             from infrastructure.ai.groq_client import GroqClient
             client = GroqClient()
-            reply_text = await client.generate_text(prompt=full_prompt, model_name="openai/gpt-oss-20b")
+            reply_text = await client.generate_text(prompt=full_prompt, model_name="qwen/qwen3.8-27b")
         else:
             from infrastructure.ai.ollama_client import OllamaClient
             client = OllamaClient()
