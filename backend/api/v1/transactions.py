@@ -17,6 +17,7 @@ from sqlalchemy import select, desc, func, or_
 from sqlalchemy.orm import selectinload
 
 from infrastructure.db.session import get_db
+from core.config import settings
 from api.deps import get_current_user, get_current_user_optional
 from domain.models.user import User
 from domain.models.case import Case, CaseStatus, CasePriority
