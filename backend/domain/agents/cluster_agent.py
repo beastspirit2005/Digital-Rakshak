@@ -51,7 +51,7 @@ Focus on:
                 groq = GroqClient()
                 fallback_prompt = f"{self.system_prompt}\n\nCLUSTER DATA:\n{json.dumps(payload, indent=2)}\n\nProvide the summary:"
                 reply = await groq.generate_text(fallback_prompt)
-                return {"summary": reply, "model": "llama-3.3-70b-versatile (fallback)"}
+                return {"summary": reply, "model": "qwen/qwen3.8-27b (Groq fallback)"}
             except Exception as e2:
                 logger.error(f"Fallback Groq failed: {e2}")
                 return {"error": f"Summarization failed: {str(e)}", "summary": "Failed to generate summary due to local AI error."}
