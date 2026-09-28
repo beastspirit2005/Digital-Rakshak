@@ -5,14 +5,15 @@ import base64
 from typing import Dict, Any, Optional
 from core.config import settings
 
-# Vision model on Groq that supports image input (confirmed via /v1/models)
-GROQ_VISION_MODEL = "qwen/qwen3.6-27b"
+# Vision model on Groq that supports image input
+# meta-llama/llama-4-scout-17b-16e-instruct is Groq's current multimodal model (vision capable)
+GROQ_VISION_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct"
 GEMINI_VISION_MODEL = "gemini-2.0-flash"  # Google fallback (requires GOOGLE_API_KEY)
 
 class VisionAgent:
     """
     Analyzes screenshots and image evidence to detect digital fraud.
-    Primary: Groq Qwen 3.6 27B (vision-capable, supports image input).
+    Primary: Groq Llama-4 Scout 17B (vision-capable, supports image input).
     Fallback: Google Gemini Flash if GOOGLE_API_KEY is set.
     Last resort: Graceful degradation (manual review message, no 500 crash).
     """
