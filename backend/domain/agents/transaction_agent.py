@@ -181,9 +181,12 @@ class TransactionAgent(BaseAgent):
             if ai_mode == "groq":
                 try:
                     from infrastructure.ai.groq_client import GroqClient
-                    res = await GroqClient().analyze(prompt, {"system": "You are a fraud investigator assistant."})
-                    if res and res.get("decision"):
-                        return res["decision"].strip()
+                    res = await GroqClient().generate_text(prompt)
+                    if res and "Groq Inference Error" not in res and "Groq API Error" not in res:
+                        return res.strip()
+                    else:
+                        logger.warning(f"Groq returned error response, falling back to Ollama: {res[:100] if res else 'empty'}")
+                        ai_mode = "ollama"
                 except Exception as groq_err:
                     logger.warning(f"Groq explanation failed, falling back to Ollama: {groq_err}")
                     ai_mode = "ollama"
