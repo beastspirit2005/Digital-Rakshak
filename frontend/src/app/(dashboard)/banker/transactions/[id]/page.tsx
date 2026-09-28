@@ -101,6 +101,7 @@ interface TransactionDetail {
     [key: string]: any;
   };
   feedbacks: FeedbackRecord[];
+  model_used?: string;
 }
 
 export default function TransactionCockpitPage() {
@@ -173,6 +174,7 @@ export default function TransactionCockpitPage() {
           decision: res.data.decision,
           reason_codes: res.data.reason_codes,
           sub_scores: res.data.sub_scores || transaction.sub_scores,
+          model_used: res.data.model_used,
         });
       }
       pushToast("success", "AI Forensic Brief generated successfully.");
@@ -642,7 +644,7 @@ export default function TransactionCockpitPage() {
               <div className="flex items-center gap-2">
                 <span className="text-[11px] font-mono text-ink-3">Inference:</span>
                 <Badge tone="accent" className="font-mono text-[10px]">
-                  llama3:8b (Local Ollama)
+                  {transaction.model_used || "qwen3.8-27b (Groq Cloud)"}
                 </Badge>
               </div>
             </div>

