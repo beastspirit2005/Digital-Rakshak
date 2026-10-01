@@ -758,9 +758,14 @@ async def get_case_evidence(
         return {"url": res.get("signedURL", "")}
         
     elif path.startswith("local://"):
-        filename = path.replace("local://", "")
-        file_path = os.path.join(os.getcwd(), "uploads", filename)
+        raw_name = path.replace("local://", "").strip()
+        filename = os.path.basename(raw_name)
+        base_dir = os.path.abspath(os.path.join(os.getcwd(), "uploads"))
+        file_path = os.path.abspath(os.path.join(base_dir, filename))
         
+        if not file_path.startswith(base_dir):
+            raise HTTPException(status_code=400, detail="Invalid evidence file path")
+            
         if not os.path.exists(file_path):
             raise HTTPException(status_code=404, detail="File not found on disk")
             

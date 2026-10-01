@@ -9,7 +9,10 @@ from infrastructure.db.session import get_db
 from infrastructure.smtp.email_service import send_otp_email, send_approval_pending_email, send_welcome_email, send_password_reset_otp_email
 from domain.models.user import User
 from core.security import create_access_token, get_password_hash, verify_password
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
+limiter = Limiter(key_func=get_remote_address)
 router = APIRouter()
 
 class RegisterRequest(BaseModel):
@@ -108,7 +111,8 @@ class ResetPasswordRequest(BaseModel):
         return v
 
 @router.post("/register")
-async def register_user(data: RegisterRequest, request: Request, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def register_user(request: Request, data: RegisterRequest, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.email == data.email))
     existing_user = result.scalars().first()
     if existing_user:
@@ -141,7 +145,8 @@ async def register_user(data: RegisterRequest, request: Request, db: AsyncSessio
     return {"message": "User registered successfully", "is_approved": is_approved}
 
 @router.post("/request-otp")
-async def request_otp(data: LoginRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("5/minute")
+async def request_otp(request: Request, data: LoginRequest, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.email == data.email))
     user = result.scalars().first()
     
@@ -173,7 +178,8 @@ async def request_otp(data: LoginRequest, db: AsyncSession = Depends(get_db)):
     return {"message": "OTP sent to email successfully."}
 
 @router.post("/verify-otp")
-async def verify_otp(data: VerifyOTPRequest, request: Request, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def verify_otp(request: Request, data: VerifyOTPRequest, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.email == data.email))
     user = result.scalars().first()
     
@@ -245,7 +251,8 @@ async def verify_otp(data: VerifyOTPRequest, request: Request, db: AsyncSession 
     }
 
 @router.post("/login-password")
-async def login_password(data: LoginPasswordRequest, request: Request, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def login_password(request: Request, data: LoginPasswordRequest, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.email == data.email))
     user = result.scalars().first()
     
@@ -297,7 +304,8 @@ async def login_password(data: LoginPasswordRequest, request: Request, db: Async
     }
 
 @router.post("/forgot-password")
-async def forgot_password(data: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("5/minute")
+async def forgot_password(request: Request, data: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.email == data.email))
     user = result.scalars().first()
     
@@ -327,7 +335,8 @@ async def forgot_password(data: ForgotPasswordRequest, db: AsyncSession = Depend
     return {"message": "Password reset OTP sent to email successfully."}
 
 @router.post("/reset-password")
-async def reset_password(data: ResetPasswordRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def reset_password(request: Request, data: ResetPasswordRequest, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.email == data.email))
     user = result.scalars().first()
     

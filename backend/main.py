@@ -23,15 +23,34 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 from fastapi import Request, HTTPException
 from fastapi.responses import JSONResponse
+import re
+
+_cors_origins_env = os.getenv("CORS_ORIGINS", "")
+_cors_origins = [o.strip() for o in _cors_origins_env.split(",") if o.strip()] if _cors_origins_env else []
+_cors_origins += [
+    "http://localhost:3000", 
+    "http://localhost:3001", 
+    "http://127.0.0.1:3000", 
+    "http://127.0.0.1:3001",
+    os.getenv("FRONTEND_URL", "http://localhost:3000")
+]
+_origin_patterns = [r"^https://[a-zA-Z0-9-]+\.vercel\.app$", r"^http://.*:3000$", r"^http://.*:3001$"]
+
+def _is_origin_allowed(origin: str) -> bool:
+    if not origin:
+        return False
+    if origin in _cors_origins:
+        return True
+    return any(bool(re.match(p, origin)) for p in _origin_patterns)
 
 def _cors_headers_for_request(request: Request) -> dict:
     origin = request.headers.get("origin")
-    if origin:
+    if origin and _is_origin_allowed(origin):
         return {
             "Access-Control-Allow-Origin": origin,
             "Access-Control-Allow-Credentials": "true"
         }
-    return {"Access-Control-Allow-Origin": "*"}
+    return {}
 
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
@@ -91,19 +110,6 @@ try:
 except ImportError:
     logger.warning("OpenTelemetry packages not found. Skipping tracing instrumentation.")
 
-import os
-_cors_origins_env = os.getenv("CORS_ORIGINS", "")
-_cors_origins = [o.strip() for o in _cors_origins_env.split(",") if o.strip()] if _cors_origins_env else []
-_cors_origins += [
-    "http://localhost:3000", 
-    "http://localhost:3001", 
-    "http://127.0.0.1:3000", 
-    "http://127.0.0.1:3001",
-    os.getenv("FRONTEND_URL", "http://localhost:3000")
-]
-
-# Build origin regex: strictly match allowed Vercel preview domains if needed
-_origin_patterns = [r"^https://[a-zA-Z0-9-]+\.vercel\.app$", r"^http://.*:3000$", r"^http://.*:3001$"]
 
 app.add_middleware(
     CORSMiddleware,

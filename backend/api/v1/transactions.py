@@ -576,7 +576,7 @@ async def upload_transactions_csv(
 async def analyze_transaction_on_demand(
     id: str,
     db: AsyncSession = Depends(get_db),
-    user: Optional[User] = Depends(get_current_user_optional)
+    user: User = Depends(get_current_user)
 ):
     """
     On-demand deep analysis and LLM explanation enrichment for an existing transaction.
@@ -784,7 +784,7 @@ async def review_transaction(
 async def escalate_transaction_to_case(
     id: str,
     db: AsyncSession = Depends(get_db),
-    user: Optional[User] = Depends(get_current_user_optional)
+    user: User = Depends(get_current_user)
 ):
     """
     1-Click Banker-to-Law-Enforcement Escalation:
