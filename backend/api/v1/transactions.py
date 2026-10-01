@@ -126,7 +126,7 @@ async def ingest_transaction(
     payload: TransactionCreate,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
-    user: Optional[User] = Depends(get_current_user_optional)
+    user: User = Depends(get_current_user)
 ):
     """
     Ingests an incoming transaction, evaluates risk deterministically across
@@ -423,7 +423,7 @@ async def switch_authorize(
     payload: TransactionCreate,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
-    user: Optional[User] = Depends(get_current_user_optional)
+    user: User = Depends(get_current_user)
 ):
     """
     Dedicated synchronous In-Line Hook for Bank & Payment Switches (NPCI/UPI/CBS).
@@ -465,7 +465,7 @@ async def upload_transactions_csv(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
-    user: Optional[User] = Depends(get_current_user_optional)
+    user: User = Depends(get_current_user)
 ):
     """
     Bulk statement ingestion: parses CSV of transaction records,
@@ -475,7 +475,12 @@ async def upload_transactions_csv(
     if not file.filename.endswith(".csv"):
         raise HTTPException(status_code=400, detail="Only CSV files (.csv) are supported")
 
-    content_bytes = await file.read()
+    # 2 MB size cap — prevents 100-row DoS (each row triggers Groq + Neo4j + DB writes)
+    MAX_BYTES = 2 * 1024 * 1024
+    content_bytes = await file.read(MAX_BYTES + 1)
+    if len(content_bytes) > MAX_BYTES:
+        raise HTTPException(status_code=413, detail="CSV file too large. Maximum allowed size is 2 MB.")
+
     try:
         text = content_bytes.decode("utf-8")
     except UnicodeDecodeError:
@@ -1066,7 +1071,44 @@ async def get_account_risk_network(
 
 
 # ----------------------------------------------------------------------
-# 9. Complete Transaction Detail (Forensic Cockpit)
+# 9a. Server-Sent Events (SSE) Stream — MUST be above /{id} catch-all
+# ----------------------------------------------------------------------
+@router.get("/stream")
+async def sse_transaction_stream(request: Request):
+    """
+    Server-Sent Events (SSE) HTTP endpoint for clients that cannot use WebSockets.
+    Streams transaction events as 'text/event-stream'.
+    NOTE: Registered here (above /{id}) to avoid being caught by the dynamic route.
+    """
+    queue = await stream_manager.connect_sse()
+
+    async def event_generator():
+        try:
+            yield ": connected\n\n"
+            while True:
+                if await request.is_disconnected():
+                    break
+                try:
+                    message = await asyncio.wait_for(queue.get(), timeout=15.0)
+                    yield message
+                except asyncio.TimeoutError:
+                    yield ": keepalive\n\n"
+        finally:
+            await stream_manager.disconnect_sse(queue)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )
+
+
+# ----------------------------------------------------------------------
+# 9b. Complete Transaction Detail (Forensic Cockpit)
 # ----------------------------------------------------------------------
 @router.get("/{id}", response_model=Dict[str, Any])
 async def get_transaction_detail(
@@ -1160,37 +1202,3 @@ async def websocket_transaction_stream(
     except Exception as e:
         logger.warning(f"WebSocket client error: {e}")
         await stream_manager.disconnect_ws(websocket)
-
-
-@router.get("/stream")
-async def sse_transaction_stream(request: Request):
-    """
-    Server-Sent Events (SSE) HTTP endpoint for clients that cannot use WebSockets.
-    Streams transaction events as 'text/event-stream'.
-    """
-    queue = await stream_manager.connect_sse()
-
-    async def event_generator():
-        try:
-            yield ": connected\n\n"
-            while True:
-                if await request.is_disconnected():
-                    break
-                try:
-                    message = await asyncio.wait_for(queue.get(), timeout=15.0)
-                    yield message
-                except asyncio.TimeoutError:
-                    yield ": keepalive\n\n"
-        finally:
-            await stream_manager.disconnect_sse(queue)
-
-    return StreamingResponse(
-        event_generator(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no"
-        }
-    )
-
