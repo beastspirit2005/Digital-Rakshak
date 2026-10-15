@@ -50,11 +50,31 @@ Integrates digital fraud tracking with physical counterfeit currency detection. 
 ### 6. Tactical Command Center & Hardware Telemetry
 A live tactical command center aggregates live PostgreSQL case volumes, real financial exposure figures, and regional threat clusters. It incorporates real-time hardware telemetry monitoring CPU/GPU utilization, VRAM allocation, and AI engine health.
 
+### 7. Dual-Market Architecture: B2C Consumer Cyber Shield & B2B Enterprise SIEM
+Digital Rakshak addresses the dual realities of digital crime with separate tailored interfaces:
+*   **B2C Consumer Security Portal (`/personal`):**
+    *   **Live Multi-Vector OSINT Scanner:** Instant zero-trust verification of suspicious UPI IDs, phone numbers, domain names, phishing URLs, and bank account numbers.
+    *   **Per-User Threat History & DPDP Compliance:** Scans are indexed per user account and synchronized across devices via Redis, with 1-click personal history erasure in strict compliance with the **Digital Personal Data Protection (DPDP) Act 2023**.
+    *   **Tiered Subscription & Razorpay Gateway:** Citizens can access essential free daily protection or upgrade to **Pro Cyber Protection** (₹149/mo or ₹1,299/yr) featuring unlimited scans, automated bank dispute escalation, and proactive syndicate alerts. Payments execute via PCI-DSS tokenized Razorpay checkout with server-side HMAC-SHA256 signature verification.
+*   **B2B Enterprise Threat Intelligence Console (`/business`):**
+    *   **High-Throughput Threat Ingestion (`POST /v1/b2b/events/ingest`):** Microsecond-latency batch ingestion handling up to 100 security events per call from enterprise SIEMs (Splunk, Microsoft Sentinel, Elastic), transaction switches, and banking fraud engines.
+    *   **Multi-Tenant API Key Lifecycle:** Full programmatic key management (`dr_live_...`). Raw plaintext keys are presented once at generation and stored strictly as salted SHA-256 hashes, with 12-character prefix indexing for constant-time lookup and instant revocation.
+    *   **Real-Time Organization Event Stream (`GET /v1/b2b/events/stream`):** Server-Sent Events (SSE) and Redis Streams multiplexer streaming live organizational fraud alerts, quota consumption, and quarantine triggers.
+    *   **Atomic Quota Governance:** Built-in atomic quota enforcement protecting downstream inference pipelines, returning `HTTP 429 Too Many Requests` when monthly organization limits are reached.
+
+### 8. Institutional RBAC Hardening & Sovereign Exemption
+Unlike consumer or commercial accounts, official public servants—including **Police Officers**, **Cyber Crime Cell Investigators**, **Bank Nodal Officers**, and **Platform Administrators**—operate under sovereign defense mandates:
+*   **Automatic Paywall Bypass:** Official roles automatically bypass all B2C subscription gates (`market: institutional`, `is_pro: true`), ensuring zero payment friction during critical investigations.
+*   **Strict Operational Scoping:** Evidence Vault endpoints and nodal dossiers enforce cryptographic ownership validation, preventing unauthorized citizen access while maintaining chain-of-custody for law enforcement.
+
+### 9. High-Throughput Redis Streams Event Bus & Ingestion Pipeline
+To decouple synchronous REST ingestion from analytical deep-dive scoring, the platform integrates **Redis Streams** (`digital_rakshak:events`) with an autonomous background consumer group daemon (`siem_consumers`). Telemetry batches are acknowledged idempotently with atomic quota tracking, delivering sustained high throughput with zero event loss.
+
 ---
 
 ## System Architecture
 
-Digital Rakshak couples a high-performance Next.js 14 App Router frontend with a decoupled FastAPI orchestration layer, dual-mode intelligence runtimes, real-time WebSocket multiplexers, and a multi-model persistence tier.
+Digital Rakshak couples a high-performance Next.js 16 (App Router + Turbopack) frontend with a decoupled FastAPI orchestration layer, a dual-mode intelligence runtime, high-throughput Redis Streams event bus, and a multi-tenant persistence tier.
 
 ```mermaid
 graph TD
@@ -62,11 +82,15 @@ graph TD
     Citizen(["Citizen / Victim"])
     Banker(["Nodal Officer / Banker"])
     Police(["Police / LEA Investigator"])
+    Enterprise(["Enterprise / FinTech Security"])
     BankSwitch(["Bank Switch / NPCI / CBS"])
+    RazorpayGW(["Razorpay Payment Gateway"])
 
     %% Frontend Subsystem
-    subgraph Frontend ["Next.js 14 Edge / Client Tier"]
+    subgraph Frontend ["Next.js 16 Client & Dashboard Tier"]
         UI["App Router Responsive Shell"]
+        PersonalPortal["B2C Consumer Portal: Instant OSINT & Pro Upgrade (/personal)"]
+        BusinessConsole["B2B Enterprise Console: API Keys & SIEM Stream (/business)"]
         Map["Spatial Map WebGL Layer"]
         GraphVis["Neo4j Syndicate Visualizer"]
         TxCockpit["Live Transaction Monitor & Cytoscape 2-Hop Cockpit"]
@@ -76,8 +100,10 @@ graph TD
     end
 
     %% Ingestion & Streaming Layer
-    subgraph Ingestion ["FastAPI Ingestion & Streaming Gateway"]
+    subgraph Ingestion ["FastAPI Ingestion, Billing & Streaming Gateway"]
         APIRouter["REST API Routing Engine"]
+        BillingRouter["Razorpay Billing & Webhooks (/v1/billing)"]
+        B2BRouter["B2B Multi-Tenant Ingest (/v1/b2b)"]
         SwitchHook["Pre-Debit Switch In-Line Hook /switch/authorize"]
         CSVParser["Bulk Statement Ingestion Engine /upload-csv"]
         Escalator["1-Click Police Case Escalator /:id/escalate-to-case"]
@@ -86,9 +112,14 @@ graph TD
         CoTSanitizer["CoT Reasoning Sanitizer"]
     end
 
+    %% Event Bus & Messaging
+    subgraph EventBus ["Asynchronous Event Processing Tier"]
+        RedisBus[("Redis Streams: digital_rakshak:events")]
+        StreamWorker["Stream Consumer Worker Daemon (siem_consumers)"]
+    end
+
     %% Core Intelligence Engines
     subgraph Intelligence ["Core Intelligence Subsystems"]
-        %% MAIF Swarm
         subgraph MAIF ["MAIF Agent Swarm"]
             Factory["RAIC Dependency Injection Factory"]
             Registry["AgentRegistry"]
@@ -99,7 +130,6 @@ graph TD
             VoiceA["Voice Agent"]
         end
 
-        %% Transaction Fraud Intelligence
         subgraph TxEngine ["Transaction Fraud Intelligence Core"]
             FeatureEng["Streaming FeatureEngine Z-Scores & Velocity"]
             AttackDNA["Sequential AttackDNAMatcher 5+ Signatures"]
@@ -107,7 +137,6 @@ graph TD
             FrictionEng["Adaptive Friction Decision Matrix ISO 8583"]
         end
 
-        %% Dual-Mode RIE
         subgraph RIE ["Dual-Mode RIE Runtimes"]
             GroqCloud["Cloud LPU: Groq Llama 3.3 / Qwen Vision"]
             LocalOllama["Local Air-Gapped: Ollama Llama 3 / PyTorch / Whisper"]
@@ -117,18 +146,26 @@ graph TD
     %% Multi-Model Persistence & Security
     subgraph Persistence ["Persistence & Cryptographic Security Layer"]
         PIIShield["PII Encryption Service: AES-256 Fernet + PBKDF2"]
-        PG[("Neon Serverless Postgres + pgvector")]
+        PG[("Neon Serverless Postgres: Multi-Tenant Schema + pgvector")]
         Neo[("Neo4j AuraDB Syndicate Graph")]
         MemBuffer[("In-Memory Rolling State & Sliding Windows")]
         Storage[("Supabase Encrypted Storage + SHA-256 Vault")]
     end
 
     %% Ingestion Connections
-    Citizen -->|"Voice / Text / Evidence Upload"| UI
+    Citizen -->|"Scan UPI/Domain / Voice Report / Pro Checkout"| PersonalPortal
+    PersonalPortal -->|"REST /v1/scan & /v1/billing"| APIRouter
+    Enterprise -->|"Manage Keys / View Quotas & SIEM Ingest"| BusinessConsole
+    BusinessConsole -->|"REST /v1/b2b & SSE Streams"| B2BRouter
     Banker -->|"Transaction Verification & Manual Ingest"| TxCockpit
     Banker -->|"Trigger Ingestion / Bulk CSV"| IngestModal
     Police -->|"FIR Registration & Evidence Freezes"| PoliceWorkbench
     BankSwitch -->|"Sub-50ms Pre-Debit Authorization Hook"| SwitchHook
+
+    BillingRouter <-->|"Order Creation & HMAC-SHA256 Verification"| RazorpayGW
+    B2BRouter -->|"Publish Telemetry Batch"| RedisBus
+    RedisBus -->|"Consumer Group Fan-Out"| StreamWorker
+    StreamWorker -->|"Persist Quotas & Case Telemetry"| PG
 
     UI -->|"REST Endpoints"| APIRouter
     IngestModal -->|"CSV Upload & Real Entry"| APIRouter
@@ -220,10 +257,12 @@ Traditional fraud systems penalize legitimate anomalies (e.g., late-night emerge
 
 ## The Technology Stack
 
-*   **Frontend Interface:** Next.js 14 (App Router), React, TypeScript, Tailwind CSS, Cytoscape.js (for 2-hop transaction forensic topology), MapLibre GL (for spatial clustering), Recharts (for 6-axis threat radar).
-*   **Backend Orchestration:** FastAPI (Python 3.12+), Pydantic v2 schemas, asyncio high-throughput event loops.
-*   **Streaming & Realtime:** Native WebSockets (`/v1/transactions/ws`) with auto-reconnecting clients and broadcast hubs.
-*   **Relational & Vector Store:** Neon Serverless PostgreSQL with `pgvector` for vector similarity clustering and PgBouncer connection pooling.
+*   **Frontend Interface:** Next.js 16 (App Router + Turbopack), React, TypeScript, Tailwind CSS, Cytoscape.js (for 2-hop transaction forensic topology), MapLibre GL (for spatial clustering), Recharts (for 6-axis threat radar).
+*   **Backend Orchestration:** FastAPI (Python 3.10+ / 3.12+), Pydantic v2 schemas, asyncio high-throughput event loops.
+*   **Event Bus & Ingestion Pipeline:** Redis Streams (`digital_rakshak:events`) with autonomous consumer group daemon (`siem_consumers`) for atomic quota governance and zero-loss telemetry ingestion.
+*   **Streaming & Realtime:** Native WebSockets (`/v1/transactions/ws`) and Server-Sent Events (`/v1/b2b/events/stream`) with auto-reconnecting broadcast hubs.
+*   **Payments & Subscriptions:** Razorpay Payment Gateway integration with PCI-DSS tokenized checkout modal and server-side HMAC-SHA256 cryptographic webhook/signature verification.
+*   **Relational & Vector Store:** Neon Serverless PostgreSQL (Multi-tenant schema with `pgvector` for vector similarity clustering and PgBouncer connection pooling).
 *   **Graph Database:** Neo4j AuraDB (Cypher query language) for mule account discovery, syndicate graph traversal, and 2-hop ego-network isolation.
 *   **Evidence Storage:** Supabase Encrypted Storage with magic-byte validation and anti-tamper hash logging.
 *   **AI Models & Runtimes:**
@@ -238,12 +277,13 @@ Explore the platform through pre-configured roles:
 
 | Role | Email | Password | Accessible Modules |
 |------|-------|----------|-------------------|
-| 👮 Police / Investigator | `police1@rakshak.com` | `police@123` | Case Workbench, Evidence Analysis, Syndicate Graph, Hardware Telemetry |
-| 🏦 Banker / Nodal Officer | `banker1@rakshak.com` | `banker@123` | **Transaction Fraud Intelligence Cockpit**, Live WebSocket Stream, 2-Hop Cytoscape Forensics, Case Verification |
-| 👤 Citizen / Victim | `citizen1@rakshak.com` | `citizen@123` | Voice / Text Incident Reporting, Counterfeit Note Scanner, Status Tracker, Copilot Help Chat |
-| 🏛️ Admin / Superintendent | `admin1@rakshak.com` | `admin@123` | Tactical Command Center, Global Audit Logs, User Management, AI Engine Failover Governance |
+| 👮 Police / Investigator | `police1@rakshak.com` | `police@123` | Case Workbench (`/workbench`), Evidence Analysis, Syndicate Graph, Hardware Telemetry (Paywall Exemption) |
+| 🏦 Banker / Nodal Officer | `banker1@rakshak.com` | `banker@123` | **Transaction Fraud Intelligence Cockpit** (`/banker`), Live WebSocket Stream, 2-Hop Cytoscape Forensics, Case Verification |
+| 🏢 Enterprise / FinTech | `admin1@rakshak.com` | `admin@123` | **B2B Enterprise Portal** (`/business`), API Key Lifecycle (`dr_live_...`), Threat Ingest (`POST /v1/b2b/events/ingest`), Quotas |
+| 👤 Citizen / Victim | `citizen1@rakshak.com` | `citizen@123` | **B2C Cyber Shield** (`/personal`), Instant OSINT Scam Scanner, Razorpay Pro Upgrade, Voice / Text Reporting, Copilot Chat |
+| 🏛️ Admin / Superintendent | `admin1@rakshak.com` | `admin@123` | Tactical Command Center (`/admin`), Global Audit Logs, User Management, AI Engine Failover Governance |
 
-> **Note:** Demo accounts are pre-seeded with case data, transaction streams, and graph links.
+> **Note:** Official public service accounts (`police`, `cyber_cell`, `banker`, `admin`) automatically bypass consumer subscription gates with sovereign institutional clearance. Demo accounts are pre-seeded with case data, transaction streams, organizations, and graph links.
 
 ---
 
