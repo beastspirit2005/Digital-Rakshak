@@ -20,5 +20,10 @@ class User(Base):
     otp_failed_attempts = Column(Integer, default=0, server_default="0")
     otp_lockout_count = Column(Integer, default=0, server_default="0")
     otp_locked_until = Column(DateTime(timezone=True), nullable=True)
+    # B2C subscription state — cached here for fast entitlement checks
+    b2c_plan_code = Column(String, default="b2c_free", nullable=False, server_default="b2c_free")
+    b2c_subscription_status = Column(String, default="active", nullable=False, server_default="active")
+    # Razorpay customer ID — set on first checkout
+    razorpay_customer_id = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))

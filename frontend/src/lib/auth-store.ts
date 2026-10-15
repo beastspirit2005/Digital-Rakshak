@@ -14,7 +14,11 @@ export interface User {
   role: UserRole;
   full_name?: string;
   station_phone_number?: string;
+  b2c_plan_code?: string;
+  b2c_subscription_status?: string;
+  is_pro?: boolean;
 }
+
 
 interface AuthState {
   token: string | null;
@@ -25,6 +29,7 @@ interface AuthState {
   login: (token: string, user: User) => void;
   logout: () => void;
   hydrate: () => void;
+  updateUser: (fields: Partial<User>) => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -32,6 +37,17 @@ export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   isAuthenticated: false,
   isHydrated: false,
+
+  updateUser: (fields: Partial<User>) => {
+    set((state) => {
+      if (!state.user) return state;
+      const updated = { ...state.user, ...fields };
+      if (typeof window !== "undefined") {
+        localStorage.setItem("user", JSON.stringify(updated));
+      }
+      return { user: updated };
+    });
+  },
 
   login: (token, user) => {
     if (typeof window !== "undefined") {

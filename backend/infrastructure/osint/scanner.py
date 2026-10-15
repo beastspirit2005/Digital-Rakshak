@@ -21,6 +21,30 @@ class OSINTScanner:
         "rbi": "The Reserve Bank of India does NOT freeze accounts or ask for RTGS transfers to 'safe accounts'."
     }
     
+    SUSPICIOUS_UPI_KEYWORDS = [
+        "refund", "support", "reward", "cashback", "bonus", "lottery",
+        "prize", "claim", "helpdesk", "care", "customer-care", "kyc",
+        "axis-care", "hdfc-support", "sbi-kyc", "icici-support", "paytm-help"
+    ]
+
+    def scan_upi(self, upi: str) -> Dict[str, Any]:
+        """
+        Scans a UPI VPA handle for deceptive support, refund, or banking impersonation patterns.
+        """
+        results = {
+            "flagged": False,
+            "threat": "",
+            "risk_level": "LOW"
+        }
+        upi_lower = upi.lower()
+        for kw in self.SUSPICIOUS_UPI_KEYWORDS:
+            if kw in upi_lower:
+                results["flagged"] = True
+                results["threat"] = f"Deceptive handle pattern: '{kw}' in UPI ID indicates an impersonation / fake refund lure."
+                results["risk_level"] = "CRITICAL"
+                break
+        return results
+
     def extract_urls(self, text: str) -> List[str]:
         # Simple regex for finding domains/URLs
         url_pattern = re.compile(r'(https?://[^\s]+)|(www\.[^\s]+)|([a-zA-Z0-9-]+\.[a-zA-Z]{2,}(?:/[^\s]*)?)')
@@ -67,3 +91,4 @@ class OSINTScanner:
                     results["risk_level"] = "HIGH"
                     
         return results
+

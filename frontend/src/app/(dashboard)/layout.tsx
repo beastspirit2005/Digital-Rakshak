@@ -28,6 +28,8 @@ import {
   X,
   Eye,
   CreditCard,
+  Building2,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -43,6 +45,7 @@ const adminSections = [
     label: "Admin",
     items: [
       { name: "Admin dashboard", short: "Admin", href: "/admin", icon: Activity },
+      { name: "Business API portal", short: "Business", href: "/business", icon: Building2 },
       { name: "Tactical command center", short: "Command", href: "/admin/command-center", icon: Siren },
       { name: "Fraud intelligence", short: "Fraud", href: "/banker/transactions", icon: CreditCard },
       { name: "Users", short: "Users", href: "/admin/users", icon: Users },
@@ -71,6 +74,7 @@ const adminSections = [
     label: "Nodal desk",
     items: [
       { name: "Nodal dashboard", short: "Desk", href: "/banker", icon: Building },
+      { name: "Business API portal", short: "Business", href: "/business", icon: Building2 },
       { name: "Fraud intelligence", short: "Fraud", href: "/banker/transactions", icon: CreditCard },
       { name: "Report a scam", short: "Report", href: "/report", icon: ShieldAlert },
       { name: "Prevention", short: "Prevent", href: "/prevention", icon: ShieldCheck },
@@ -81,14 +85,15 @@ const adminSections = [
   {
     label: "Citizen",
     items: [
+      { name: "Personal Pro shield", short: "Personal", href: "/personal", icon: Sparkles },
       { name: "My reports", short: "Reports", href: "/citizen", icon: UserCircle },
       { name: "Report a scam", short: "Report", href: "/report", icon: ShieldAlert },
       { name: "Prevention", short: "Prevent", href: "/prevention", icon: ShieldCheck },
-      
       { name: "Help & support", short: "Help", href: "/help", icon: LifeBuoy },
     ],
   },
 ];
+
 const sectionsForRole = (role: UserRole) => {
   if (role === "admin") {
     return adminSections;

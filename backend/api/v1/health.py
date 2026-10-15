@@ -231,3 +231,33 @@ async def ai_telemetry(db: AsyncSession = Depends(get_db)):
         ],
         "auditLogs": audit_logs
     }
+
+
+@router.get("/supabase-keepalive")
+async def get_supabase_keepalive_status():
+    """
+    Returns the latest status of the Supabase Keep-Alive anti-pause service.
+    """
+    from runtime.supabase_keepalive import supabase_keepalive
+    return {
+        "status": supabase_keepalive.last_status,
+        "is_paused": supabase_keepalive.is_paused,
+        "project_ref": supabase_keepalive.project_ref,
+        "last_ping_at": supabase_keepalive.last_ping_at.isoformat() if supabase_keepalive.last_ping_at else None,
+        "latency_ms": supabase_keepalive.last_latency_ms,
+        "total_pings": supabase_keepalive.total_pings,
+        "consecutive_successes": supabase_keepalive.consecutive_successes,
+        "restore_url": supabase_keepalive.restore_url if supabase_keepalive.is_paused else None,
+        "last_error": supabase_keepalive.last_error,
+    }
+
+
+@router.post("/supabase-keepalive/ping")
+async def trigger_supabase_ping():
+    """
+    Triggers an immediate authenticated heartbeat query to Supabase.
+    """
+    from runtime.supabase_keepalive import supabase_keepalive
+    result = await supabase_keepalive.ping()
+    return result
+

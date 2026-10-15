@@ -26,4 +26,10 @@ cryptography>=41.0.0
 supabase>=2.3.0
 androguard>=3.4.0a1
 filetype>=1.2.0
-structlog>=24.1.0 
+structlog>=24.1.0
+
+# Event streaming
+redis[asyncio]>=5.0.0
+
+# Payment gateway
+razorpay>=1.4.1

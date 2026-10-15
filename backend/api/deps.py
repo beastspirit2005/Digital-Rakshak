@@ -82,3 +82,26 @@ async def get_current_user_optional(token: Optional[str] = Depends(OAuth2Passwor
     if not user or not user.is_active:
         return None
     return user
+
+
+OFFICIAL_INSTITUTIONAL_ROLES = {"admin", "police", "cyber_cell", "banker", "bank_employee"}
+
+async def require_pro_user(user: User = Depends(get_current_user)) -> User:
+    """
+    Verifies that the user has an active B2C Pro subscription OR is an official / institutional user.
+    Police officers, Cyber Cell investigators, Bank Nodal Officers, and Admins work on behalf
+    of the organization/state and have complimentary full-tier access without consumer subscription fees.
+    Only citizens on the free tier receive HTTP 402 Payment Required.
+    """
+    if user.role in OFFICIAL_INSTITUTIONAL_ROLES:
+        return user
+
+    plan = getattr(user, "b2c_plan_code", "b2c_free")
+    status_val = getattr(user, "b2c_subscription_status", "")
+    if plan == "b2c_free" or status_val != "active":
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail="Digital Rakshak Pro subscription required for this feature. Upgrade at /personal.",
+        )
+    return user
+

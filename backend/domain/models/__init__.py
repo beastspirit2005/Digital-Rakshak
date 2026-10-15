@@ -24,3 +24,16 @@ from domain.models.transaction import (
     FrictionAction,
     FeedbackDecision,
 )
+# Multi-tenant B2B models
+from domain.models.organization import (
+    Organization,
+    OrganizationMember,
+    ApiKey,
+    Subscription,
+    UsageQuota,
+    OrgTier,
+    OrgMemberRole,
+    MarketSegment,
+    PlanCode,
+    SubscriptionStatus,
+)

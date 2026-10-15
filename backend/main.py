@@ -34,7 +34,10 @@ _cors_origins += [
     "http://127.0.0.1:3001",
     os.getenv("FRONTEND_URL", "http://localhost:3000")
 ]
-_origin_patterns = [r"^https://[a-zA-Z0-9-]+\.vercel\.app$", r"^http://.*:3000$", r"^http://.*:3001$"]
+_origin_patterns = [
+    r"^https://([a-zA-Z0-9-]*rakshak[a-zA-Z0-9-]*)\.vercel\.app$",
+    r"^http://(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+):300[01]$",
+]
 
 def _is_origin_allowed(origin: str) -> bool:
     if not origin:
@@ -144,6 +147,8 @@ from api.v1.stream_router import router as stream_router
 from api.v1.entities import router as entities_router
 from api.v1.cache_router import router as cache_router
 from api.v1.transactions import router as transactions_router
+from api.v1.b2b import router as b2b_router
+from api.v1.billing import router as billing_router
 
 app.include_router(auth_router, prefix=f"{settings.API_V1_STR}/auth", tags=["auth"])
 app.include_router(users_router, prefix=f"{settings.API_V1_STR}/users", tags=["users"])
@@ -165,6 +170,8 @@ app.include_router(evidence_router, prefix=f"{settings.API_V1_STR}")
 app.include_router(stream_router, prefix=f"{settings.API_V1_STR}")
 app.include_router(entities_router, prefix=f"{settings.API_V1_STR}")
 app.include_router(cache_router, prefix=f"{settings.API_V1_STR}")
+app.include_router(b2b_router, prefix=f"{settings.API_V1_STR}")
+app.include_router(billing_router, prefix=f"{settings.API_V1_STR}")
 
 
 
@@ -197,5 +204,23 @@ async def run_migrations():
     import asyncio
     loop = asyncio.get_event_loop()
     await loop.run_in_executor(None, _run_migrations_sync)
+    
+    if getattr(settings, "STREAM_CONSUMER_ENABLED", False):
+        from runtime.stream_consumer import StreamConsumer
+        consumer = StreamConsumer()
+        asyncio.create_task(consumer.run())
+        logger.info("StreamConsumer background worker started.")
+
+    # Start Supabase anti-pause keepalive daemon (every 12 hours)
+    if getattr(settings, "SUPABASE_URL", None):
+        from runtime.supabase_keepalive import supabase_keepalive
+        asyncio.create_task(supabase_keepalive.start_daemon(interval_seconds=43200))
+        logger.info("Supabase keep-alive anti-pause daemon registered.")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    from infrastructure.event_bus.redis_streams import event_bus
+    await event_bus.close()
 
 

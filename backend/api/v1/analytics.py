@@ -140,7 +140,7 @@ async def get_command_center_telemetry(db: AsyncSession = Depends(get_db), user:
                 
                 top_city = (await db.execute(
                     select(Case.city, func.count(Case.id).label('c'))
-                    .where(Case.id.in_(case_ids), Case.city.isnot(None))
+                    .where(Case.case_number.in_(case_ids), Case.city.isnot(None))
                     .group_by(Case.city)
                     .order_by(desc('c'))
                     .limit(1)

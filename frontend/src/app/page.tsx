@@ -111,9 +111,12 @@ export default function LandingPage() {
           </Link>
 
           <div className="hidden md:flex items-center gap-8">
-            <a href="#about" className="text-sm font-medium text-[#A7B4BD] hover:text-[#E7EEF3] transition-colors">
-              About
-            </a>
+            <Link href="/personal" className="text-sm font-medium text-[#F59E0B] hover:text-[#fbbf24] transition-colors flex items-center gap-1.5">
+              Personal Shield
+            </Link>
+            <Link href="/business" className="text-sm font-medium text-[#38BDF8] hover:text-[#7dd3fc] transition-colors flex items-center gap-1.5">
+              Business API
+            </Link>
             <a href="#how-it-works" className="text-sm font-medium text-[#A7B4BD] hover:text-[#E7EEF3] transition-colors">
               How it works
             </a>
@@ -121,12 +124,13 @@ export default function LandingPage() {
               Features
             </a>
             <a
-  href="#faq"
-  className="text-sm font-medium text-[#A7B4BD] hover:text-[#E7EEF3] transition-colors"
->
-    FAQ
-</a>
+              href="#faq"
+              className="text-sm font-medium text-[#A7B4BD] hover:text-[#E7EEF3] transition-colors"
+            >
+              FAQ
+            </a>
           </div>
+
 
           <div className="flex items-center gap-4">
             <Link
@@ -498,19 +502,22 @@ export default function LandingPage() {
                 }}
                 className="flex flex-row gap-4 mt-8 flex-wrap"
               >
-                <Link
-                  href={getHref("/report")}
-                  className="inline-flex items-center justify-center h-12 px-6 rounded-control bg-[#F59E0B] text-[#08131A] font-bold text-sm hover:bg-[#F97316] hover:shadow-[0_4px_20px_rgba(245,158,11,0.25)] transition-all duration-150 active:scale-[0.98] group shrink-0"
-                >
-                  Report a scam
-                  <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-0.5 transition-transform" />
-                </Link>
-                <Link
-                  href={getHref("/prevention")}
-                  className="inline-flex items-center justify-center h-12 px-6 rounded-control bg-[#17232A] text-[#E7EEF3] border border-[#253540] font-semibold text-sm hover:bg-[#1b282f] hover:border-[#33414a] transition-colors duration-150 shrink-0"
-                >
-                  Check a suspicious link
-                </Link>
+                <div className="flex flex-row gap-4 mt-8 flex-wrap">
+                  <Link
+                    href="/personal"
+                    className="inline-flex items-center justify-center h-12 px-6 rounded-control bg-[#F59E0B] text-[#08131A] font-bold text-sm hover:bg-[#F97316] hover:shadow-[0_4px_20px_rgba(245,158,11,0.25)] transition-all duration-150 active:scale-[0.98] group shrink-0"
+                  >
+                    Personal Scam Shield
+                    <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-0.5 transition-transform" />
+                  </Link>
+                  <Link
+                    href="/business"
+                    className="inline-flex items-center justify-center h-12 px-6 rounded-control bg-[#17232A] text-[#E7EEF3] border border-[#253540] font-semibold text-sm hover:bg-[#1b282f] hover:border-[#33414a] transition-colors duration-150 shrink-0"
+                  >
+                    Enterprise & Bank API
+                  </Link>
+                </div>
+
               </motion.div>
             </motion.div>
 

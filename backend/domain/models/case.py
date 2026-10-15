@@ -33,6 +33,8 @@ class Case(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
     case_number = Column(String, unique=True, index=True, nullable=False)
+    # B2B: links this case/event to an organization. NULL for B2C citizen reports.
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=True, index=True)
     
     # Submitter info
     submitted_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)

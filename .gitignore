@@ -11,6 +11,10 @@
 *.key
 *.p12
 *.pfx
+razorpay_*.csv
+*.csv
+push_vercel_env.ps1
+backend/venv_clean/
 
 # --- Python ---
 __pycache__/
@@ -74,8 +78,6 @@ docker-compose.override.yml
 # --- Docs / Compiled ---
 *.docx
 *.pdf
-p u s h _ v e r c e l _ e n v . p s 1  
- 
 .vercel
 .vercel.env
 

@@ -66,6 +66,24 @@ async def upload_evidence(
         raise HTTPException(status_code=500, detail=f"Evidence Vault upload error: {str(e)}")
 
 
+def _check_evidence_access(evidence: Evidence, user: Optional[User]) -> None:
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required to access Evidence Vault artifacts.",
+        )
+    # Institutional roles have forensic oversight access
+    if user.role in ["admin", "police", "cyber_cell", "banker", "bank_employee"]:
+        return
+    # Citizens can only access their own submitted evidence
+    if evidence.evidence_owner and evidence.evidence_owner == user.id:
+        return
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Not authorized to access this evidence artifact.",
+    )
+
+
 @router.get("/{evidence_id}")
 async def get_evidence_details(
     evidence_id: uuid.UUID,
@@ -77,6 +95,14 @@ async def get_evidence_details(
     Retrieves evidence metadata and integrity status.
     If verify_now=True, re-reads file from storage location and checks SHA-256 digest match.
     """
+    result = await db.execute(select(Evidence).where(Evidence.id == evidence_id))
+    evidence = result.scalars().first()
+
+    if not evidence:
+        raise HTTPException(status_code=404, detail="Evidence artifact not found")
+
+    _check_evidence_access(evidence, user)
+
     repo = EvidenceRepository(db)
 
     if verify_now:
@@ -84,12 +110,6 @@ async def get_evidence_details(
         verification_result = await repo.verify(evidence_id, actor=actor_name)
         if verification_result.get("status") == "NOT_FOUND":
             raise HTTPException(status_code=404, detail="Evidence artifact not found in database")
-
-    result = await db.execute(select(Evidence).where(Evidence.id == evidence_id))
-    evidence = result.scalars().first()
-
-    if not evidence:
-        raise HTTPException(status_code=404, detail="Evidence artifact not found")
 
     return {
         "id": str(evidence.id),
@@ -109,14 +129,18 @@ async def get_evidence_details(
 @router.get("/{evidence_id}/history")
 async def get_chain_of_custody_history(
     evidence_id: uuid.UUID,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    user: Optional[User] = Depends(get_current_user_optional)
 ):
     """
     Returns the legally traceable chronological Chain of Custody audit log for an evidence artifact.
     """
     result = await db.execute(select(Evidence).where(Evidence.id == evidence_id))
-    if not result.scalars().first():
+    evidence = result.scalars().first()
+    if not evidence:
         raise HTTPException(status_code=404, detail="Evidence artifact not found")
+
+    _check_evidence_access(evidence, user)
 
     repo = EvidenceRepository(db)
     history = await repo.get_history(evidence_id)
@@ -172,6 +196,8 @@ async def download_evidence_file(
     if not evidence or not path_to_check:
         raise HTTPException(status_code=404, detail="Evidence file missing or not found on server")
 
+    _check_evidence_access(evidence, user)
+
     # Record access log
     repo = EvidenceRepository(db)
     actor_name = f"{user.full_name} ({user.role})" if user else "Investigator / Viewer"
@@ -206,8 +232,13 @@ async def download_evidence_file(
         else:
             raise HTTPException(status_code=404, detail="Evidence file missing or not found on storage backend")
 
+    safe_filename = os.path.basename(local_path)
     return FileResponse(
         path=local_path,
         media_type=evidence.mime_type or "application/octet-stream",
-        filename=os.path.basename(local_path)
+        filename=safe_filename,
+        headers={
+            "Content-Disposition": f'attachment; filename="{safe_filename}"',
+            "X-Content-Type-Options": "nosniff",
+        }
     )

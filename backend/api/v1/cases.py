@@ -703,6 +703,9 @@ async def get_case(
     
     if user is None:
         raise HTTPException(status_code=401, detail="Authentication required")
+
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
         
     role = user.role
     user_id = str(user.id)
@@ -733,6 +736,9 @@ async def get_case_evidence(
     
     if user is None:
         raise HTTPException(status_code=401, detail="Authentication required")
+
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
         
     role = user.role
     user_id = str(user.id)

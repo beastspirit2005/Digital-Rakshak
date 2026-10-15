@@ -1,0 +1,48 @@
+name: Supabase Anti-Pause Keep-Alive
+
+on:
+  schedule:
+    # Runs every 3 days at 06:00 UTC (well within Supabase's 7-day inactivity pause window)
+    - cron: '0 6 */3 * *'
+  workflow_dispatch: # Allows manual one-click trigger from GitHub Actions tab
+
+jobs:
+  ping-supabase:
+    name: Ping Supabase Services
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Authenticated Heartbeat to Supabase
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$SUPABASE_KEY" ] || [ -z "$SUPABASE_URL" ]; then
+            echo "NOTICE: SUPABASE_URL or SUPABASE_ANON_KEY secret not configured in repository settings. Skipping keep-alive ping."
+            exit 0
+          fi
+          echo "=========================================================="
+          echo "Pinging Supabase at $SUPABASE_URL to prevent auto-pause..."
+          echo "Timestamp: $(date -u)"
+          echo "=========================================================="
+
+          # 1. Ping Storage API
+          STORAGE_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "apikey: $SUPABASE_KEY" \
+            -H "Authorization: Bearer $SUPABASE_KEY" \
+            "$SUPABASE_URL/storage/v1/bucket" || echo "failed")
+          echo "Storage API Response Code: $STORAGE_STATUS"
+
+          # 2. Ping Auth API
+          AUTH_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "apikey: $SUPABASE_KEY" \
+            "$SUPABASE_URL/auth/v1/health" || echo "failed")
+          echo "Auth API Response Code: $AUTH_STATUS"
+
+          if [ "$STORAGE_STATUS" = "200" ] || [ "$STORAGE_STATUS" = "204" ] || [ "$AUTH_STATUS" = "200" ]; then
+            echo "SUCCESS: Supabase project is ACTIVE and inactivity timer has been reset."
+          elif [ "$STORAGE_STATUS" = "544" ]; then
+            echo "WARNING: Supabase database is paused. Please visit dashboard to restore."
+            exit 1
+          else
+            echo "NOTICE: Ping completed with status (Storage: $STORAGE_STATUS, Auth: $AUTH_STATUS)."
+          fi

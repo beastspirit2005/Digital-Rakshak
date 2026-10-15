@@ -27,6 +27,8 @@ androguard
 filetype>=1.2.0
 structlog>=24.1.0
 google-genai>=0.2.0
+razorpay>=1.4.1
+
 
 # --- Digital Rakshak ML Engine ---
 torch>=2.2.0
