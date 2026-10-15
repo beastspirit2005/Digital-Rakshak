@@ -87,8 +87,10 @@ export default function BusinessEnterprisePortal() {
     setLoading(true);
     try {
       const headers: any = {};
-      const effectiveKey = keyToUse || activeApiKey;
-      if (effectiveKey) headers["x-api-key"] = effectiveKey;
+      const effectiveKey = keyToUse !== undefined ? keyToUse : activeApiKey;
+      if (effectiveKey && effectiveKey.trim()) {
+        headers["x-api-key"] = effectiveKey.trim();
+      }
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
       const [orgRes, keysRes, usageRes] = await Promise.all([
@@ -101,7 +103,7 @@ export default function BusinessEnterprisePortal() {
       setKeysList(keysRes.data);
       setQuota(usageRes.data);
     } catch (err: any) {
-      if (keyToUse && keyToUse !== "dr_test_demo_siem_forwarder") {
+      if (keyToUse) {
         pushToast("danger", err.response?.data?.detail || "Could not authenticate with this API key.");
       }
     } finally {
@@ -110,9 +112,13 @@ export default function BusinessEnterprisePortal() {
   };
 
   useEffect(() => {
-    const savedKey = localStorage.getItem("dr_b2b_active_key") || "dr_test_demo_siem_forwarder";
-    setActiveApiKey(savedKey);
-    loadB2BData(savedKey);
+    const savedKey = localStorage.getItem("dr_b2b_active_key") || "";
+    if (savedKey) {
+      setActiveApiKey(savedKey);
+      loadB2BData(savedKey);
+    } else {
+      loadB2BData("");
+    }
   }, [token]);
 
   const handleCreateApiKey = async () => {

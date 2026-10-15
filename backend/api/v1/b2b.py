@@ -46,6 +46,7 @@ from domain.models.organization import (
     UsageQuota,
     Subscription,
     SubscriptionStatus,
+    OrgTier,
 )
 from domain.models.case import Case
 from infrastructure.event_bus.redis_streams import event_bus, STREAM_EVENTS
@@ -78,40 +79,38 @@ async def get_org_from_api_key(
             )
         )
         api_key_record = result.scalar_one_or_none()
+        if api_key_record is not None:
+            # Check expiry
+            if api_key_record.expires_at and api_key_record.expires_at < datetime.now(timezone.utc):
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="API key has expired.",
+                )
 
-        if api_key_record is None:
+            # Fetch organization
+            org_result = await db.execute(
+                select(Organization).where(
+                    Organization.id == api_key_record.org_id,
+                    Organization.is_active == True,  # noqa: E712
+                )
+            )
+            org = org_result.scalar_one_or_none()
+
+            if org is not None:
+                # Update last_used_at (fire-and-forget style)
+                api_key_record.last_used_at = datetime.now(timezone.utc)
+                await db.commit()
+                return org
+            elif not user:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Organization is inactive or not found.",
+                )
+        elif not user:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid or revoked API key.",
             )
-
-        # Check expiry
-        if api_key_record.expires_at and api_key_record.expires_at < datetime.now(timezone.utc):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="API key has expired.",
-            )
-
-        # Fetch organization
-        org_result = await db.execute(
-            select(Organization).where(
-                Organization.id == api_key_record.org_id,
-                Organization.is_active == True,  # noqa: E712
-            )
-        )
-        org = org_result.scalar_one_or_none()
-
-        if org is None:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Organization is inactive or not found.",
-            )
-
-        # Update last_used_at (fire-and-forget style)
-        api_key_record.last_used_at = datetime.now(timezone.utc)
-        await db.commit()
-
-        return org
 
     # Fallback to logged-in JWT session user
     if user:
@@ -135,6 +134,34 @@ async def get_org_from_api_key(
             org = result.scalar_one_or_none()
             if org:
                 return org
+
+            # Auto-provision primary organization for admin if none exists
+            primary_org = Organization(
+                name="Apex Nodal Labs (Enterprise)",
+                slug="apex-nodal-labs",
+                tier=OrgTier.ENTERPRISE,
+                is_active=True,
+            )
+            db.add(primary_org)
+            await db.flush()
+
+            quota = UsageQuota(
+                org_id=primary_org.id,
+                period=datetime.now(timezone.utc).strftime("%Y-%m"),
+                events_processed=0,
+                monthly_limit=500_000,
+            )
+            db.add(quota)
+
+            member = OrganizationMember(
+                org_id=primary_org.id,
+                user_id=user.id,
+                role=OrgMemberRole.OWNER,
+            )
+            db.add(member)
+            await db.commit()
+            await db.refresh(primary_org)
+            return primary_org
 
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

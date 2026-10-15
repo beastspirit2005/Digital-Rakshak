@@ -89,17 +89,19 @@ axios.interceptors.request.use(
 );
 
 // Global Interceptor for Session Desync (401 Unauthorized)
-// Only triggers for authenticated API calls, NOT for login/register/otp attempts
+// Only triggers for authenticated API calls, NOT for login/register/otp attempts or API key failures
 axios.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && error.response.status === 401) {
-      // Check if this request was to an auth endpoint — if so, DON'T intercept.
-      // A 401 on /auth/login-password just means wrong credentials, not an expired session.
+      // Check if this request was to an auth endpoint or B2B API key test — if so, DON'T log out.
       const requestUrl = error.config?.url || "";
       const isAuthEndpoint = requestUrl.includes("/auth/");
-      
-      if (!isAuthEndpoint) {
+      const isB2BEndpoint = requestUrl.includes("/b2b/");
+      const detail = error.response.data?.detail;
+      const isApiKeyError = typeof detail === "string" && detail.toLowerCase().includes("api key");
+
+      if (!isAuthEndpoint && !isB2BEndpoint && !isApiKeyError) {
         // This is a genuine expired-session 401 from a protected endpoint.
         // Clear the correct localStorage keys that auth-store.ts actually uses.
         localStorage.removeItem("token");
