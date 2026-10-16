@@ -34,7 +34,7 @@ from domain.models.organization import (
 
 DEMO_ORG_SLUG = "apex-nodal-labs"
 DEMO_API_KEY_PLAINTEXT = "dr_test_demo_siem_forwarder"
-DEMO_BANK_KEY_PLAINTEXT = "dr_test_demo_bank_switch_hook"
+DEMO_BANK_KEY_PLAINTEXT = "dr_demo_bank_switch_hook"
 
 
 async def seed_sandbox():

@@ -21,14 +21,20 @@ async def main():
         # Step 2: Query for Harshit users
         print("Seeding passwords...")
         res = await db.execute(select(User).filter(User.full_name.ilike('%Harshit%')))
-        users = res.scalars().all()
+        admin_pwd = os.getenv("ADMIN_DEFAULT_PASSWORD")
+        citizen_pwd = os.getenv("CITIZEN_DEFAULT_PASSWORD")
+        if not admin_pwd or not citizen_pwd:
+            raise ValueError("Both ADMIN_DEFAULT_PASSWORD and CITIZEN_DEFAULT_PASSWORD environment variables must be set.")
         
+        admin_hash = get_password_hash(admin_pwd)
+        citizen_hash = get_password_hash(citizen_pwd)
+
         for u in users:
             if u.role == 'admin':
-                u.hashed_password = get_password_hash("Welcome@2005")
+                u.hashed_password = admin_hash
                 print(f"Updated password for Admin {u.full_name} ({u.email})")
             elif u.role == 'citizen':
-                u.hashed_password = get_password_hash("Welcome@2029")
+                u.hashed_password = citizen_hash
                 print(f"Updated password for Citizen {u.full_name} ({u.email})")
                 
         await db.commit()
