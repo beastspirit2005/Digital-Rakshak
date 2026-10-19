@@ -28,6 +28,8 @@ filetype>=1.2.0
 structlog>=24.1.0
 google-genai>=0.2.0
 razorpay>=1.4.1
+reportlab>=4.0.0
+Pillow>=10.0.0
 
 
 # --- Digital Rakshak ML Engine ---

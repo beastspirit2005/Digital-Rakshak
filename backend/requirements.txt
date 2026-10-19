@@ -32,4 +32,8 @@ structlog>=24.1.0
 redis[asyncio]>=5.0.0
 
 # Payment gateway
-razorpay>=1.4.1
+razorpay>=1.4.1
+
+# PDF Generation & Invoicing
+reportlab>=4.0.0
+Pillow>=10.0.0

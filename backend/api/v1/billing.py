@@ -1121,22 +1121,26 @@ async def generate_tax_invoice_pdf_endpoint(
     if sub.user_id != user.id and user.role != "admin":
         raise HTTPException(status_code=403, detail="Unauthorized to download this invoice.")
 
-    from infrastructure.pdf.invoice_pdf import generate_invoice_pdf
     inv, _ = _build_invoice_data(sub, user)
-    pdf_bytes = generate_invoice_pdf(
-        invoice_number=inv.invoice_number,
-        invoice_date=inv.invoice_date,
-        buyer_name=inv.buyer_name,
-        buyer_email=inv.buyer_email,
-        plan_name=inv.plan_name,
-        taxable_base=inv.taxable_base_amount,
-        cgst=inv.cgst_amount,
-        sgst=inv.sgst_amount,
-        total_tax=inv.total_tax_amount,
-        gross_amount=inv.gross_amount,
-        currency=inv.currency,
-        payment_status=inv.payment_status,
-    )
+    try:
+        from infrastructure.pdf.invoice_pdf import generate_invoice_pdf
+        pdf_bytes = generate_invoice_pdf(
+            invoice_number=inv.invoice_number,
+            invoice_date=inv.invoice_date,
+            buyer_name=inv.buyer_name,
+            buyer_email=inv.buyer_email,
+            plan_name=inv.plan_name,
+            taxable_base=inv.taxable_base_amount,
+            cgst=inv.cgst_amount,
+            sgst=inv.sgst_amount,
+            total_tax=inv.total_tax_amount,
+            gross_amount=inv.gross_amount,
+            currency=inv.currency,
+            payment_status=inv.payment_status,
+        )
+    except Exception as exc:
+        logger.error("Failed to generate tax invoice PDF for subscription %s: %s", sub.id, exc, exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to generate tax invoice PDF: {str(exc)}")
 
     clean_sub_id = sub.razorpay_subscription_id or str(sub.id)[:8]
     filename = f"Digital_Rakshak_Tax_Invoice_{clean_sub_id}.pdf"
@@ -1192,20 +1196,24 @@ async def resend_tax_invoice(
     plan_meta = _B2C_PLANS.get(sub.plan_code) or _B2B_ORDERS.get(sub.plan_code) or {}
     billing_cycle = "Yearly (365 Days)" if sub.plan_code == PlanCode.B2C_PRO_ANNUAL.value else "Monthly (30 Days)"
 
-    pdf_bytes = generate_invoice_pdf(
-        invoice_number=inv.invoice_number,
-        invoice_date=inv.invoice_date,
-        buyer_name=inv.buyer_name,
-        buyer_email=inv.buyer_email,
-        plan_name=inv.plan_name,
-        taxable_base=inv.taxable_base_amount,
-        cgst=inv.cgst_amount,
-        sgst=inv.sgst_amount,
-        total_tax=inv.total_tax_amount,
-        gross_amount=inv.gross_amount,
-        currency=inv.currency,
-        payment_status=inv.payment_status,
-    )
+    try:
+        pdf_bytes = generate_invoice_pdf(
+            invoice_number=inv.invoice_number,
+            invoice_date=inv.invoice_date,
+            buyer_name=inv.buyer_name,
+            buyer_email=inv.buyer_email,
+            plan_name=inv.plan_name,
+            taxable_base=inv.taxable_base_amount,
+            cgst=inv.cgst_amount,
+            sgst=inv.sgst_amount,
+            total_tax=inv.total_tax_amount,
+            gross_amount=inv.gross_amount,
+            currency=inv.currency,
+            payment_status=inv.payment_status,
+        )
+    except Exception as exc:
+        logger.error("Failed to generate tax invoice PDF during resend: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to generate invoice PDF: {str(exc)}")
 
     recipients = [user.email]
     if body and body.target_email and body.target_email.strip():
