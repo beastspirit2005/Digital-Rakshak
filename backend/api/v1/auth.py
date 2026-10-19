@@ -1,4 +1,5 @@
 import secrets
+import logging
 from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from pydantic import BaseModel, EmailStr, field_validator
@@ -9,9 +10,11 @@ from infrastructure.db.session import get_db
 from infrastructure.smtp.email_service import send_otp_email, send_approval_pending_email, send_welcome_email, send_password_reset_otp_email
 from domain.models.user import User
 from core.security import create_access_token, get_password_hash, verify_password
+from api.deps import OFFICIAL_INSTITUTIONAL_ROLES
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
+logger = logging.getLogger(__name__)
 limiter = Limiter(key_func=get_remote_address)
 router = APIRouter()
 
@@ -140,7 +143,11 @@ async def register_user(request: Request, data: RegisterRequest, db: AsyncSessio
         admin_body = f"A new user ({data.full_name}, {data.email}) has registered for the role of {data.role} and requires your approval."
         await send_email(settings.ADMIN_EMAIL, admin_subject, admin_body)
     else:
-        await send_welcome_email(data.email, data.full_name, data.role)
+        try:
+            await send_welcome_email(data.email, data.full_name, data.role)
+            logger.info("Welcome confirmation email sent to %s", data.email)
+        except Exception as mail_err:
+            logger.error("Failed to send welcome email to %s: %s", data.email, mail_err)
 
     return {"message": "User registered successfully", "is_approved": is_approved}
 
@@ -240,13 +247,25 @@ async def verify_otp(request: Request, data: VerifyOTPRequest, db: AsyncSession 
         data={"sub": str(user.id), "email": user.email, "role": user.role}
     )
     
+    is_user_pro = (
+        user.role in OFFICIAL_INSTITUTIONAL_ROLES
+        or (
+            getattr(user, "b2c_plan_code", "b2c_free") != "b2c_free"
+            and getattr(user, "b2c_subscription_status", "") == "active"
+        )
+    )
+
     return {
         "access_token": access_token,
         "token_type": "bearer",
         "user": {
             "id": str(user.id),
             "email": user.email,
-            "role": user.role
+            "full_name": user.full_name,
+            "role": user.role,
+            "b2c_plan_code": getattr(user, "b2c_plan_code", "b2c_free") or "b2c_free",
+            "b2c_subscription_status": getattr(user, "b2c_subscription_status", "active") or "active",
+            "is_pro": is_user_pro,
         }
     }
 
@@ -293,13 +312,25 @@ async def login_password(request: Request, data: LoginPasswordRequest, db: Async
         data={"sub": str(user.id), "email": user.email, "role": user.role}
     )
     
+    is_user_pro = (
+        user.role in OFFICIAL_INSTITUTIONAL_ROLES
+        or (
+            getattr(user, "b2c_plan_code", "b2c_free") != "b2c_free"
+            and getattr(user, "b2c_subscription_status", "") == "active"
+        )
+    )
+
     return {
         "access_token": access_token,
         "token_type": "bearer",
         "user": {
             "id": str(user.id),
             "email": user.email,
-            "role": user.role
+            "full_name": user.full_name,
+            "role": user.role,
+            "b2c_plan_code": getattr(user, "b2c_plan_code", "b2c_free") or "b2c_free",
+            "b2c_subscription_status": getattr(user, "b2c_subscription_status", "active") or "active",
+            "is_pro": is_user_pro,
         }
     }
 

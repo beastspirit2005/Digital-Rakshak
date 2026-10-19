@@ -27,14 +27,52 @@ async def health_check(db: AsyncSession = Depends(get_db)):
     try:
         start_time = time.time()
         await db.execute(text("SELECT 1"))
+        from infrastructure.db.session import engine
+        pool = engine.pool
         health_status["services"]["postgres"] = {
             "status": "up",
-            "latency_ms": round((time.time() - start_time) * 1000, 2)
+            "latency_ms": round((time.time() - start_time) * 1000, 2),
+            "pool": {
+                "size": pool.size() if hasattr(pool, "size") else 5,
+                "checked_in": pool.checkedin() if hasattr(pool, "checkedin") else 0,
+                "checked_out": pool.checkedout() if hasattr(pool, "checkedout") else 0,
+                "overflow": pool.overflow() if hasattr(pool, "overflow") else 0,
+            }
         }
     except Exception as e:
         logger.error(f"Postgres health check failed: {e}")
         health_status["status"] = "degraded"
         health_status["services"]["postgres"] = {"status": "down", "error": str(e)}
+
+    # 1b. Check Redis Streams Queue Depth & DLQ
+    try:
+        from infrastructure.event_bus.redis_streams import event_bus
+        client = await event_bus._get_redis()
+        if client:
+            q_depth = await client.xlen("dr:events:ingest")
+            dlq_depth = await client.llen("dr:events:dlq")
+            health_status["services"]["redis"] = {
+                "status": "up",
+                "queue_depth": q_depth,
+                "dlq_depth": dlq_depth,
+                "stream": "dr:events:ingest",
+                "consumer_group": "dr_processors"
+            }
+        else:
+            health_status["services"]["redis"] = {
+                "status": "up",
+                "mode": "in_memory_fallback",
+                "queue_depth": 0,
+                "dlq_depth": 0
+            }
+    except Exception as e:
+        health_status["services"]["redis"] = {
+            "status": "up",
+            "mode": "in_memory_fallback",
+            "queue_depth": 0,
+            "dlq_depth": 0,
+            "note": str(e)
+        }
 
 
 
@@ -260,4 +298,27 @@ async def trigger_supabase_ping():
     from runtime.supabase_keepalive import supabase_keepalive
     result = await supabase_keepalive.ping()
     return result
+
+
+@router.get("/live")
+async def liveness_probe():
+    """
+    Liveness probe - confirms the application event loop is responsive.
+    """
+    return {"status": "alive", "timestamp": time.time()}
+
+
+@router.get("/ready")
+async def readiness_probe(db: AsyncSession = Depends(get_db)):
+    """
+    Readiness probe - confirms the database and core dependencies are ready to serve requests.
+    """
+    try:
+        await db.execute(text("SELECT 1"))
+        return {"status": "ready", "postgres": "up", "timestamp": time.time()}
+    except Exception as e:
+        logger.error(f"Readiness probe failed: {e}")
+        from fastapi import HTTPException
+        raise HTTPException(status_code=503, detail="Service not ready")
+
 

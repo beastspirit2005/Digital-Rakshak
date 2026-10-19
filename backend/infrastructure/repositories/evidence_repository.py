@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from fastapi import UploadFile
 
+import inspect
 from domain.models.evidence import Evidence, EvidenceType, ChainOfCustodyLog
 from core.config import settings
 
@@ -39,30 +40,30 @@ class EvidenceRepository:
             sha256_hasher.update(file_obj)
             return sha256_hasher.hexdigest(), len(file_obj)
 
-        # Handle FastAPI UploadFile
+        # Handle FastAPI UploadFile or standard file-like object
         if hasattr(file_obj, "seek") and hasattr(file_obj, "read"):
-            if hasattr(file_obj, "seekable") and callable(file_obj.seekable) and file_obj.seekable():
-                file_obj.seek(0)
-            elif hasattr(file_obj, "seek") and callable(file_obj.seek):
-                try:
-                    await file_obj.seek(0) if hasattr(file_obj.seek, "__await__") else file_obj.seek(0)
-                except Exception:
-                    pass
+            try:
+                res = file_obj.seek(0)
+                if inspect.isawaitable(res):
+                    await res
+            except Exception:
+                pass
 
             while True:
-                read_func = file_obj.read
-                chunk = await read_func(65536) if hasattr(read_func, "__await__") else read_func(65536)
+                res = file_obj.read(65536)
+                chunk = await res if inspect.isawaitable(res) else res
                 if not chunk:
                     break
                 sha256_hasher.update(chunk)
                 total_bytes += len(chunk)
 
             # Reset cursor after reading
-            if hasattr(file_obj, "seek") and callable(file_obj.seek):
-                try:
-                    await file_obj.seek(0) if hasattr(file_obj.seek, "__await__") else file_obj.seek(0)
-                except Exception:
-                    pass
+            try:
+                res = file_obj.seek(0)
+                if inspect.isawaitable(res):
+                    await res
+            except Exception:
+                pass
 
         return sha256_hasher.hexdigest(), total_bytes
 
@@ -94,16 +95,17 @@ class EvidenceRepository:
         else:
             with open(storage_path, "wb") as f:
                 while True:
-                    read_func = file_obj.read
-                    chunk = await read_func(65536) if hasattr(read_func, "__await__") else read_func(65536)
+                    res = file_obj.read(65536)
+                    chunk = await res if inspect.isawaitable(res) else res
                     if not chunk:
                         break
                     f.write(chunk)
-            if hasattr(file_obj, "seek") and callable(file_obj.seek):
-                try:
-                    await file_obj.seek(0) if hasattr(file_obj.seek, "__await__") else file_obj.seek(0)
-                except Exception:
-                    pass
+            try:
+                res = file_obj.seek(0)
+                if inspect.isawaitable(res):
+                    await res
+            except Exception:
+                pass
 
         # 3. Create Evidence DB Record
         evidence = Evidence(

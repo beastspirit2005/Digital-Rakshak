@@ -28,6 +28,7 @@ import { Button } from "@/components/ui/button";
 import { StatSkeleton, Skeleton } from "@/components/ui/skeleton";
 import { Rise } from "@/components/ui/motion";
 import { useToast } from "@/components/ui/toast";
+import { LoadingOverlay } from "@/components/ui/loading-overlay";
 import {
   chartSeries,
   axisTick,
@@ -329,6 +330,21 @@ const sliceColor = (index: number) => chartSeries[index % chartSeries.length];
           </div>
         </Card>
       </Rise>
+
+      <LoadingOverlay
+        open={syncing}
+        variant="cyber"
+        fullscreen={true}
+        title="Synchronizing Global OSINT Threat Feeds"
+        subtitle="Ingesting live indicators of compromise from CIRT & open source intelligence..."
+        badge="National Threat Grid"
+        steps={[
+          "Connecting to CIRT & Global Threat Intelligence Feeds...",
+          "Ingesting and deduplicating new IoCs (IPs, domains, mule hashes)...",
+          "Updating localized vector embeddings & pattern cache...",
+          "Refreshing national analytics dashboard..."
+        ]}
+      />
     </div>
   );
 }

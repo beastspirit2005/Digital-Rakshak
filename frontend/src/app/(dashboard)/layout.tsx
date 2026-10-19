@@ -35,7 +35,12 @@ import { cn } from "@/lib/utils";
 
 import { useAuthStore } from "@/lib/auth-store";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { GlobalChatWidget } from "@/components/global-chat-widget";
+import dynamic from "next/dynamic";
+
+const GlobalChatWidget = dynamic(
+  () => import("@/components/global-chat-widget").then((mod) => mod.GlobalChatWidget),
+  { ssr: false }
+);
 import { ToastProvider } from "@/components/ui/toast";
 import { Avatar } from "@/components/ui/avatar";
 import { useSessionTimeout } from "@/hooks/use-session-timeout";

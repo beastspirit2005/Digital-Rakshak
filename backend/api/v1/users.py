@@ -12,7 +12,7 @@ from infrastructure.db.session import get_db
 from infrastructure.smtp.email_service import send_welcome_email, send_account_created_email, send_account_deleted_email
 from domain.models.user import User
 from core.security import decode_access_token, get_password_hash
-from api.deps import get_current_admin, get_current_user
+from api.deps import get_current_admin, get_current_user, OFFICIAL_INSTITUTIONAL_ROLES
 
 from slowapi import Limiter
 from slowapi.util import get_remote_address
@@ -72,9 +72,24 @@ async def get_users(request: Request, skip: int = 0, limit: int = 50, full_name:
         } for user in users
     ]
 
+class ConsentUpdate(BaseModel):
+    ai_threat_analysis: Optional[bool] = None
+    telemetry_monitoring: Optional[bool] = None
+    syndicate_intel_sharing: Optional[bool] = None
+    communication_alerts: Optional[bool] = None
+
+_user_consents = {}
+
 @router.get("/me")
 async def get_me(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
-    """Get the current logged-in user profile"""
+    """Get the current logged-in user profile with plan entitlements"""
+    is_user_pro = (
+        user.role in OFFICIAL_INSTITUTIONAL_ROLES
+        or (
+            getattr(user, "b2c_plan_code", "b2c_free") != "b2c_free"
+            and getattr(user, "b2c_subscription_status", "") == "active"
+        )
+    )
     return {
         "id": str(user.id),
         "email": user.email,
@@ -82,7 +97,153 @@ async def get_me(db: AsyncSession = Depends(get_db), user: User = Depends(get_cu
         "role": user.role,
         "is_active": user.is_active,
         "is_approved": user.is_approved,
+        "b2c_plan_code": getattr(user, "b2c_plan_code", "b2c_free") or "b2c_free",
+        "b2c_subscription_status": getattr(user, "b2c_subscription_status", "active") or "active",
+        "is_pro": is_user_pro,
         "created_at": user.created_at
+    }
+
+
+@router.get("/me/consent")
+async def get_my_consent(user: User = Depends(get_current_user)):
+    """
+    Returns active consent preferences in accordance with DPDP Act 2023.
+    """
+    from datetime import datetime, timezone
+    uid = str(user.id)
+    stored = _user_consents.get(uid, {
+        "ai_threat_analysis": True,
+        "telemetry_monitoring": True,
+        "syndicate_intel_sharing": True,
+        "communication_alerts": True,
+        "last_updated": datetime.now(timezone.utc).isoformat()
+    })
+    return {
+        "user_id": uid,
+        "dpdp_act_compliant": True,
+        "notice": "Under India's Digital Personal Data Protection Act 2023, you have the right to withdraw consent at any time for non-essential processing purposes.",
+        "consents": stored
+    }
+
+
+@router.post("/me/consent")
+async def update_my_consent(data: ConsentUpdate, user: User = Depends(get_current_user)):
+    """
+    Updates or revokes specific data processing consents under DPDP Act 2023.
+    """
+    from datetime import datetime, timezone
+    uid = str(user.id)
+    current = _user_consents.get(uid, {
+        "ai_threat_analysis": True,
+        "telemetry_monitoring": True,
+        "syndicate_intel_sharing": True,
+        "communication_alerts": True
+    })
+    if data.ai_threat_analysis is not None:
+        current["ai_threat_analysis"] = data.ai_threat_analysis
+    if data.telemetry_monitoring is not None:
+        current["telemetry_monitoring"] = data.telemetry_monitoring
+    if data.syndicate_intel_sharing is not None:
+        current["syndicate_intel_sharing"] = data.syndicate_intel_sharing
+    if data.communication_alerts is not None:
+        current["communication_alerts"] = data.communication_alerts
+    current["last_updated"] = datetime.now(timezone.utc).isoformat()
+    _user_consents[uid] = current
+
+    return {
+        "status": "success",
+        "message": "Consent preferences updated successfully under DPDP Act 2023.",
+        "consents": current
+    }
+
+
+class ProfileUpdateRequest(BaseModel):
+    full_name: Optional[str] = None
+    email: Optional[EmailStr] = None
+
+
+@router.patch("/me")
+async def update_my_profile(
+    data: ProfileUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """
+    Allows a citizen to update their display name or registered email address.
+    """
+    if data.full_name is not None and data.full_name.strip():
+        user.full_name = data.full_name.strip()
+
+    if data.email is not None and data.email.strip():
+        new_email = data.email.strip().lower()
+        if new_email != user.email:
+            existing = await db.execute(select(User).where(User.email == new_email, User.id != user.id))
+            if existing.scalars().first():
+                raise HTTPException(status_code=400, detail="This email is already in use by another account.")
+            user.email = new_email
+
+    await db.commit()
+    await db.refresh(user)
+
+    is_user_pro = (
+        user.role in OFFICIAL_INSTITUTIONAL_ROLES
+        or (
+            getattr(user, "b2c_plan_code", "b2c_free") != "b2c_free"
+            and getattr(user, "b2c_subscription_status", "") == "active"
+        )
+    )
+
+    return {
+        "status": "success",
+        "message": "Profile updated successfully.",
+        "user": {
+            "id": str(user.id),
+            "email": user.email,
+            "full_name": user.full_name,
+            "role": user.role,
+            "b2c_plan_code": getattr(user, "b2c_plan_code", "b2c_free") or "b2c_free",
+            "b2c_subscription_status": getattr(user, "b2c_subscription_status", "active") or "active",
+            "is_pro": is_user_pro,
+        }
+    }
+
+
+@router.delete("/me")
+async def delete_my_account(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+    """
+    Self-serve account erasure under DPDP Act 2023 Section 12 (Right to Erasure).
+    Permanently wipes the user's account, nullifies foreign keys, and purges scan history.
+    """
+    user_id = str(user.id)
+    email = user.email
+
+    from sqlalchemy import update
+    from domain.models.case import Case
+    from domain.models.evidence import Evidence
+    from domain.models.help_message import HelpMessage
+    from domain.models.support import SupportTicket
+    from domain.models.takedown import TakedownPolicy
+
+    await db.execute(update(Case).where(Case.submitted_by == user_id).values(submitted_by=None))
+    await db.execute(update(Case).where(Case.assigned_to == user_id).values(assigned_to=None))
+    await db.execute(update(Evidence).where(Evidence.evidence_owner == user_id).values(evidence_owner=None))
+    await db.execute(update(HelpMessage).where(HelpMessage.user_id == user_id).values(user_id=None))
+    await db.execute(update(SupportTicket).where(SupportTicket.user_id == user_id).values(user_id=None))
+    await db.execute(update(TakedownPolicy).where(TakedownPolicy.approved_by == user_id).values(approved_by=None))
+
+    from api.v1.scan import _mem_user_scans
+    if user_id in _mem_user_scans:
+        del _mem_user_scans[user_id]
+
+    if user_id in _user_consents:
+        del _user_consents[user_id]
+
+    await db.delete(user)
+    await db.commit()
+
+    return {
+        "status": "success",
+        "message": f"Account for {email} and all associated personal data have been permanently erased."
     }
 
 

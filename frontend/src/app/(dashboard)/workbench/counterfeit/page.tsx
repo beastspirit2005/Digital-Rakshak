@@ -23,6 +23,7 @@ import {
   Image as ImageIcon
 } from "lucide-react";
 import { RAICExecutionMonitor } from "@/components/ui/RAICExecutionMonitor";
+import { LoadingOverlay } from "@/components/ui/loading-overlay";
 import { api } from "@/lib/api";
 import axios from "axios";
 
@@ -208,6 +209,20 @@ export default function CounterfeitIntelligenceHubPage() {
 
             {/* Simulated Currency Note Visual Viewport */}
             <div className="mt-4 rounded-xl border border-amber-300 dark:border-amber-500/30 relative flex flex-col items-center justify-center min-h-[250px] overflow-hidden bg-slate-50 dark:bg-slate-950">
+              <LoadingOverlay
+                open={analyzing}
+                fullscreen={false}
+                variant="vision"
+                title="Executing Multi-Spectral Neural Vision Scan"
+                subtitle="Decomposing currency note features using Groq Vision AI..."
+                badge="Forensic Vision Core"
+                steps={[
+                  "Ingesting high-resolution note image into buffer...",
+                  "Running multi-spectral decomposition (Latent Image & Bleed-through)...",
+                  "Analyzing RBI micro-lettering & security thread luminescence...",
+                  "Generating forensic note DNA profile..."
+                ]}
+              />
               <div className="absolute inset-0 bg-[radial-gradient(#f59e0b_1px,transparent_1px)] [background-size:12px_12px] opacity-5 dark:opacity-10" />
               
               {previewUrl ? (

@@ -55,7 +55,8 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# --- Database / Volumes ---
+# --- Database / Volumes / Uploads ---
+uploads/
 backend/uploads/
 postgres_data/
 neo4j_data/

@@ -2,8 +2,21 @@
 
 import { api } from "@/lib/api";
 import { useEffect, useState, useMemo } from "react";
-import { NetworkVisualizer } from "@/components/graph/network-visualizer";
+import dynamic from "next/dynamic";
 import { Search, Loader2 } from "lucide-react";
+
+const NetworkVisualizer = dynamic(
+  () => import("@/components/graph/network-visualizer").then((mod) => mod.NetworkVisualizer),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="absolute inset-0 flex flex-col items-center justify-center text-sm text-ink-2 gap-3">
+        <Loader2 className="w-6 h-6 animate-spin" />
+        Loading intelligence graph visualizer…
+      </div>
+    ),
+  }
+);
 import axios from "axios";
 import { useAuthStore } from "@/lib/auth-store";
 import { Card, Inset } from "@/components/ui/card";

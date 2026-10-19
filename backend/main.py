@@ -2,6 +2,9 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+import asyncio
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from core.config import settings
@@ -10,11 +13,66 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+)
 logger = logging.getLogger(__name__)
+
+
+def _run_migrations_sync():
+    if os.getenv("RUN_MIGRATIONS", "false").lower() != "true":
+        logger.info("Skipping migrations. Set RUN_MIGRATIONS=true to run them.")
+        return
+        
+    try:
+        from alembic.config import Config
+        from alembic import command
+        
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        alembic_cfg = Config(os.path.join(base_dir, "alembic.ini"))
+        alembic_cfg.set_main_option("script_location", os.path.join(base_dir, "alembic"))
+        
+        # Override SQLAlchemy URL with database settings
+        alembic_cfg.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+        
+        logger.info("Running database migrations programmatically...")
+        command.upgrade(alembic_cfg, "head")
+        logger.info("Migrations successfully applied!")
+    except Exception as e:
+        logger.error(f"Failed to run programmatic migrations: {e}")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, _run_migrations_sync)
+    
+    if getattr(settings, "STREAM_CONSUMER_ENABLED", False):
+        from runtime.stream_consumer import StreamConsumer
+        consumer = StreamConsumer()
+        asyncio.create_task(consumer.run())
+        logger.info("StreamConsumer background worker started.")
+
+    # Start Supabase anti-pause keepalive daemon (every 12 hours)
+    if getattr(settings, "SUPABASE_URL", None):
+        from runtime.supabase_keepalive import supabase_keepalive
+        asyncio.create_task(supabase_keepalive.start_daemon(interval_seconds=43200))
+        logger.info("Supabase keep-alive anti-pause daemon registered.")
+
+    yield
+
+    try:
+        from infrastructure.event_bus.redis_streams import event_bus
+        await event_bus.close()
+    except Exception as exc:
+        logger.warning(f"Error during shutdown event bus cleanup: {exc}")
+
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
-    openapi_url=f"{settings.API_V1_STR}/openapi.json"
+    openapi_url=f"{settings.API_V1_STR}/openapi.json",
+    lifespan=lifespan
 )
 
 limiter = Limiter(key_func=get_remote_address)
@@ -114,6 +172,31 @@ except ImportError:
     logger.warning("OpenTelemetry packages not found. Skipping tracing instrumentation.")
 
 
+from starlette.middleware.gzip import GZipMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+
+class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
+    def __init__(self, app, max_upload_size: int = 30 * 1024 * 1024):
+        super().__init__(app)
+        self.max_upload_size = max_upload_size
+
+    async def dispatch(self, request: Request, call_next):
+        content_length = request.headers.get("content-length")
+        if content_length:
+            try:
+                if int(content_length) > self.max_upload_size:
+                    return JSONResponse(
+                        status_code=413,
+                        content={"detail": "Request entity too large. Maximum permitted request size is 30MB."},
+                        headers=_cors_headers_for_request(request)
+                    )
+            except ValueError:
+                pass
+        return await call_next(request)
+
+app.add_middleware(RequestSizeLimitMiddleware, max_upload_size=30 * 1024 * 1024)
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
@@ -174,53 +257,5 @@ app.include_router(b2b_router, prefix=f"{settings.API_V1_STR}")
 app.include_router(billing_router, prefix=f"{settings.API_V1_STR}")
 
 
-
-
-
-def _run_migrations_sync():
-    if os.getenv("RUN_MIGRATIONS", "false").lower() != "true":
-        logger.info("Skipping migrations. Set RUN_MIGRATIONS=true to run them.")
-        return
-        
-    try:
-        from alembic.config import Config
-        from alembic import command
-        
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        alembic_cfg = Config(os.path.join(base_dir, "alembic.ini"))
-        alembic_cfg.set_main_option("script_location", os.path.join(base_dir, "alembic"))
-        
-        # Override SQLAlchemy URL with database settings
-        alembic_cfg.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
-        
-        logger.info("Running database migrations programmatically...")
-        command.upgrade(alembic_cfg, "head")
-        logger.info("Migrations successfully applied!")
-    except Exception as e:
-        logger.error(f"Failed to run programmatic migrations: {e}")
-
-@app.on_event("startup")
-async def run_migrations():
-    import asyncio
-    loop = asyncio.get_event_loop()
-    await loop.run_in_executor(None, _run_migrations_sync)
-    
-    if getattr(settings, "STREAM_CONSUMER_ENABLED", False):
-        from runtime.stream_consumer import StreamConsumer
-        consumer = StreamConsumer()
-        asyncio.create_task(consumer.run())
-        logger.info("StreamConsumer background worker started.")
-
-    # Start Supabase anti-pause keepalive daemon (every 12 hours)
-    if getattr(settings, "SUPABASE_URL", None):
-        from runtime.supabase_keepalive import supabase_keepalive
-        asyncio.create_task(supabase_keepalive.start_daemon(interval_seconds=43200))
-        logger.info("Supabase keep-alive anti-pause daemon registered.")
-
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    from infrastructure.event_bus.redis_streams import event_bus
-    await event_bus.close()
 
 

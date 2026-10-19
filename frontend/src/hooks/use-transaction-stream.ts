@@ -58,6 +58,8 @@ export function useTransactionStream({
     onReviewRef.current = onReview;
   }, [onTransaction, onReview]);
 
+  const connectRef = useRef<() => void>(() => {});
+
   const connect = useCallback(() => {
     if (!enabled || typeof window === "undefined") return;
 
@@ -117,7 +119,7 @@ export function useTransactionStream({
           const delay = Math.min(1000 * Math.pow(1.5, reconnectAttemptsRef.current), 10000);
           reconnectAttemptsRef.current += 1;
           reconnectTimeoutRef.current = setTimeout(() => {
-            connect();
+            connectRef.current();
           }, delay);
         }
       };
@@ -126,6 +128,10 @@ export function useTransactionStream({
       setStatus("ERROR");
     }
   }, [enabled]);
+
+  useEffect(() => {
+    connectRef.current = connect;
+  }, [connect]);
 
   useEffect(() => {
     if (enabled) {

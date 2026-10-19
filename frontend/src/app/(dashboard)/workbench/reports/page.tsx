@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { ZtivfMeters } from "@/components/ztivf-meters";
 import { useToast } from "@/components/ui/toast";
 import { CaseActivityTimeline } from "@/components/case/CaseActivityTimeline";
+import { LoadingOverlay } from "@/components/ui/loading-overlay";
 
 function CaseDetail({
   c,
@@ -98,7 +99,21 @@ function CaseDetail({
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 p-4 sm:p-6">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 p-4 sm:p-6 relative">
+      <LoadingOverlay
+        open={scanningOsint}
+        variant="cyber"
+        fullscreen={false}
+        title={`Scanning Case ${c.case_number} Indicators`}
+        subtitle="Querying global open-source intelligence and threat actor repositories..."
+        badge="OSINT Case Scanner"
+        steps={[
+          "Extracting suspect phone numbers, UPI handles & URLs...",
+          "Querying CIRT, VirusTotal & MISP threat databases...",
+          "Correlating indicators against active campaign syndicates...",
+          "Synthesizing threat intelligence flags..."
+        ]}
+      />
       <div className="lg:col-span-2 space-y-4">
         <Inset className="p-4">
           <p className="text-xs text-ink-3 mb-2">Original report</p>

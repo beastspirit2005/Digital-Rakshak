@@ -7,11 +7,15 @@ const archivo = Archivo({
   variable: "--font-archivo",
   subsets: ["latin"],
   weight: ["500", "600", "700"],
+  display: "swap",
+  preload: true,
 });
 
 const instrumentSans = Instrument_Sans({
   variable: "--font-instrument",
   subsets: ["latin"],
+  display: "swap",
+  preload: true,
 });
 
 const fraunces = Fraunces({
@@ -19,6 +23,8 @@ const fraunces = Fraunces({
   subsets: ["latin"],
   weight: ["400", "500"],
   style: ["normal", "italic"],
+  display: "swap",
+  preload: true,
 });
 
 export const metadata: Metadata = {

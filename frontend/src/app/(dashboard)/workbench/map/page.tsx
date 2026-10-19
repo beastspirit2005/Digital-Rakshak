@@ -2,9 +2,19 @@
 
 import { api } from "@/lib/api";
 import { useState } from "react";
-import SpatialMap from "@/components/map/spatial-map";
+import dynamic from "next/dynamic";
 import { useAuthStore } from "@/lib/auth-store";
 import { Loader2, X } from "lucide-react";
+
+const SpatialMap = dynamic(() => import("@/components/map/spatial-map"), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-full min-h-64 flex flex-col items-center justify-center gap-3 bg-surface-2 text-sm text-ink-3">
+      <Loader2 className="w-6 h-6 animate-spin text-ink-3" />
+      <span>Loading spatial threat engine…</span>
+    </div>
+  ),
+});
 import axios from "axios";
 import { Card, Inset } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";

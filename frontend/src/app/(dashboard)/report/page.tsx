@@ -18,20 +18,25 @@ import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import axios from "axios";
 import { useAuthStore } from "@/lib/auth-store";
 import Link from "next/link";
-import {
-  Radar,
-  RadarChart,
-  PolarGrid,
-  PolarAngleAxis,
-  ResponsiveContainer,
-} from "recharts";
+import dynamic from "next/dynamic";
+
+const ThreatProfileRadar = dynamic(
+  () => import("@/components/report/threat-profile-radar"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-60 w-full flex items-center justify-center text-xs text-ink-3">
+        Loading threat profile radar…
+      </div>
+    ),
+  }
+);
 import { Button } from "@/components/ui/button";
 import { Input, Textarea, Label, FormError } from "@/components/ui/field";
 import { Card } from "@/components/ui/card";
 import { Segmented } from "@/components/ui/tabs";
 import { ConfidenceDial } from "@/components/ui/stat";
 import { ZtivfMeters } from "@/components/ztivf-meters";
-import { axisTick } from "@/components/ui/chart";
 
 export default function ReportPage() {
   // Wizard Navigation Step
@@ -623,34 +628,7 @@ export default function ReportPage() {
             {sixDim && (
               <Card className="p-6 bg-surface-2 border-line/10">
                 <p className="text-xs text-ink-3 mb-2 font-mono uppercase tracking-wider">Threat profile</p>
-                <div className="h-60 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RadarChart
-                      cx="50%"
-                      cy="50%"
-                      outerRadius="70%"
-                      data={[
-                        { subject: "Threat", A: sixDim.threat * 100 },
-                        { subject: "Behavior", A: sixDim.behavior * 100 },
-                        { subject: "Network", A: sixDim.network * 100 },
-                        { subject: "Integrity", A: sixDim.integrity * 100 },
-                        { subject: "Impersonation", A: sixDim.impersonation * 100 },
-                        { subject: "Extraction", A: sixDim.extraction * 100 },
-                      ]}
-                    >
-                      <PolarGrid stroke="var(--line)" />
-                      <PolarAngleAxis dataKey="subject" tick={axisTick} />
-                      <Radar
-                        name="Threat profile"
-                        dataKey="A"
-                        stroke="var(--chart-1)"
-                        fill="var(--chart-1)"
-                        fillOpacity={0.25}
-                        isAnimationActive={!reduced}
-                      />
-                    </RadarChart>
-                  </ResponsiveContainer>
-                </div>
+                <ThreatProfileRadar sixDim={sixDim} reduced={reduced} />
               </Card>
             )}
 

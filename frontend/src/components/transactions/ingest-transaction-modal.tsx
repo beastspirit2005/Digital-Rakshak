@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/components/ui/toast";
+import { LoadingOverlay } from "@/components/ui/loading-overlay";
 import {
   CreditCard,
   UploadCloud,
@@ -54,14 +55,14 @@ export function IngestTransactionModal({
   // --------------------------------------------------------------------------
   // Tab 1: Manual In-Line Transaction Form
   // --------------------------------------------------------------------------
-  const [accountId, setAccountId] = useState("ACC-" + Math.floor(1000000 + Math.random() * 9000000));
+  const [accountId, setAccountId] = useState("ACC-4892104");
   const [beneficiaryId, setBeneficiaryId] = useState("merchant_payee@okaxis");
   const [amount, setAmount] = useState("450.00");
   const [channel, setChannel] = useState("UPI");
   const [transactionType, setTransactionType] = useState("TRANSFER");
   const [city, setCity] = useState("Bengaluru");
   const [stateVal, setStateVal] = useState("Karnataka");
-  const [deviceId, setDeviceId] = useState("DEV-ANDR-" + Math.floor(1000 + Math.random() * 9000));
+  const [deviceId, setDeviceId] = useState("DEV-ANDR-7281");
 
   // Simulation / Threat flags
   const [isEmulator, setIsEmulator] = useState(false);
@@ -293,8 +294,39 @@ export function IngestTransactionModal({
       }
       className="sm:max-w-3xl"
     >
-      {/* Tab Switcher */}
-      <div className="flex items-center border-b border-line/15 mt-2 mb-5">
+      <div className="relative">
+        <LoadingOverlay
+          open={evaluating}
+          fullscreen={false}
+          variant="bank"
+          title="Evaluating Bank Switch Authorization"
+          subtitle={`Scoring ₹${amount} ${channel} transaction against RBI fraud friction framework...`}
+          badge="Banking Switch Core"
+          steps={[
+            "Analyzing transaction velocity & geographical delta...",
+            "Inspecting device integrity & emulator indicators...",
+            "Querying Neo4j Mule Account graph network...",
+            "Evaluating RBI Step-Up Friction Rules & Action Code..."
+          ]}
+        />
+
+        <LoadingOverlay
+          open={uploadingCsv}
+          fullscreen={false}
+          variant="bank"
+          title="Ingesting Bulk Statement CSV"
+          subtitle={`Evaluating batch transactions from ${selectedFile?.name || "statement"}...`}
+          badge="Bulk Ingestion Pipeline"
+          steps={[
+            "Parsing CSV rows and validating format schemas...",
+            "Executing high-throughput fraud scoring pipeline...",
+            "Correlating mule patterns against national graph...",
+            "Synthesizing transaction risk report..."
+          ]}
+        />
+
+        {/* Tab Switcher */}
+        <div className="flex items-center border-b border-line/15 mt-2 mb-5">
         <button
           onClick={() => setActiveTab("manual")}
           className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors ${
@@ -814,6 +846,7 @@ export function IngestTransactionModal({
           </div>
         </div>
       )}
+      </div>
     </Modal>
   );
 }

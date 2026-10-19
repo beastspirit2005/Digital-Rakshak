@@ -31,6 +31,7 @@ class IntelligenceGraph:
                     IntelligenceGraph._driver = AsyncGraphDatabase.driver(
                         settings.NEO4J_URI,
                         auth=(settings.NEO4J_USER, settings.NEO4J_PASSWORD),
+                        connection_timeout=1.0,
                         max_connection_lifetime=3600,
                         max_connection_pool_size=50
                     )

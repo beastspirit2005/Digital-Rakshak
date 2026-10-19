@@ -18,6 +18,13 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/evidence", tags=["Evidence Vault Repository (EVR)"])
 
 
+MAX_EVIDENCE_SIZE_BYTES = 25 * 1024 * 1024  # 25 MB
+BLOCKED_EXTENSIONS = {
+    ".exe", ".bat", ".cmd", ".sh", ".ps1", ".vbs", ".dll", 
+    ".scr", ".pif", ".com", ".msi", ".php", ".jsp", ".asp", ".cgi"
+}
+
+
 @router.post("/upload", status_code=status.HTTP_201_CREATED)
 async def upload_evidence(
     file: UploadFile = File(...),
@@ -30,15 +37,33 @@ async def upload_evidence(
     """
     Ingests raw digital evidence into the Evidence Vault Repository (EVR).
     Calculates cryptographic SHA-256 digest, records upload attributes, and appends an initial Chain of Custody log.
+    Validates file extension, maximum file size (25MB), and enforces access control.
     """
+    # 1. Filename & Extension validation
+    fname = file.filename or "uploaded_artifact"
+    _, ext = os.path.splitext(fname.lower())
+    if ext in BLOCKED_EXTENSIONS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Disallowed executable or script file extension '{ext}'. Uploading executable payloads is prohibited."
+        )
+
     try:
         repo = EvidenceRepository(db)
         actor_name = f"{user.full_name} ({user.role})" if user else "Citizen (Submitter)"
         owner_id = user.id if user else None
 
+        # 2. Check byte length via hash method
+        sha256_hex, file_size = await repo.hash(file)
+        if file_size > MAX_EVIDENCE_SIZE_BYTES:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=f"File size ({file_size} bytes) exceeds maximum permitted limit of 25MB."
+            )
+
         evidence = await repo.store(
             file_obj=file,
-            filename=file.filename or "uploaded_artifact",
+            filename=fname,
             mime_type=file.content_type or "application/octet-stream",
             evidence_type=evidence_type,
             actor=actor_name,
@@ -61,6 +86,8 @@ async def upload_evidence(
                 "created_at": evidence.created_at.isoformat() if evidence.created_at else None
             }
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"EVR Upload Failed: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Evidence Vault upload error: {str(e)}")
@@ -240,5 +267,8 @@ async def download_evidence_file(
         headers={
             "Content-Disposition": f'attachment; filename="{safe_filename}"',
             "X-Content-Type-Options": "nosniff",
+            "Cache-Control": "private, no-cache, no-store, must-revalidate",
+            "Content-Security-Policy": "default-src 'none'",
+            "X-Frame-Options": "DENY",
         }
     )

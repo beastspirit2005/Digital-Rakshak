@@ -11,7 +11,20 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Rise } from "@/components/ui/motion";
-import { TransactionRiskGraph } from "@/components/graph/transaction-risk-graph";
+import dynamic from "next/dynamic";
+
+const TransactionRiskGraph = dynamic(
+  () => import("@/components/graph/transaction-risk-graph").then((mod) => mod.TransactionRiskGraph),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-64 flex flex-col items-center justify-center gap-2 text-ink-3 text-sm">
+        <RefreshCw className="w-5 h-5 animate-spin text-ink-3" />
+        <span>Loading transaction graph…</span>
+      </div>
+    ),
+  }
+);
 import {
   ArrowLeft,
   ArrowRight,

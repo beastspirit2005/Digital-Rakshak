@@ -18,8 +18,8 @@ import {
   CheckCircle2, 
   Clock, 
   CreditCard,
-  Zap,
-  Code2
+  Code2,
+  Play
 } from "lucide-react";
 
 import { api } from "@/lib/api";
@@ -29,6 +29,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/field";
 import { Rise } from "@/components/ui/motion";
 import { useToast } from "@/components/ui/toast";
+import { LoadingOverlay } from "@/components/ui/loading-overlay";
 
 interface OrgProfile {
   org_id: string;
@@ -78,6 +79,7 @@ export default function BusinessEnterprisePortal() {
   const [createdPlaintextKey, setCreatedPlaintextKey] = useState<string | null>(null);
   const [copiedKey, setCopiedKey] = useState(false);
   const [creatingKey, setCreatingKey] = useState(false);
+  const [testIngesting, setTestIngesting] = useState(false);
 
   // Code sample tab
   const [snippetLanguage, setSnippetLanguage] = useState<"curl" | "python" | "node">("curl");
@@ -108,6 +110,42 @@ export default function BusinessEnterprisePortal() {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleTestIngest = async () => {
+    setTestIngesting(true);
+    try {
+      const headers: any = {};
+      if (activeApiKey) headers["x-api-key"] = activeApiKey;
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      const sampleBatch = [
+        {
+          event_type: "auth_bruteforce",
+          source_ip: "185.220.101.45",
+          severity: "high",
+          details: { failed_attempts: 14, user_agent: "python-requests/2.28.1" }
+        },
+        {
+          event_type: "phishing_domain_lookup",
+          source_ip: "103.21.244.0",
+          severity: "critical",
+          details: { domain: "secure-kyc-verification.top", matched_c2: true }
+        }
+      ];
+
+      await axios.post(
+        api("/b2b/events/ingest"),
+        { events: sampleBatch },
+        { headers }
+      );
+      pushToast("success", "Telemetry batch ingested into Redis Streams! Quota updated.");
+      loadB2BData(activeApiKey);
+    } catch (err: any) {
+      pushToast("danger", err.response?.data?.detail || "Batch event ingestion failed.");
+    } finally {
+      setTestIngesting(false);
     }
   };
 
@@ -384,13 +422,23 @@ export default function BusinessEnterprisePortal() {
       {/* Tab: Ingestion Guide */}
       {activeTab === "integration" && (
         <Card className="p-6 border-border/60 space-y-6">
-          <div>
-            <h3 className="font-bold text-base flex items-center gap-2">
-              <Terminal className="w-4 h-4 text-primary" /> Threat Event Ingestion API
-            </h3>
-            <p className="text-xs text-muted-foreground mt-1">
-              Send batches of up to 100 security events per call to <code className="bg-muted px-1.5 py-0.5 rounded font-mono text-foreground">POST /v1/b2b/events/ingest</code>.
-            </p>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h3 className="font-bold text-base flex items-center gap-2">
+                <Terminal className="w-4 h-4 text-primary" /> Threat Event Ingestion API
+              </h3>
+              <p className="text-xs text-muted-foreground mt-1">
+                Send batches of up to 100 security events per call to <code className="bg-muted px-1.5 py-0.5 rounded font-mono text-foreground">POST /v1/b2b/events/ingest</code>.
+              </p>
+            </div>
+            <Button
+              onClick={handleTestIngest}
+              disabled={testIngesting}
+              variant="secondary"
+              className="h-8 text-xs font-semibold gap-1.5 shrink-0"
+            >
+              <Play className="w-3.5 h-3.5" /> Test Ingest Live Event Batch
+            </Button>
           </div>
 
           <div className="space-y-3">
@@ -523,6 +571,37 @@ export default function BusinessEnterprisePortal() {
           </div>
         </div>
       )}
+
+      {/* Loading Overlays for Machine API Key Provisioning & Batch Ingestion */}
+      <LoadingOverlay
+        open={creatingKey}
+        variant="cyber"
+        fullscreen={true}
+        title="Provisioning Machine API Key"
+        subtitle="Generating SHA-256 key hash and assigning telemetry write scopes..."
+        badge="B2B Key Service"
+        steps={[
+          "Generating cryptographically secure token entropy...",
+          "Calculating SHA-256 key hash for secure storage...",
+          "Configuring rate limits & telemetry scopes in Redis...",
+          "Registering audit trail..."
+        ]}
+      />
+
+      <LoadingOverlay
+        open={testIngesting}
+        variant="cyber"
+        fullscreen={true}
+        title="Ingesting Security Telemetry Batch"
+        subtitle="Piping STIX 2.1 threat events into enterprise Redis Streams..."
+        badge="Event Ingestion Core"
+        steps={[
+          "Validating JSON event schemas & severity metrics...",
+          "Ingesting batch into high-throughput Redis Streams...",
+          "Cross-checking IoCs against National Threat Pattern Registry...",
+          "Updating organization quota and audit logs..."
+        ]}
+      />
     </div>
   );
 }

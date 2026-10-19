@@ -1,15 +1,29 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ShieldCheck, AlertTriangle, Link as LinkIcon, QrCode, Smartphone, HandCoins, Camera } from "lucide-react";
+import { 
+  ShieldCheck, 
+  AlertTriangle, 
+  Link as LinkIcon, 
+  QrCode, 
+  Smartphone, 
+  HandCoins, 
+  Camera,
+  CheckCircle2,
+  Info,
+  ShieldAlert,
+  Sparkles
+} from "lucide-react";
 import axios from "axios";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
+import { useAuthStore } from "@/lib/auth-store";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/field";
 import { Rise } from "@/components/ui/motion";
+import { LoadingOverlay } from "@/components/ui/loading-overlay";
 
 // html5-qrcode touches window at import time, so load it client-side only.
 let Html5QrcodeScanner: any;
@@ -27,6 +41,7 @@ const TABS = [
 ];
 
 export default function PreventionSuite() {
+  const { user, token } = useAuthStore();
   const [activeTab, setActiveTab] = useState("url");
   const [inputValue, setInputValue] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -34,27 +49,37 @@ export default function PreventionSuite() {
   const [loading, setLoading] = useState(false);
   const [useCamera, setUseCamera] = useState(false);
 
+  const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
+
   const scanTextPayload = async (text: string) => {
+    if (!text) return;
     setLoading(true);
     setResult(null);
     try {
       const payload =
-        activeTab === "url" ? { url: text } : activeTab === "upi" ? { upi: text } : { text: text };
+        activeTab === "url" ? { url: text.trim() } : activeTab === "upi" ? { upi: text.trim() } : { text: text.trim() };
 
-      const res = await axios.post(api("/scan"), payload);
+      const res = await axios.post(api("/scan"), payload, { headers: authHeaders });
       setResult({
         safe: res.data.is_safe,
-        confidence: 0.95,
-        reason: res.data.reasons.join(" ") || "No threats detected.",
+        risk_level: res.data.risk_level || (res.data.is_safe ? "LOW" : "HIGH"),
+        indicator_status: res.data.indicator_status || (res.data.is_safe ? "UNKNOWN_UNVERIFIED" : "KNOWN_MALICIOUS"),
+        reasons: res.data.reasons || [],
+        guidance: res.data.guidance || [],
+        attack_dna_match: res.data.attack_dna_match,
+        related_cases: res.data.related_cases,
       });
     } catch (err: any) {
       setResult({
         safe: false,
-        confidence: 0.99,
-        reason: err.response?.data?.detail || "The scan failed.",
+        risk_level: "HIGH",
+        indicator_status: "SUSPICIOUS",
+        reasons: [err.response?.data?.detail || "The scan request failed."],
+        guidance: ["Verify the indicator or network connection and try again."],
       });
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => {
@@ -93,25 +118,31 @@ export default function PreventionSuite() {
       if (activeTab === "qr" && selectedFile) {
         const formData = new FormData();
         formData.append("file", selectedFile);
-        const res = await axios.post(api("/scan/qr"), formData);
+        const res = await axios.post(api("/scan/qr"), formData, { headers: authHeaders });
         setResult({
           safe: res.data.is_safe,
-          confidence: 0.95,
-          reason: res.data.reasons.join(" ") || "No threats found in the QR code.",
+          risk_level: res.data.risk_level || (res.data.is_safe ? "LOW" : "HIGH"),
+          indicator_status: res.data.indicator_status || (res.data.is_safe ? "UNKNOWN_UNVERIFIED" : "KNOWN_MALICIOUS"),
+          reasons: res.data.reasons || ["QR payload decoded and verified."],
+          guidance: res.data.guidance || [],
+          attack_dna_match: res.data.attack_dna_match,
+          related_cases: res.data.related_cases,
         });
       } else if (activeTab === "apk" && selectedFile) {
         const formData = new FormData();
         formData.append("file", selectedFile);
         const res = await axios.post(api("/scan/apk"), formData, {
-          headers: { "Content-Type": "multipart/form-data" }
+          headers: { ...authHeaders, "Content-Type": "multipart/form-data" }
         });
         setResult({
           safe: res.data.is_safe,
-          confidence: 0.95,
-          reason: res.data.reasons.join("\n") || "No dangerous permissions found.",
+          risk_level: res.data.risk_level || (res.data.is_safe ? "LOW" : "CRITICAL"),
+          indicator_status: res.data.is_safe ? "UNKNOWN_UNVERIFIED" : "KNOWN_MALICIOUS",
+          reasons: res.data.reasons || ["No dangerous permissions found in APK."],
+          guidance: res.data.is_safe
+            ? ["Install only from Google Play Store or verified official developers."]
+            : ["Uninstall this APK immediately. Do not grant Accessibility or SMS permissions."],
         });
-        setLoading(false);
-        return;
       } else {
         await scanTextPayload(inputValue);
         return;
@@ -119,11 +150,14 @@ export default function PreventionSuite() {
     } catch (err: any) {
       setResult({
         safe: false,
-        confidence: 0.99,
-        reason: err.response?.data?.detail || "The scan failed.",
+        risk_level: "HIGH",
+        indicator_status: "SUSPICIOUS",
+        reasons: [err.response?.data?.detail || "The scan request failed."],
+        guidance: ["Please check the input and retry."],
       });
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const currentTab = TABS.find((t) => t.id === activeTab)!;
@@ -169,7 +203,52 @@ export default function PreventionSuite() {
       </Rise>
 
       <Rise index={2}>
-        <Card className="p-6">
+        <Card className="relative p-6 overflow-hidden">
+          <LoadingOverlay
+            open={loading}
+            fullscreen={false}
+            variant="cyber"
+            title={
+              activeTab === "apk"
+                ? "Analyzing Android Application Package"
+                : activeTab === "qr"
+                ? "Decoding & Analyzing QR Matrix"
+                : activeTab === "upi"
+                ? "Validating Virtual Payment Address"
+                : "Inspecting Web Link & Destination"
+            }
+            subtitle="Running zero-trust validation and heuristics against national threat registry..."
+            badge="Zero-Trust Scanner"
+            steps={
+              activeTab === "apk"
+                ? [
+                    "Decompiling AndroidManifest.xml and extracted assets...",
+                    "Auditing sensitive permissions (SMS, Accessibility, Overlay)...",
+                    "Scanning embedded command-and-control (C2) domains...",
+                    "Computing APK heuristic risk score..."
+                  ]
+                : activeTab === "qr"
+                ? [
+                    "Extracting payload from image pixel matrix...",
+                    "Unpacking embedded URL or UPI intent string...",
+                    "Querying National Threat Pattern Registry (TPR)...",
+                    "Synthesizing threat confidence..."
+                  ]
+                : activeTab === "upi"
+                ? [
+                    "Parsing Virtual Payment Address (VPA) structure...",
+                    "Checking against known mule account registries...",
+                    "Analyzing UPI handle reputation and velocity...",
+                    "Verifying merchant authenticity..."
+                  ]
+                : [
+                    "Following redirect chain and DNS resolution...",
+                    "Auditing SSL certificate authenticity...",
+                    "Checking phishing signatures against 1.2M+ records...",
+                    "Evaluating zero-day domain generation algorithms..."
+                  ]
+            }
+          />
           {useCamera && activeTab === "qr" && (
             <div className="w-full max-w-md mx-auto mb-4 overflow-hidden rounded-card border border-line">
               <div id="reader" className="w-full" />
@@ -230,37 +309,127 @@ export default function PreventionSuite() {
             </Button>
           </div>
 
-          {result && (
-            <div
-              className={cn(
-                "mt-6 p-5 rounded-card rise-in",
-                result.safe ? "bg-success-tint" : "bg-danger-tint"
-              )}
-              role="status"
-            >
-              <div className="flex items-start gap-4">
-                {result.safe ? (
-                  <ShieldCheck className="w-6 h-6 text-success shrink-0 mt-0.5" />
-                ) : (
-                  <AlertTriangle className="w-6 h-6 text-danger shrink-0 mt-0.5" />
+          {result && (() => {
+            const indStatus = result.indicator_status || (result.safe ? "UNKNOWN_UNVERIFIED" : "KNOWN_MALICIOUS");
+            const isMalicious = indStatus === "KNOWN_MALICIOUS";
+            const isSuspicious = indStatus === "SUSPICIOUS";
+            const isLegitimate = indStatus === "VERIFIED_LEGITIMATE";
+            const isUnverified = indStatus === "UNKNOWN_UNVERIFIED";
+
+            const cardBorder = isMalicious
+              ? "border-rose-500/50 bg-rose-500/5"
+              : isSuspicious
+              ? "border-amber-500/50 bg-amber-500/5"
+              : isLegitimate
+              ? "border-emerald-500/50 bg-emerald-500/5"
+              : "border-sky-500/40 bg-sky-500/5";
+
+            const badgeStyle = isMalicious
+              ? "bg-rose-500/10 text-rose-500 border-rose-500/30"
+              : isSuspicious
+              ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
+              : isLegitimate
+              ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/30"
+              : "bg-sky-500/10 text-sky-400 border-sky-500/30";
+
+            const statusTitle = isMalicious
+              ? "Confirmed Threat — High Risk / Do Not Proceed"
+              : isSuspicious
+              ? "Suspicious Pattern Detected"
+              : isLegitimate
+              ? "Verified Official Entity"
+              : "Unverified Indicator (Exercise Caution)";
+
+            return (
+              <div
+                className={cn(
+                  "mt-6 p-5 rounded-card rise-in border-2 transition-all shadow-sm",
+                  cardBorder
                 )}
-                <div className="min-w-0">
-                  <h3
-                    className={cn(
-                      "font-display font-semibold text-base",
-                      result.safe ? "text-success" : "text-danger"
+                role="status"
+              >
+                <div className="flex items-start justify-between gap-3 mb-3">
+                  <div className="flex items-center gap-3">
+                    {isLegitimate ? (
+                      <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 shrink-0">
+                        <CheckCircle2 className="w-6 h-6" />
+                      </div>
+                    ) : isUnverified ? (
+                      <div className="w-10 h-10 rounded-xl bg-sky-500/10 flex items-center justify-center text-sky-400 shrink-0">
+                        <Info className="w-6 h-6" />
+                      </div>
+                    ) : isSuspicious ? (
+                      <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500 shrink-0">
+                        <AlertTriangle className="w-6 h-6" />
+                      </div>
+                    ) : (
+                      <div className="w-10 h-10 rounded-xl bg-rose-500/10 flex items-center justify-center text-rose-500 shrink-0">
+                        <ShieldAlert className="w-6 h-6" />
+                      </div>
                     )}
-                  >
-                    {result.safe ? "Looks safe" : "High risk — don't proceed"}
-                  </h3>
-                  <p className="text-sm text-ink-2 mt-1.5">{result.reason}</p>
-                  <p className="text-xs text-ink-3 mt-3 tabular">
-                    AI confidence {Math.round(result.confidence * 100)}%
-                  </p>
+                    <div>
+                      <h3 className="font-display font-semibold text-base text-foreground">
+                        {statusTitle}
+                      </h3>
+                      <p className="text-xs text-muted-foreground">
+                        Risk assessment: <span className="font-semibold uppercase">{result.risk_level}</span>
+                      </p>
+                    </div>
+                  </div>
+
+                  <span className={cn("px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wider border shrink-0", badgeStyle)}>
+                    {indStatus.replace("_", " ")}
+                  </span>
                 </div>
+
+                {/* Analysis Findings */}
+                {result.reasons && result.reasons.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-border/40 space-y-1.5">
+                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      Analysis Findings:
+                    </h4>
+                    <ul className="space-y-1 text-xs text-foreground/90">
+                      {result.reasons.map((r: string, i: number) => (
+                        <li key={i} className="flex items-start gap-2">
+                          <span className="text-muted-foreground">•</span>
+                          <span>{r}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Actionable Practical Guidance */}
+                {result.guidance && result.guidance.length > 0 && (
+                  <div className="mt-3.5 p-3 rounded-lg bg-card/80 border border-border/60 space-y-1.5">
+                    <div className="text-xs font-semibold uppercase tracking-wider text-foreground flex items-center gap-1.5">
+                      <ShieldCheck className="w-3.5 h-3.5 text-primary" /> Practical Safety Guidance
+                    </div>
+                    <ul className="space-y-1 text-xs text-muted-foreground">
+                      {result.guidance.map((g: string, i: number) => (
+                        <li key={i} className="flex items-start gap-2">
+                          <span className="text-primary font-bold">✓</span>
+                          <span className="text-foreground/90">{g}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Pro Attack DNA / Graph Insights */}
+                {result.attack_dna_match && (
+                  <div className="mt-3 p-2.5 rounded-lg bg-primary/10 border border-primary/20 text-xs text-primary space-y-1">
+                    <div className="font-semibold flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5" /> Attack DNA Pattern Match
+                    </div>
+                    <div className="text-xs text-foreground/80">
+                      {result.attack_dna_match}
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
-          )}
+            );
+          })()}
         </Card>
       </Rise>
     </div>

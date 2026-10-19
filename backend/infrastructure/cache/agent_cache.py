@@ -43,7 +43,7 @@ class AgentExecutionCache:
         """
         Looks up cached agent inference. Returns dict if hit, else None.
         """
-        if not payload_text or len(payload_text) < 10:
+        if not payload_text:
             return None
 
         key = self._generate_key(agent_name, payload_text)
@@ -80,7 +80,7 @@ class AgentExecutionCache:
         """
         Stores completed agent result with TTL.
         """
-        if not payload_text or not result or len(payload_text) < 10:
+        if not payload_text or not result:
             return
 
         key = self._generate_key(agent_name, payload_text)
