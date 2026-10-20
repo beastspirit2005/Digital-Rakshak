@@ -19,6 +19,8 @@ import { useState, useEffect, useRef } from "react";
 import { BrandIdentity } from "@/components/brand-identity";
 import { BrandLogo } from "@/components/brand-logo";
 import { AnimatedCounter } from "@/components/animated-counter";
+import { SiteHeader } from "@/components/layout/site-header";
+import { SiteFooter } from "@/components/layout/site-footer";
 import { FAQSection } from "@/components/landing/FAQsection";
 import { NationalAlertTicker } from "@/components/landing/NationalAlertTicker";
 const STEPS = [
@@ -93,55 +95,7 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] selection:bg-[#F59E0B] selection:text-[#08131A] overflow-x-hidden">
-      {/* Premium Navy Header */}
-      <nav className="sticky top-0 z-50 bg-[#0a0a0c]/95 border-b border-white/8 backdrop-blur-md">
-        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-3 min-w-0">
-            <span className="flex items-center justify-center shrink-0 w-9 h-9 rounded-lg bg-[#18181c] border border-white/10">
-              <BrandLogo size={22} />
-            </span>
-            <span className="min-w-0">
-              <span className="block font-display text-[17px] font-bold tracking-tight leading-none text-[#E7EEF3]">
-                Digital Rakshak
-              </span>
-              <span className="hidden sm:block mt-1 text-[9px] font-medium tracking-[0.22em] uppercase text-[#8293AA]">
-                Cyber Threat Intelligence for India
-              </span>
-            </span>
-          </Link>
-
-          <div className="hidden md:flex items-center gap-8">
-            <Link href="/personal" className="text-sm font-medium text-[#F59E0B] hover:text-[#fbbf24] transition-colors flex items-center gap-1.5">
-              Personal Shield
-            </Link>
-            <Link href="/business" className="text-sm font-medium text-[#38BDF8] hover:text-[#7dd3fc] transition-colors flex items-center gap-1.5">
-              Business API
-            </Link>
-            <a href="#how-it-works" className="text-sm font-medium text-[#A7B4BD] hover:text-[#E7EEF3] transition-colors">
-              How it works
-            </a>
-            <a href="#features" className="text-sm font-medium text-[#A7B4BD] hover:text-[#E7EEF3] transition-colors">
-              Features
-            </a>
-            <a
-              href="#faq"
-              className="text-sm font-medium text-[#A7B4BD] hover:text-[#E7EEF3] transition-colors"
-            >
-              FAQ
-            </a>
-          </div>
-
-
-          <div className="flex items-center gap-4">
-            <Link
-              href="/auth/login"
-              className="inline-flex items-center h-9 px-4 rounded-control text-sm font-semibold bg-[#18181c] border border-white/10 text-[#E7EEF3] hover:bg-[#232328] transition-all duration-150"
-            >
-              Sign in
-            </Link>
-          </div>
-        </div>
-      </nav>
+      <SiteHeader />
 
       <main>
         {/* Dark Navy Cybersecurity Hero */}
@@ -623,15 +577,7 @@ export default function LandingPage() {
        
       </main>
 
-      {/* Cyber Premium Footer */}
-      <footer className="bg-[#050D12] text-[#A7B4BD] border-t border-[#253540]/30">
-        <div className="max-w-6xl mx-auto px-6 py-10 flex flex-col sm:flex-row items-center justify-between gap-6">
-          <BrandIdentity compact fixedDark />
-          <p className="text-xs text-[#64748B] text-center sm:text-right max-w-md leading-relaxed">
-            AI-assisted analysis supports, but does not replace, official investigation.
-          </p>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

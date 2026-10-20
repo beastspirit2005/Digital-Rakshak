@@ -304,3 +304,36 @@ async def test_operational_health_monitoring_and_pool_telemetry():
         # 3. AI engine liveness
         assert "ai" in services
         assert services["ai"]["status"] in ["up", "degraded"]
+
+
+@pytest.mark.asyncio
+async def test_public_contact_inquiry_ticket_and_validation():
+    """
+    Verifies that POST /v1/support/contact allows public citizens to submit
+    categorized inquiries without authentication and returns a tracked ticket number.
+    """
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        # Invalid payload (too short message)
+        res_bad = await client.post("/v1/support/contact", json={
+            "name": "Jane Doe",
+            "email": "jane@example.com",
+            "category": "General Inquiry",
+            "subject": "Missing description test",
+            "message": "Short",
+        })
+        assert res_bad.status_code == 422
+
+        # Valid payload
+        res_good = await client.post("/v1/support/contact", json={
+            "name": "Arjun Mehta",
+            "email": "arjun.mehta@test-domain.in",
+            "category": "Billing & Subscription",
+            "subject": "Inquiry regarding SAC 998313 GST Invoice",
+            "message": "Need clarification on GST credit claim for annual plan subscription.",
+            "reference_number": "INV-10029",
+        })
+        assert res_good.status_code == 200
+        data = res_good.json()
+        assert data["success"] is True
+        assert data["ticket_number"].startswith("TKT-INQ-")
