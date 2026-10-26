@@ -70,6 +70,40 @@ Unlike consumer or commercial accounts, official public servants—including **P
 ### 9. High-Throughput Redis Streams Event Bus & Ingestion Pipeline
 To decouple synchronous REST ingestion from analytical deep-dive scoring, the platform integrates **Redis Streams** (`digital_rakshak:events`) with an autonomous background consumer group daemon (`siem_consumers`). Telemetry batches are acknowledged idempotently with atomic quota tracking, delivering sustained high throughput with zero event loss.
 
+### 10. Interactive Cyber Cell Locator & Victim Embedded Radar Map
+Digital Rakshak provides an interactive, geolocated directory of verified Indian Cyber Police Stations and Nodal Desks:
+*   **Full-Screen Split-Screen Directory (`/locator`):** Powered by MapLibre GL with CartoDB dark/light raster-vector tiles, sovereign shield station pins, user GPS location beacon, and synchronized camera `flyTo`. On desktop, a 50/50 sticky map and scrollable directory provides instant access to official landlines (`tel:`), nodal officers, and Google Maps driving directions; on mobile, a seamless 1-tap segmented toggle alternates between map and list.
+*   **Embedded Victim Dashboard Radar (`/citizen`):** Citizens see an interactive locator map directly inside their report dashboard with a 1-click **"Locate Near Me"** GPS button detecting the nearest jurisdictional cyber police cells for in-person FIR registration or physical evidence submission.
+*   **Permanent Emergency Lifeline:** The national **1930 Financial Fraud Helpline** and [cybercrime.gov.in](https://cybercrime.gov.in) portal links remain docked and permanently free for all citizens regardless of subscription status.
+
+### 11. Police Jurisdictional Victims Map with Differential Privacy (`/police/victims-map`)
+For duty police officers and cyber cell investigators, Digital Rakshak provides a tactical proximity command radar:
+*   **Tactical Coverage Ring & Urgency Markers:** Renders real-time GeoJSON radius coverage circles (10 km, 25 km, 50 km, 100 km) anchored to the officer's police station or live patrol coordinates. Markers are urgency-coded:
+    *   🔴 **Critical Live Fraud:** Red pulsing beacon (`animate-ping`) for active digital arrests or golden-hour financial siphoning.
+    *   🟡 **High Urgency:** Amber warning pin for cases < 48 hours or > ₹50,000 loss.
+    *   🔵 **Standard:** Slate blue shield pin.
+*   **~300m Differential Privacy Jitter Engine:** Complies with privacy mandates and the **Bharatiya Sakshya Adhiniyam (BSA) 2023** by applying deterministic pseudo-random Gaussian coordinate jitter (~275m–300m) to unassigned victim locations. Exact street residences remain strictly obscured until an authorized officer claims the case.
+*   **1-Click Case Undertaking:** Investigators can click **"Claim & Undertake Case"** directly from map popups or the priority triage queue, immediately assigning the case, unlocking exact coordinates, and activating direct monitored victim communications.
+*   **Police Command Center (`/police`):** A unified tactical command overview directing officers to Proximity Radar, Investigation Workbench, Fraud Intelligence & Mule Tracing, National Scam Heatmap, and AI Legal Co-Pilot.
+
+### 12. Direct Monitored Case Chat & BSA 2023 Evidence Preservation
+To bridge the critical communication gap between distressed citizens and duty investigators without exposing personal phone numbers:
+*   **Case-Level Direct Monitored Chat (`CaseChatPanel`):** Dedicated, secure messaging thread connecting the victim directly to their assigned investigator inside `/citizen` and `/workbench/reports`.
+*   **Mandatory Pre-Chat Safety Consent (`ChatSafetyNoticeModal`):** Both parties must review and timestamp consent to the 5-point Chat Transparency Policy before exchanging messages.
+*   **Zero-Tolerance Credential Shielding:** Real-time client-side regex detection and server-side FastAPI inspection hard-block any message containing OTPs, UPI PINs, passwords, CVVs, or fee demands.
+*   **BSA 2023 Context-Window Evidence Preservation:** When misconduct, bribery, or credential harvesting is reported, the platform automatically snapshots the 7-message Context Window (5 preceding, target message, 2 succeeding), generates a SHA-256 cryptographic digest, and logs a tamper-evident evidence package.
+*   **Admin Misconduct Review Queue (`/admin/disputes`):** Reviewers can inspect preserved context windows, enforce account restrictions, and export court-ready BSA 2023 Section 63 ZIP evidence archives with cryptographic manifests.
+
+### 13. Legal Cyber Incident FIR Dossier PDF Engine (BSA 2023 Sec 63)
+Generates publication-quality, court-ready **A4 Cyber Incident Dossiers** in PDF format:
+*   **Standardized Police Format:** Features official Ashoka Pillar / Rakshak insignia, Section 63 BSA 2023 electronic record declaration, SHA-256 evidence digests, timeline event tables, extracted suspect identifiers (VPAs, mobile numbers, bank accounts), and officer remark blocks.
+*   **Multi-Source Authentication & Blob Delivery:** Supported directly from `/citizen` and `/workbench/reports` via authenticated Axios blob streams (`DigitalRakshak_FIR_Dossier_{case_number}.pdf`) and query-parameter fallback tokens for direct tab previews.
+
+### 14. Digital Rakshak Pro Priority Human Investigator Escalation
+Within the AI Copilot help system (`GlobalChatWidget`):
+*   **Pro Priority Badge:** Recognizes Digital Rakshak Pro subscribers and institutional users.
+*   **1-Click Human Support Escalation (`POST /help/escalate-priority`):** Immediately flags the chat session, generates an emergency `SupportTicket` in the duty investigator queue (`status: "live_chat"`), and injects a real-time confirmation receipt with ticket tracking into the copilot session.
+
 ---
 
 ## System Architecture
@@ -257,8 +291,10 @@ Traditional fraud systems penalize legitimate anomalies (e.g., late-night emerge
 
 ## The Technology Stack
 
-*   **Frontend Interface:** Next.js 16 (App Router + Turbopack), React, TypeScript, Tailwind CSS, Cytoscape.js (for 2-hop transaction forensic topology), MapLibre GL (for spatial clustering), Recharts (for 6-axis threat radar).
+*   **Frontend Interface:** Next.js 16 (App Router + Turbopack), React, TypeScript, Tailwind CSS, Cytoscape.js (for 2-hop transaction forensic topology), MapLibre GL (for jurisdictional radar & spatial clustering), Recharts (for 6-axis threat radar).
 *   **Backend Orchestration:** FastAPI (Python 3.10+ / 3.12+), Pydantic v2 schemas, asyncio high-throughput event loops.
+*   **Spatial & Geolocation Intelligence:** MapLibre GL (`react-map-gl/maplibre`), CartoDB vector tile styling (Dark Matter & Positron), spherical Haversine distance math, and Gaussian differential privacy jitter algorithms (~300m).
+*   **Legal Document Generation & Compliance:** ReportLab A4 Legal FIR Dossier Engine, Bharatiya Sakshya Adhiniyam (BSA) 2023 Section 63 electronic evidence formatting, and SHA-256 cryptographic Context-Window Archiver for dispute resolution.
 *   **Event Bus & Ingestion Pipeline:** Redis Streams (`digital_rakshak:events`) with autonomous consumer group daemon (`siem_consumers`) for atomic quota governance and zero-loss telemetry ingestion.
 *   **Streaming & Realtime:** Native WebSockets (`/v1/transactions/ws`) and Server-Sent Events (`/v1/b2b/events/stream`) with auto-reconnecting broadcast hubs.
 *   **Payments & Subscriptions:** Razorpay Payment Gateway integration with PCI-DSS tokenized checkout modal and server-side HMAC-SHA256 cryptographic webhook/signature verification.
@@ -271,17 +307,24 @@ Traditional fraud systems penalize legitimate anomalies (e.g., late-night emerge
 
 ---
 
+## 🌐 Live Production Deployment
+
+*   **Production Platform URL:** [https://rakshak-backend.vercel.app](https://rakshak-backend.vercel.app)
+*   **API Health & Status:** [https://rakshak-backend.vercel.app/api/v1/health](https://rakshak-backend.vercel.app/api/v1/health)
+
+---
+
 ## 🔐 Demo Credentials (For Evaluators & Judges)
 
 Explore the platform through pre-configured roles:
 
 | Role | Email | Password | Accessible Modules |
 |------|-------|----------|-------------------|
-| 👮 Police / Investigator | `police1@rakshak.com` | `police@123` | Case Workbench (`/workbench`), Evidence Analysis, Syndicate Graph, Hardware Telemetry (Paywall Exemption) |
+| 👮 Police / Investigator | `police1@rakshak.com` | `police@123` | **Police Command Center** (`/police`), **Victims Proximity Radar** (`/police/victims-map` with differential privacy jitter & 1-click undertaking), Case Workbench (`/workbench/reports`), Direct Monitored Victim Chat, FIR Dossier PDF Download, Syndicate Graph, Hardware Telemetry (Sovereign Exemption) |
 | 🏦 Banker / Nodal Officer | `banker1@rakshak.com` | `banker@123` | **Transaction Fraud Intelligence Cockpit** (`/banker`), Live WebSocket Stream, 2-Hop Cytoscape Forensics, Case Verification |
 | 🏢 Enterprise / FinTech | `admin1@rakshak.com` | `admin@123` | **B2B Enterprise Portal** (`/business`), API Key Lifecycle (`dr_live_...`), Threat Ingest (`POST /v1/b2b/events/ingest`), Quotas |
-| 👤 Citizen / Victim | `citizen1@rakshak.com` | `citizen@123` | **B2C Cyber Shield** (`/personal`), Instant OSINT Scam Scanner, Razorpay Pro Upgrade, Voice / Text Reporting, Copilot Chat |
-| 🏛️ Admin / Superintendent | `admin1@rakshak.com` | `admin@123` | Tactical Command Center (`/admin`), Global Audit Logs, User Management, AI Engine Failover Governance |
+| 👤 Citizen / Victim | `citizen1@rakshak.com` | `citizen@123` | **Victim Dashboard** (`/citizen` with embedded Interactive Cyber Cell Locator Map, 1-click FIR Dossier PDF download, and Direct Officer Monitored Chat), **Cyber Cell Locator Directory** (`/locator`), B2C Cyber Shield (`/personal`), Instant OSINT Scam Scanner, Razorpay Pro Upgrade, Copilot Chat with Pro Priority Escalation |
+| 🏛️ Admin / Superintendent | `admin1@rakshak.com` | `admin@123` | Tactical Command Center (`/admin`), **Misconduct Review & Dispute Resolution Queue** (`/admin/disputes` with BSA-2023 Section 63 ZIP export), Investigator Connect Queue (`/admin/investigator-connect`), Global Audit Logs, User Management, AI Engine Failover Governance |
 
 > **Note:** Official public service accounts (`police`, `cyber_cell`, `banker`, `admin`) automatically bypass consumer subscription gates with sovereign institutional clearance. Demo accounts are pre-seeded with case data, transaction streams, organizations, and graph links.
 
