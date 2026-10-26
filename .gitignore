@@ -85,6 +85,8 @@ docker-compose.override.yml
 # --- ML Weights and Data ---
 backend/models/
 backend/data/
+backend/wheels/
+*.whl
 
 .vercel
 

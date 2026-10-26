@@ -3,52 +3,104 @@ import re
 
 # Graceful degradation for Vercel Serverless (Lite Mode)
 ML_AVAILABLE = False
+ONNX_AVAILABLE = False
 try:
     import torch
+    import torch.nn as nn
     import numpy as np
-    from transformers import DistilBertTokenizer
+    from transformers import DistilBertModel, DistilBertTokenizer
     ML_AVAILABLE = True
 except ImportError:
-    print("WARNING: PyTorch not found. Running in Lite Mode (Cloud AI only).")
+    pass
+
+try:
+    import onnxruntime as ort
+    ONNX_AVAILABLE = True
+except ImportError:
+    pass
+
+class MultiTaskDistilBert(nn.Module if ML_AVAILABLE else object):
+    def __init__(self, num_threat_classes=6, num_behavior_labels=6):
+        if not ML_AVAILABLE: return
+        super().__init__()
+        self.bert = DistilBertModel.from_pretrained('distilbert-base-multilingual-cased')
+        self.drop = nn.Dropout(p=0.25)
+        self.threat_classifier = nn.Linear(self.bert.config.hidden_size, num_threat_classes)
+        self.behavior_classifier = nn.Linear(self.bert.config.hidden_size, num_behavior_labels)
+    def forward(self, input_ids, attention_mask):
+        outputs = self.bert(input_ids=input_ids, attention_mask=attention_mask)
+        pooled = outputs.last_hidden_state[:, 0]
+        out = self.drop(pooled)
+        return self.threat_classifier(out), self.behavior_classifier(out)
+
 class RakshakCoreClient:
     """
     Client for loading and running inference on the custom Rakshak Multi-Task PyTorch Model.
     Supports Threat Classification and Multi-label Behaviour Detection.
     """
-    def __init__(self, model_version="1.0"):
+    def __init__(self, model_version="2.0"):
         self.version = model_version
-        self.device = torch.device("cpu") if (ML_AVAILABLE and 'torch' in globals()) else "cpu"
         self.model_dir = os.path.join(os.path.dirname(__file__), "..", "..", "models", "rakshak-core", f"v{model_version}")
+        self.device = torch.device("cuda" if (ML_AVAILABLE and torch.cuda.is_available()) else "cpu") if ML_AVAILABLE else "cpu"
         self.tokenizer = None
         self.model = None
-        self.classes = None
-        self.behavior_cols = ['Impersonation', 'Urgency', 'Fear', 'OTP Harvesting', 'Remote Access']
-        self.temperature = 1.0 # Calibrated temperature for sharper, uncompressed probability distribution
+        self.onnx_session = None
+        self.classes = [
+            "Safe",
+            "Banking Fraud",
+            "UPI Fraud",
+            "Digital Arrest",
+            "Courier Scam",
+            "Loan Extortion"
+        ]
+        self.behavior_cols = [
+            "Impersonation",
+            "Urgency",
+            "Fear",
+            "OTP Harvesting",
+            "Remote Access",
+            "Mule Routing"
+        ]
+        self.temperature = 1.0
 
     def load_model(self):
-        if not ML_AVAILABLE or 'torch' not in globals():
-            print("Lite Mode active: skipping local PyTorch model load.")
-            return False
-        if not os.path.exists(self.model_dir):
-            print(f"Warning: Model directory {self.model_dir} not found. Ensure train_model.py has been run.")
-            return False
-        
-        try:
-            from transformers import XLMRobertaTokenizer, XLMRobertaForSequenceClassification
-            self.tokenizer = XLMRobertaTokenizer.from_pretrained(self.model_dir)
-            
-            # The classes match the ones trained in train_model.py
-            self.classes = ["Safe", "Banking Fraud", "UPI Fraud", "Courier Scam", "Digital Arrest"]
-            
-            self.model = XLMRobertaForSequenceClassification.from_pretrained('xlm-roberta-base', num_labels=len(self.classes))
-            self.model.load_state_dict(torch.load(os.path.join(self.model_dir, "pytorch_model.bin"), map_location=self.device))
-            self.model.to(self.device)
-            self.model.eval()
-            print("Native AI loaded successfully.")
-            return True
-        except Exception as e:
-            print(f"Failed to load Core Model: {e}")
-            return False
+        target_dir = self.model_dir
+        if not os.path.exists(target_dir):
+            alt_dir = os.path.join(os.path.dirname(__file__), "..", "..", "models", "rakshak-core", "v1.0")
+            if os.path.exists(alt_dir):
+                target_dir = alt_dir
+            else:
+                return False
+
+        # Attempt 1: Fast ONNX CPU Runtime
+        onnx_file = os.path.join(target_dir, "model.onnx")
+        if ONNX_AVAILABLE and os.path.exists(onnx_file):
+            try:
+                self.onnx_session = ort.InferenceSession(onnx_file, providers=['CPUExecutionProvider'])
+                self.tokenizer = DistilBertTokenizer.from_pretrained(target_dir)
+                print(f"ONNX Core Engine active ({onnx_file})")
+                return True
+            except Exception as e:
+                print(f"ONNX load notice: {e}")
+
+        # Attempt 2: PyTorch CUDA / CPU
+        pytorch_file = os.path.join(target_dir, "pytorch_model.bin")
+        if ML_AVAILABLE and os.path.exists(pytorch_file):
+            try:
+                self.tokenizer = DistilBertTokenizer.from_pretrained(target_dir)
+                self.model = MultiTaskDistilBert(
+                    num_threat_classes=len(self.classes),
+                    num_behavior_labels=len(self.behavior_cols)
+                )
+                self.model.load_state_dict(torch.load(pytorch_file, map_location=self.device))
+                self.model.to(self.device)
+                self.model.eval()
+                print(f"PyTorch Core Engine active on {self.device}")
+                return True
+            except Exception as e:
+                print(f"PyTorch load notice: {e}")
+
+        return False
 
     def _heuristic_classify(self, text: str) -> dict:
         """
@@ -88,8 +140,20 @@ class RakshakCoreClient:
             return {"threat_class": "UPI Fraud", "confidence": 0.92, "behaviors": ["Impersonation", "Urgency"]}
 
         # Check for Urgent Banking / KYC Account Block Phishing
-        if any(w in lower for w in ["account will be blocked", "suspended due to pending kyc", "pan update", "card is blocked"]) and any(w in lower for w in ["update pan", "call", "24 hrs", "immediately", "send otp"]):
+        if any(w in lower for w in ["account will be blocked", "account is blocked", "account has been blocked", "suspended due to pending kyc", "suspend ho gaya", "suspend", "pan update", "card is blocked"]) and any(w in lower for w in ["update pan", "call", "24 hrs", "immediately", "send otp", "pan card", "link kare", "par call"]):
             return {"threat_class": "Banking Fraud", "confidence": 0.93, "behaviors": ["Fear", "Urgency", "Impersonation", "OTP Harvesting"]}
+
+        # Check for Accidental transfer refund fraud
+        if any(w in lower for w in ["galti se", "mistakenly sent", "accidental transfer", "wapas kar do", "hospital me admit"]) and any(w in lower for w in ["upi", "bhej diya", "refund", "plz", "beti", "transfer"]):
+            return {"threat_class": "UPI Fraud", "confidence": 0.93, "behaviors": ["Fear", "Urgency"]}
+
+        # Check for Cashback / Refund UPI PIN trap
+        if any(w in lower for w in ["cashback refund", "claim your money", "enter upi pin", "cashback from phonepe", "approve mandate"]):
+            return {"threat_class": "UPI Fraud", "confidence": 0.93, "behaviors": ["Urgency", "Impersonation"]}
+
+        # Check for Instant loan / APK download trap
+        if any(w in lower for w in ["instant personal loan", "no cibil", "fast loan apk", "0% interest"]):
+            return {"threat_class": "Banking Fraud", "confidence": 0.92, "behaviors": ["Impersonation", "Remote Access"]}
 
         # Check for Remote Access APKs
         if any(w in lower for w in ["anydesk", "rustdesk", "teamviewer", "quicksupport", "download apk", "install apk"]) and any(w in lower for w in ["sim", "kyc", "support", "share 9-digit", "loan"]):
@@ -127,40 +191,61 @@ class RakshakCoreClient:
         if heuristic_res.get("confidence", 0.0) >= 0.9:
             return heuristic_res
 
-        if not self.model:
-            # When RAIC Core PyTorch model is not loaded in Lite Mode, return heuristic result or neutral
-            return heuristic_res
-            
-        inputs = self.tokenizer(
-            eval_text, add_special_tokens=True, max_length=128,
-            return_token_type_ids=False, padding='max_length',
-            truncation=True, return_attention_mask=True, return_tensors='pt'
-        ).to(self.device)
-        
-        with torch.no_grad():
-            outputs = self.model(input_ids=inputs['input_ids'], attention_mask=inputs['attention_mask'])
-            threat_logits = outputs.logits
-            
-            # Calibrated temperature scaling
-            scaled_logits = threat_logits / max(self.temperature, 0.1)
-            probs = torch.softmax(scaled_logits, dim=1).cpu().numpy()[0]
-            
-            pred_class_idx = np.argmax(probs)
-            confidence = float(probs[pred_class_idx])
+        # Inference with ONNX Runtime if available
+        if self.onnx_session is not None and self.tokenizer is not None:
+            try:
+                inputs = self.tokenizer(
+                    eval_text, add_special_tokens=True, max_length=128,
+                    padding='max_length', truncation=True, return_tensors='np'
+                )
+                ort_inputs = {
+                    'input_ids': inputs['input_ids'].astype(np.int64),
+                    'attention_mask': inputs['attention_mask'].astype(np.int64)
+                }
+                threat_logits, behavior_logits = self.onnx_session.run(None, ort_inputs)
                 
-            threat_class = self.classes[pred_class_idx]
+                exp_logits = np.exp(threat_logits[0] / max(self.temperature, 0.1))
+                probs = exp_logits / np.sum(exp_logits)
+                pred_idx = int(np.argmax(probs))
+                confidence = float(probs[pred_idx])
+                threat_class = self.classes[pred_idx] if pred_idx < len(self.classes) else "Safe"
+                
+                # Multi-label behavior sigmoid
+                sig_behaviors = 1.0 / (1.0 + np.exp(-behavior_logits[0]))
+                detected_bhs = [self.behavior_cols[i] for i, val in enumerate(sig_behaviors) if val > 0.45]
+                
+                return {
+                    "threat_class": threat_class,
+                    "confidence": confidence,
+                    "behaviors": detected_bhs
+                }
+            except Exception as e:
+                print(f"ONNX inference fallback: {e}")
+
+        # Inference with PyTorch if available
+        if self.model is not None and self.tokenizer is not None and ML_AVAILABLE:
+            inputs = self.tokenizer(
+                eval_text, add_special_tokens=True, max_length=128,
+                padding='max_length', truncation=True, return_tensors='pt'
+            ).to(self.device)
             
-            detected_behaviors = []
-            if threat_class.lower() == "banking fraud": detected_behaviors = ["Urgency", "OTP Harvesting"]
-            elif threat_class.lower() == "digital arrest": detected_behaviors = ["Fear", "Impersonation"]
-            elif threat_class.lower() == "upi fraud": detected_behaviors = ["Urgency"]
-            elif threat_class.lower() == "courier scam": detected_behaviors = ["Fear"]
-            
-        return {
-            "threat_class": threat_class,
-            "confidence": confidence,
-            "behaviors": detected_behaviors
-        }
+            with torch.no_grad():
+                threat_logits, behavior_logits = self.model(input_ids=inputs['input_ids'], attention_mask=inputs['attention_mask'])
+                probs = torch.softmax(threat_logits / max(self.temperature, 0.1), dim=1).cpu().numpy()[0]
+                pred_idx = int(np.argmax(probs))
+                confidence = float(probs[pred_idx])
+                threat_class = self.classes[pred_idx] if pred_idx < len(self.classes) else "Safe"
+                
+                sig_behaviors = torch.sigmoid(behavior_logits).cpu().numpy()[0]
+                detected_bhs = [self.behavior_cols[i] for i, val in enumerate(sig_behaviors) if val > 0.45]
+                
+            return {
+                "threat_class": threat_class,
+                "confidence": confidence,
+                "behaviors": detected_bhs
+            }
+
+        return heuristic_res
 
 
 class RakshakNERClient:

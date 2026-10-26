@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/scan", tags=["scan"])
 
 # Globally load PyTorch model for instant scanning (Lazy initialization)
-ml_client = RakshakCoreClient(model_version="1.0")
+ml_client = RakshakCoreClient(model_version="2.0")
 ml_client_loaded = False
 
 # Guest rate limit: 5 scans per day per IP address
@@ -74,7 +74,7 @@ async def _check_guest_rate_limit(request: Request) -> None:
             )
     except HTTPException:
         raise
-    except Exception as exc:
+    except (Exception, BaseException) as exc:
         logger.debug("Redis guest rate limit check failed (fail-open): %s", exc)
 
 

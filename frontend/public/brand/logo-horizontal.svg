@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 120" fill="none" width="100%" height="100%">
+  <defs>
+    <!-- Saffron Gradient -->
+    <linearGradient id="hz-saffron" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFA826" />
+      <stop offset="50%" stop-color="#FF7A00" />
+      <stop offset="100%" stop-color="#D95700" />
+    </linearGradient>
+
+    <!-- Green Gradient -->
+    <linearGradient id="hz-green" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00E699" />
+      <stop offset="50%" stop-color="#00A859" />
+      <stop offset="100%" stop-color="#007038" />
+    </linearGradient>
+
+    <!-- Inner Shield Charcoal -->
+    <linearGradient id="hz-inner" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" stop-color="#0E1B26" />
+      <stop offset="100%" stop-color="#030608" />
+    </linearGradient>
+
+    <!-- Text Gold Gradient for RAKSHAK -->
+    <linearGradient id="hz-text-gold" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#FFA726" />
+      <stop offset="100%" stop-color="#FF7000" />
+    </linearGradient>
+  </defs>
+
+  <!-- EMBLEM GROUP (Scaled to 100x115 at x=10, y=2) -->
+  <g transform="translate(10, 2) scale(0.48)">
+    <!-- Outer Shield Rim -->
+    <path d="M 100 8 L 26 34 L 26 100 C 26 150, 60 195, 100 220 L 100 200 C 70 180, 44 140, 44 100 L 44 46 L 100 26 Z" fill="url(#hz-saffron)" />
+    <path d="M 100 8 L 174 34 L 174 100 C 174 150, 140 195, 100 220 L 100 200 C 130 180, 156 140, 156 100 L 156 46 L 100 26 Z" fill="url(#hz-green)" />
+    <!-- Inner Plate -->
+    <path d="M 100 26 L 156 46 L 156 100 C 156 140, 130 180, 100 200 C 70 180, 44 140, 44 100 L 44 46 Z" fill="url(#hz-inner)" />
+    <!-- 'R' Mark -->
+    <path d="M 64 68 L 78 68 L 78 140 L 64 130 Z" fill="#FFFFFF" />
+    <path d="M 78 68 L 126 68 C 138 68, 144 76, 144 88 C 144 100, 136 108, 124 108 L 78 108 Z" fill="#FFFFFF" />
+    <path d="M 78 80 L 118 80 C 124 80, 128 84, 128 88 C 128 92, 124 96, 118 96 L 78 96 Z" fill="url(#hz-inner)" />
+    <path d="M 102 108 L 140 148 L 120 148 L 88 114 Z" fill="#FFFFFF" />
+    <!-- Tricolor swoosh -->
+    <path d="M 46 88 C 62 106, 92 110, 154 98 C 132 104, 88 104, 52 92 Z" fill="#FF9933" />
+    <path d="M 48 98 C 66 114, 96 118, 156 106 C 132 112, 90 112, 54 102 Z" fill="#FFFFFF" />
+    <path d="M 52 108 C 70 122, 100 126, 158 114 C 134 120, 92 120, 58 112 Z" fill="#00D27F" />
+  </g>
+
+  <!-- TYPOGRAPHY GROUP -->
+  <g transform="translate(125, 0)">
+    <!-- Title: DIGITAL RAKSHAK -->
+    <text x="0" y="62" font-family="system-ui, -apple-system, sans-serif" font-weight="900" font-size="34" letter-spacing="2">
+      <tspan fill="#FFFFFF">DIGITAL </tspan>
+      <tspan fill="url(#hz-text-gold)">RAKSHAK</tspan>
+    </text>
+
+    <!-- Subtitle: NATIONAL CYBER DEFENSE with accent lines -->
+    <line x1="0" y1="84" x2="45" y2="84" stroke="#FF9933" stroke-width="2.5" stroke-linecap="round" />
+    <text x="56" y="88" fill="#A7B4BD" font-family="ui-monospace, monospace" font-size="12" font-weight="700" letter-spacing="4">
+      NATIONAL CYBER DEFENSE
+    </text>
+    <line x1="335" y1="84" x2="380" y2="84" stroke="#00D27F" stroke-width="2.5" stroke-linecap="round" />
+  </g>
+</svg>

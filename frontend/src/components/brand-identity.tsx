@@ -19,31 +19,31 @@ export function BrandIdentity({
         compact ? "gap-2.5" : "gap-4"
       } ${className}`}
     >
-     <div
-  className={`
-    flex items-center justify-center shrink-0
-    border
-    ${
-      fixedDark
-        ? "bg-[#18181c] border-white/10"
-        : "bg-surface-2 border-line"
-    }
-    ${
-      compact
-        ? "w-10 h-10 rounded-xl"
-        : "w-16 h-16 rounded-[18px]"
-    }
-  `}
->
-  <BrandLogo size={compact ? 25 : 38} />
-</div>
+      <div
+        className={`
+          flex items-center justify-center shrink-0
+          border transition-all duration-200
+          ${
+            fixedDark
+              ? "bg-[#18181c] border-white/10 shadow-sm"
+              : "bg-surface-2 border-line shadow-sm"
+          }
+          ${
+            compact
+              ? "w-10 h-10 rounded-xl"
+              : "w-16 h-16 rounded-[18px]"
+          }
+        `}
+      >
+        <BrandLogo size={compact ? 26 : 42} glow={!compact} />
+      </div>
 
       {!compact && (
         <div className="min-w-0">
           <div
             className={`
-              font-display text-[28px] font-bold
-              tracking-tight leading-none
+              font-display text-[26px] font-black
+              tracking-tight leading-none flex items-center gap-1.5
               ${
                 fixedDark
                   ? "text-[#E7EEF3]"
@@ -51,13 +51,14 @@ export function BrandIdentity({
               }
             `}
           >
-            Digital Rakshak
+            <span>Digital</span>
+            <span className="text-[#F59E0B]">Rakshak</span>
           </div>
 
           <div
             className={`
-              mt-2 text-[12px] font-medium
-              tracking-[0.22em] uppercase
+              mt-1.5 text-[11px] font-semibold
+              tracking-[0.2em] uppercase font-mono flex items-center gap-2
               ${
                 fixedDark
                   ? "text-[#8293AA]"
@@ -65,7 +66,8 @@ export function BrandIdentity({
               }
             `}
           >
-            Cyber Threat Intelligence for India
+            <span>National Cyber Defense</span>
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#138808]" />
           </div>
         </div>
       )}

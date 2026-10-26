@@ -1,0 +1,103 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 230" fill="none" width="100%" height="100%">
+  <defs>
+    <!-- Saffron Gradient (Left & Top Bevel) -->
+    <linearGradient id="shield-saffron" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFA826" />
+      <stop offset="45%" stop-color="#FF7A00" />
+      <stop offset="100%" stop-color="#D95700" />
+    </linearGradient>
+
+    <!-- Green Gradient (Right & Bottom Bevel) -->
+    <linearGradient id="shield-green" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00E699" />
+      <stop offset="50%" stop-color="#00A859" />
+      <stop offset="100%" stop-color="#007038" />
+    </linearGradient>
+
+    <!-- Top Apex Highlight -->
+    <linearGradient id="apex-gold" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#FFB300" />
+      <stop offset="50%" stop-color="#FFF2A0" />
+      <stop offset="100%" stop-color="#4EBA6F" />
+    </linearGradient>
+
+    <!-- Inner Shield Charcoal / Dark Slate -->
+    <linearGradient id="inner-plate" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" stop-color="#0E1B26" />
+      <stop offset="60%" stop-color="#060C12" />
+      <stop offset="100%" stop-color="#030608" />
+    </linearGradient>
+
+    <!-- Tricolor Ribbon Gradients -->
+    <linearGradient id="ribbon-saffron" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#FF9933" />
+      <stop offset="100%" stop-color="#FF6B00" />
+    </linearGradient>
+    <linearGradient id="ribbon-white" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="100%" stop-color="#D5E0EA" />
+    </linearGradient>
+    <linearGradient id="ribbon-green" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#00D27F" />
+      <stop offset="100%" stop-color="#008F4C" />
+    </linearGradient>
+
+    <!-- Ambient Shadow Glow -->
+    <filter id="shield-glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000000" flood-opacity="0.6" />
+    </filter>
+  </defs>
+
+  <g filter="url(#shield-glow)">
+    <!-- OUTER SHIELD RIM -->
+    <!-- Left Saffron Facet -->
+    <path d="M 100 8 L 26 34 L 26 100 C 26 150, 60 195, 100 220 L 100 200 C 70 180, 44 140, 44 100 L 44 46 L 100 26 Z" 
+          fill="url(#shield-saffron)" />
+
+    <!-- Right Green Facet -->
+    <path d="M 100 8 L 174 34 L 174 100 C 174 150, 140 195, 100 220 L 100 200 C 130 180, 156 140, 156 100 L 156 46 L 100 26 Z" 
+          fill="url(#shield-green)" />
+
+    <!-- Top Ridge Bevel Line -->
+    <path d="M 100 8 L 100 26" stroke="url(#apex-gold)" stroke-width="2.5" stroke-linecap="round" />
+    <path d="M 100 200 L 100 220" stroke="#007038" stroke-width="2.5" stroke-linecap="round" />
+
+    <!-- INNER SHIELD PLATE -->
+    <path d="M 100 26 L 156 46 L 156 100 C 156 140, 130 180, 100 200 C 70 180, 44 140, 44 100 L 44 46 Z" 
+          fill="url(#inner-plate)" />
+
+    <!-- Subtle Geo Silhouette Watermark (India Map abstraction) -->
+    <path d="M 94 48 Q 102 44, 108 48 T 114 56 T 122 62 T 128 72 T 120 84 T 114 96 T 100 115 T 90 98 T 82 86 T 76 74 T 84 60 Z" 
+          fill="#1C2E3D" opacity="0.45" />
+
+    <!-- THE 'R' EMBLEM -->
+    <!-- Left Vertical Stem -->
+    <path d="M 64 68 L 78 68 L 78 140 L 64 130 Z" fill="#FFFFFF" />
+
+    <!-- Top Loop -->
+    <path d="M 78 68 L 132 68 C 146 68, 154 78, 154 90 C 154 102, 144 112, 130 112 L 78 112 Z" 
+          fill="none" stroke="#FFFFFF" stroke-width="14" stroke-linejoin="round" />
+    <path d="M 78 68 L 126 68 C 138 68, 144 76, 144 88 C 144 100, 136 108, 124 108 L 78 108 Z" 
+          fill="#FFFFFF" />
+
+    <!-- Inner Counter Cutout for 'R' -->
+    <path d="M 78 80 L 118 80 C 124 80, 128 84, 128 88 C 128 92, 124 96, 118 96 L 78 96 Z" 
+          fill="url(#inner-plate)" />
+
+    <!-- Lower Right Diagonal Leg -->
+    <path d="M 102 108 L 140 148 L 120 148 L 88 114 Z" fill="#FFFFFF" />
+
+    <!-- DYNAMIC TRICOLOR ENERGY SWOOSH / WINGS -->
+    <!-- Saffron Top Ribbon -->
+    <path d="M 46 88 C 62 106, 92 110, 154 98 C 132 104, 88 104, 52 92 Z" 
+          fill="url(#ribbon-saffron)" />
+
+    <!-- White Middle Ribbon -->
+    <path d="M 48 98 C 66 114, 96 118, 156 106 C 132 112, 90 112, 54 102 Z" 
+          fill="url(#ribbon-white)" />
+
+    <!-- Green Bottom Ribbon -->
+    <path d="M 52 108 C 70 122, 100 126, 158 114 C 134 120, 92 120, 58 112 Z" 
+          fill="url(#ribbon-green)" />
+  </g>
+</svg>
