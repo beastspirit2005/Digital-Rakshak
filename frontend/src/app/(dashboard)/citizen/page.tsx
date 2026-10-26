@@ -5,7 +5,7 @@ import { api } from "@/lib/api";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import axios from "axios";
-import { FileText, Plus, AlertTriangle, PhoneCall, CheckCircle2 } from "lucide-react";
+import { FileText, Plus, AlertTriangle, PhoneCall, CheckCircle2, Download, MapPin, ArrowRight } from "lucide-react";
 import { useAuthStore } from "@/lib/auth-store";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -188,6 +188,21 @@ if (!token) return;
       </div>
 
       <Rise index={4}>
+        <div className="p-4 rounded-card bg-surface-2 border border-line flex flex-col sm:flex-row items-center justify-between gap-3 mb-6">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-warning/15 text-warning flex items-center justify-center shrink-0">
+              <MapPin className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-ink">Official Cyber Police Cell Locator</h3>
+              <p className="text-xs text-ink-2">Locate verified jurisdictional cyber police stations, landlines, and nodal officers.</p>
+            </div>
+          </div>
+          <Link href="/locator" className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-md bg-warning text-black text-xs font-semibold hover:bg-warning/90 transition shrink-0">
+            Open Locator <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+
         <h2 className="font-display font-semibold text-lg tracking-tight text-ink mb-4 mt-8">My Cases</h2>
         {loading ? (
           <div className="space-y-4">
@@ -246,6 +261,15 @@ if (!token) return;
                           </Button>
                         </>
                       )}
+                      <a
+                        href={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/assistance-requests/${c.case_number}/dossier-pdf`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-surface-2 hover:bg-surface-3 text-ink text-xs font-medium border border-line transition"
+                      >
+                        <Download className="w-3.5 h-3.5 text-warning" />
+                        FIR Dossier PDF
+                      </a>
                       {!isCompleted && !isResolved && (
                         <Button variant="secondary" size="sm" onClick={() => handleResolve(c.case_number)}>
                           <CheckCircle2 className="w-4 h-4 mr-1.5 text-success" />

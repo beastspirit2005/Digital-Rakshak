@@ -14,7 +14,8 @@ import {
   Info, 
   Mail, 
   ScanSearch,
-  ExternalLink
+  ExternalLink,
+  MapPin
 } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -57,6 +58,7 @@ export function SiteHeader() {
   const navLinks = [
     { label: "Prevention", href: "/prevention", icon: ScanSearch },
     { label: "Personal Shield", href: "/personal", icon: ShieldCheck },
+    { label: "Cyber Cells", href: "/locator", icon: MapPin },
     { label: "Business API", href: "/business", icon: Building2 },
     { label: "About", href: "/about", icon: Info },
     { label: "FAQ", href: "/faq", icon: HelpCircle },

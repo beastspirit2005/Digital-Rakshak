@@ -232,6 +232,11 @@ from api.v1.cache_router import router as cache_router
 from api.v1.transactions import router as transactions_router
 from api.v1.b2b import router as b2b_router
 from api.v1.billing import router as billing_router
+from api.v1.assistance import router as assistance_router
+from api.v1.admin_triage import router as admin_triage_router
+from api.v1.locations import router as locations_router
+from api.v1.chat_safety import router as chat_safety_router
+from api.v1.admin_disputes import router as admin_disputes_router
 
 app.include_router(auth_router, prefix=f"{settings.API_V1_STR}/auth", tags=["auth"])
 app.include_router(users_router, prefix=f"{settings.API_V1_STR}/users", tags=["users"])
@@ -255,6 +260,11 @@ app.include_router(entities_router, prefix=f"{settings.API_V1_STR}")
 app.include_router(cache_router, prefix=f"{settings.API_V1_STR}")
 app.include_router(b2b_router, prefix=f"{settings.API_V1_STR}")
 app.include_router(billing_router, prefix=f"{settings.API_V1_STR}")
+app.include_router(assistance_router, prefix=f"{settings.API_V1_STR}")
+app.include_router(admin_triage_router, prefix=f"{settings.API_V1_STR}")
+app.include_router(locations_router, prefix=f"{settings.API_V1_STR}")
+app.include_router(chat_safety_router, prefix=f"{settings.API_V1_STR}")
+app.include_router(admin_disputes_router, prefix=f"{settings.API_V1_STR}")
 
 
 

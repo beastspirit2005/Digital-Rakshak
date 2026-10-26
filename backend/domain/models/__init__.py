@@ -37,3 +37,14 @@ from domain.models.organization import (
     PlanCode,
     SubscriptionStatus,
 )
+
+# Investigator Connect & Directory models
+from domain.models.case_assignment import CaseAssignment
+from domain.models.case_event import CaseEvent
+from domain.models.audit_event import AuditEvent
+from domain.models.official_directory import OfficialLocation
+from domain.models.chat_safety import (
+    CaseMessage,
+    SafetyReport,
+    PreservedEvidencePackage,
+)

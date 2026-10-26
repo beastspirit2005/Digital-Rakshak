@@ -69,6 +69,13 @@ class Case(Base):
     status = Column(SAEnum(CaseStatus, values_callable=lambda obj: [e.value for e in obj], native_enum=False), default=CaseStatus.submitted, nullable=False)
     priority = Column(SAEnum(CasePriority, values_callable=lambda obj: [e.value for e in obj], native_enum=False), default=CasePriority.medium, nullable=False)
     
+    # Investigator Connect fields
+    urgency_level = Column(String(50), default="standard", nullable=False, server_default="standard")
+    assistance_reference = Column(String(64), unique=True, index=True, nullable=True)
+    is_ongoing_fraud = Column(Boolean, default=False, server_default="false")
+    estimated_loss_inr = Column(Float, nullable=True)
+    triage_notes = Column(Text, nullable=True)
+    
     # Assignment
     assigned_to = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     

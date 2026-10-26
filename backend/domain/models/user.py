@@ -25,5 +25,8 @@ class User(Base):
     b2c_subscription_status = Column(String, default="active", nullable=False, server_default="active")
     # Razorpay customer ID — set on first checkout
     razorpay_customer_id = Column(String, nullable=True)
+    # Chat Safety Transparency acceptance
+    chat_safety_policy_version = Column(String(20), nullable=True)
+    chat_safety_accepted_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
