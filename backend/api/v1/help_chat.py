@@ -17,7 +17,7 @@ from domain.models.settings import PlatformSettings
 from domain.models.help_message import HelpMessage, HelpMessageRole
 from domain.models.support import SupportTicket, TicketStatus
 from domain.models.user import User
-from api.deps import get_current_user, get_current_user_allow_unapproved, get_current_user_optional
+from api.deps import get_current_user, get_current_user_allow_unapproved, get_current_user_optional, require_pro_user
 
 logger = logging.getLogger(__name__)
 
@@ -453,3 +453,60 @@ async def admin_reply_endpoint(
     await db.commit()
     return {"status": "success"}
 
+
+
+class EscalatePriorityRequest(BaseModel):
+    session_id: str
+    reason: Optional[str] = "Live assistance requested by Digital Rakshak Pro subscriber"
+
+
+@router.post("/escalate-priority")
+async def escalate_priority_chat(
+    req: EscalatePriorityRequest,
+    user: User = Depends(require_pro_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Digital Rakshak Pro Exclusive:
+    Escalates an AI copilot session to the Priority Human Investigator Support Queue.
+    """
+    import random
+    from datetime import datetime, timezone
+
+    ticket_code = f"PRO-HELP-{random.randint(10000, 99999)}"
+
+    ticket = SupportTicket(
+        ticket_number=ticket_code,
+        user_id=user.id,
+        subject=f"[PRO PRIORITY SUPPORT] Incident assistance for {user.full_name or user.email}",
+        message=req.reason or "Priority live assistance requested",
+        status=TicketStatus.LIVE_CHAT.value,
+        chat_session_ref=req.session_id,
+        history=[
+            {
+                "action": "ESCALATED_TO_PRO_QUEUE",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "user_id": str(user.id),
+                "plan": getattr(user, "b2c_plan_code", "b2c_pro")
+            }
+        ]
+    )
+    db.add(ticket)
+
+    # Automated confirmation message in the session
+    sys_msg = HelpMessage(
+        session_id=req.session_id,
+        role=HelpMessageRole.ADMIN.value,
+        content="★ **Digital Rakshak Pro Priority Escrow Activated**: Your session has been flagged for high-priority handling. An authorized duty investigator has been alerted and will review your conversation.",
+        user_id=None
+    )
+    db.add(sys_msg)
+
+    await db.commit()
+
+    return {
+        "status": "escalated",
+        "ticket_number": ticket_code,
+        "is_pro": True,
+        "message": "Connected to Priority Human Support Queue."
+    }

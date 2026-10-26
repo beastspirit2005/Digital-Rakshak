@@ -5,7 +5,8 @@ import { api } from "@/lib/api";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import axios from "axios";
-import { FileText, Plus, AlertTriangle, PhoneCall, CheckCircle2, Download, MapPin, ArrowRight } from "lucide-react";
+import { FileText, Plus, AlertTriangle, PhoneCall, CheckCircle2, Download, MapPin, ArrowRight, MessageSquare } from "lucide-react";
+import { CaseChatPanel } from "@/components/chat/CaseChatPanel";
 import { useAuthStore } from "@/lib/auth-store";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -82,6 +83,7 @@ export default function CitizenDashboard() {
   const [cases, setCases] = useState<Case[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [activeChatCase, setActiveChatCase] = useState<Case | null>(null);
   const pushToast = useToast();
 
   const fetchCases = async () => {
@@ -261,6 +263,15 @@ if (!token) return;
                           </Button>
                         </>
                       )}
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => setActiveChatCase(c)}
+                        className="inline-flex items-center gap-1.5 border-accent/40 text-accent-text hover:bg-accent/10"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5" />
+                        Direct Officer Chat
+                      </Button>
                       <a
                         href={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/assistance-requests/${c.case_number}/dossier-pdf`}
                         target="_blank"
@@ -309,6 +320,20 @@ if (!token) return;
           </div>
         )}
       </Rise>
+
+      {/* Direct Monitored Investigator Chat Modal */}
+      {activeChatCase && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-200">
+          <div className="w-full max-w-2xl h-[640px] max-h-[90vh]">
+            <CaseChatPanel
+              caseId={String(activeChatCase.id)}
+              caseNumber={activeChatCase.case_number}
+              assignedOfficerName={activeChatCase.assigned_phone ? `Station (${activeChatCase.assigned_phone})` : undefined}
+              onClose={() => setActiveChatCase(null)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

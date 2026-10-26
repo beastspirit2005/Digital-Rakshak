@@ -4,7 +4,8 @@ import { useState, useEffect, useRef } from "react";
 import { useAuthStore } from "@/lib/auth-store";
 import { api } from "@/lib/api";
 import axios from "axios";
-import { Send, Bot, Trash2, X } from "lucide-react";
+import { Send, Bot, Trash2, X, Sparkles, Headphones, Loader2 } from "lucide-react";
+import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -35,8 +36,55 @@ export function GlobalChatWidget() {
   const [aiMode, setAiMode] = useState("groq");
   const [lastAnswerEngine, setLastAnswerEngine] = useState<string>("");
   const [caseId, setCaseId] = useState("");
+  const [isEscalating, setIsEscalating] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const reduced = useReducedMotion();
+
+  const isProUser = Boolean(
+    user?.is_pro ||
+    user?.b2c_plan_code === "b2c_pro" ||
+    user?.role === "police" ||
+    user?.role === "admin" ||
+    user?.role === "cyber_cell"
+  );
+
+  const handleEscalatePriority = async () => {
+    if (!user || isEscalating) return;
+    setIsEscalating(true);
+    try {
+      const res = await axios.post(
+        api("/help/escalate-priority"),
+        {
+          session_id: user.id,
+          reason: "Priority human investigator support requested from chat copilot",
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const ticketNum = res.data?.ticket_number || "PRO-QUEUE";
+      const sysMsg: Message = {
+        id: Date.now().toString(),
+        role: "assistant",
+        content: `★ **Priority Support Escalated (${ticketNum})**\n\nYour session has been prioritized and routed to our on-duty human investigator team. A specialized investigator will review your recent queries and case records.`,
+        timestamp: Date.now(),
+        engine: "Human Investigator Priority Queue",
+      };
+      setMessages((prev) => [...prev, sysMsg]);
+    } catch (err: any) {
+      console.error("Priority escalation failed:", err);
+      const msg =
+        err.response?.data?.detail ||
+        "Priority escalation is only available to Digital Rakshak Pro subscribers.";
+      const errorMsg: Message = {
+        id: Date.now().toString(),
+        role: "assistant",
+        content: `**Escalation Notice:** ${msg}`,
+        timestamp: Date.now(),
+      };
+      setMessages((prev) => [...prev, errorMsg]);
+    } finally {
+      setIsEscalating(false);
+    }
+  };
 
   useEffect(() => {
     if (user?.id) {
@@ -191,6 +239,48 @@ export function GlobalChatWidget() {
                   />
                 )}
               </div>
+            </div>
+
+            {/* Pro Priority Support Bar */}
+            <div className="px-3.5 py-1.5 bg-gradient-to-r from-amber-500/10 via-sky-500/10 to-indigo-500/10 border-b border-line flex items-center justify-between text-xs shrink-0">
+              {isProUser ? (
+                <>
+                  <div className="flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                    <span className="font-semibold text-amber-300 text-[11px]">Pro Priority Active</span>
+                  </div>
+                  <button
+                    onClick={handleEscalatePriority}
+                    disabled={isEscalating}
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-sky-400 hover:text-sky-300 transition-colors disabled:opacity-50"
+                  >
+                    {isEscalating ? (
+                      <>
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        <span>Routing...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Headphones className="w-3 h-3" />
+                        <span>Human Investigator</span>
+                      </>
+                    )}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center gap-1.5 text-ink-3 text-[11px]">
+                    <span>AI Copilot Active</span>
+                  </div>
+                  <Link
+                    href="/personal"
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-400 hover:text-amber-300 transition-colors"
+                  >
+                    <Sparkles className="w-3 h-3" />
+                    <span>Get Pro Priority Support</span>
+                  </Link>
+                </>
+              )}
             </div>
 
             {/* body */}

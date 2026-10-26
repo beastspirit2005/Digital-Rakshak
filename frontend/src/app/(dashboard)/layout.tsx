@@ -30,6 +30,7 @@ import {
   CreditCard,
   Building2,
   Sparkles,
+  MapPin,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -52,6 +53,7 @@ const adminSections = [
       { name: "Admin dashboard", short: "Admin", href: "/admin", icon: Activity },
       { name: "Business API portal", short: "Business", href: "/business", icon: Building2 },
       { name: "Tactical command center", short: "Command", href: "/admin/command-center", icon: Siren },
+      { name: "Victims proximity map", short: "Victims", href: "/police/victims-map", icon: MapPin },
       { name: "Fraud intelligence", short: "Fraud", href: "/banker/transactions", icon: CreditCard },
       { name: "Users", short: "Users", href: "/admin/users", icon: Users },
       { name: "Reports", short: "Reports", href: "/admin/reports", icon: FileText },
@@ -66,6 +68,7 @@ const adminSections = [
     label: "Investigation",
     items: [
       { name: "Workbench", short: "Workbench", href: "/workbench", icon: Siren },
+      { name: "Victims proximity map", short: "Victims", href: "/police/victims-map", icon: MapPin },
       { name: "Case register", short: "Cases", href: "/workbench/reports", icon: FileText },
       { name: "Fraud intelligence", short: "Fraud", href: "/banker/transactions", icon: CreditCard },
       { name: "Spatial map", short: "Map", href: "/workbench/map", icon: Map },

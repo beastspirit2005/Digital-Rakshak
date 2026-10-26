@@ -9,6 +9,7 @@ import {
   AlertTriangle
 } from "lucide-react";
 import { useAuthStore } from "@/lib/auth-store";
+import { api } from "@/lib/api";
 
 interface ReportMisconductModalProps {
   isOpen: boolean;
@@ -57,7 +58,7 @@ export function ReportMisconductModal({
     setError(null);
     try {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/chat/safety-reports`,
+        api("/chat/safety-reports"),
         {
           method: "POST",
           headers: {

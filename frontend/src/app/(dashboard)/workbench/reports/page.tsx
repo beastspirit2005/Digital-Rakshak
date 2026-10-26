@@ -4,7 +4,8 @@ import { api } from "@/lib/api";
 import React, { useEffect, useMemo, useState } from "react";
 import { useAuthStore } from "@/lib/auth-store";
 import axios from "axios";
-import { Search, FileText, ChevronDown, ChevronUp, Send } from "lucide-react";
+import { Search, FileText, ChevronDown, ChevronUp, Send, MessageSquare } from "lucide-react";
+import { CaseChatPanel } from "@/components/chat/CaseChatPanel";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Card, Inset } from "@/components/ui/card";
@@ -53,6 +54,7 @@ function CaseDetail({
   const [scanningOsint, setScanningOsint] = useState(false);
   const [remark, setRemark] = useState("");
   const [attachment, setAttachment] = useState<File | null>(null);
+  const [showVictimChat, setShowVictimChat] = useState(false);
   const pushToast = useToast();
   
   const loadEvidence = async () => {
@@ -271,6 +273,19 @@ function CaseDetail({
           {userRole !== "admin" && userRole !== "police" && userRole !== "cyber_cell" && (
              <p className="text-xs text-ink-3">No actions available.</p>
           )}
+
+          {/* Direct Monitored Victim-Officer Chat */}
+          <div className="pt-2 border-t border-line/40">
+            <Button
+              variant="secondary"
+              size="sm"
+              className="w-full inline-flex items-center justify-center gap-2 border-sky-500/30 text-sky-400 hover:bg-sky-500/10"
+              onClick={() => setShowVictimChat(true)}
+            >
+              <MessageSquare className="w-4 h-4" />
+              <span>Direct Monitored Chat with Victim</span>
+            </Button>
+          </div>
         </Inset>
 
         {c.timeline_events && c.timeline_events.length > 0 && (
@@ -319,6 +334,20 @@ function CaseDetail({
             </Button>
           </form>
         </Inset>
+
+        {/* Direct Monitored Victim-Officer Chat Modal */}
+        {showVictimChat && (
+          <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-200">
+            <div className="w-full max-w-2xl h-[640px] max-h-[90vh]">
+              <CaseChatPanel
+                caseId={String(c.id)}
+                caseNumber={c.case_number}
+                assignedOfficerName={c.assigned_phone ? `Station (${c.assigned_phone})` : undefined}
+                onClose={() => setShowVictimChat(false)}
+              />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

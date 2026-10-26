@@ -889,7 +889,13 @@ async def undertake_case(
     if user.role not in ["police", "cyber_cell", "admin", "investigator"]:
         raise HTTPException(status_code=403, detail="Only investigators can undertake cases")
         
-    result = await db.execute(select(Case).where(Case.case_number == case_number))
+    import uuid as _uuid
+    try:
+        val_uuid = _uuid.UUID(case_number)
+        undertake_query = select(Case).where(or_(Case.case_number == case_number, Case.id == val_uuid))
+    except Exception:
+        undertake_query = select(Case).where(Case.case_number == case_number)
+    result = await db.execute(undertake_query)
     case = result.scalar_one_or_none()
     
     if not case or case.status not in [CaseStatus.submitted.value, CaseStatus.under_review.value, CaseStatus.escalated.value]:
