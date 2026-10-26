@@ -21,6 +21,7 @@ import {
   List as ListIcon
 } from "lucide-react";
 import { useAuthStore } from "@/lib/auth-store";
+import { api } from "@/lib/api";
 import { BrandLogo } from "@/components/brand-logo";
 import { OfficialLocationItem } from "@/components/map/cyber-cell-map";
 
@@ -85,7 +86,7 @@ export default function CyberCellLocatorPage() {
     setLoading(true);
     setError(null);
     try {
-      let url = `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/official-locations`;
+      let url = api("/official-locations");
       const params = new URLSearchParams();
       if (lat !== undefined && lng !== undefined) {
         params.append("lat", lat.toString());

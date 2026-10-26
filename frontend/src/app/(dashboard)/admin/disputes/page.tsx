@@ -19,6 +19,7 @@ import {
   FileText
 } from "lucide-react";
 import { useAuthStore } from "@/lib/auth-store";
+import { api } from "@/lib/api";
 
 interface DisputeItem {
   id: string;
@@ -51,7 +52,7 @@ export default function AdminDisputesPage() {
   const fetchDisputes = async () => {
     setLoading(true);
     try {
-      let url = `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/admin/disputes`;
+      let url = api("/admin/disputes");
       if (statusFilter !== "ALL") {
         url += `?status_filter=${statusFilter}`;
       }
@@ -80,7 +81,7 @@ export default function AdminDisputesPage() {
     setLoadingDetails(true);
     try {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/admin/disputes/${id}`,
+        api(`/admin/disputes/${id}`),
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -105,7 +106,7 @@ export default function AdminDisputesPage() {
     setSubmittingDecision(true);
     try {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/admin/disputes/${selectedDisputeId}/decision`,
+        api(`/admin/disputes/${selectedDisputeId}/decision`),
         {
           method: "POST",
           headers: {
@@ -134,7 +135,7 @@ export default function AdminDisputesPage() {
     setExporting(true);
     try {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/admin/disputes/${reportId}/export-bsa`,
+        api(`/admin/disputes/${reportId}/export-bsa`),
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -158,7 +159,7 @@ export default function AdminDisputesPage() {
   const handleToggleLegalHold = async (reportId: string, currentVal: boolean) => {
     try {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/admin/disputes/${reportId}/legal-hold`,
+        api(`/admin/disputes/${reportId}/legal-hold`),
         {
           method: "POST",
           headers: {

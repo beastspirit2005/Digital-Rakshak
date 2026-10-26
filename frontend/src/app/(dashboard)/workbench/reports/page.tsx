@@ -80,6 +80,28 @@ function CaseDetail({
     }
   };
 
+  const downloadDossierPdf = async () => {
+    try {
+      const res = await axios.get(api(`/assistance-requests/${c.case_number}/dossier-pdf`), {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        responseType: "blob",
+        withCredentials: true,
+      });
+      const blob = new Blob([res.data], { type: "application/pdf" });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `Legal_FIR_Dossier_${c.case_number}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      pushToast("success", "Legal FIR Dossier PDF downloaded successfully.");
+    } catch (err: any) {
+      pushToast("danger", "Failed to generate FIR Dossier PDF.");
+    }
+  };
+
   const runOsintScan = async () => {
     if (!token) return;
     setScanningOsint(true);
@@ -144,6 +166,9 @@ function CaseDetail({
         
         <div className="pt-2 flex flex-wrap gap-2">
            <Button variant="secondary" size="sm" onClick={loadEvidence}>View Attached Evidence</Button>
+           <Button variant="secondary" size="sm" onClick={downloadDossierPdf} className="border-warning/40 text-warning hover:bg-warning/10">
+             Download FIR Dossier PDF
+           </Button>
            <Button variant="secondary" size="sm" onClick={runOsintScan} loading={scanningOsint} className="border-red-500/30 text-red-500 hover:bg-red-500/10 hover:text-red-600">
              Scan OSINT Flags
            </Button>

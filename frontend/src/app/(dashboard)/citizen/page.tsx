@@ -2,11 +2,42 @@
 
 import { api } from "@/lib/api";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import axios from "axios";
-import { FileText, Plus, AlertTriangle, PhoneCall, CheckCircle2, Download, MapPin, ArrowRight, MessageSquare } from "lucide-react";
+import {
+  FileText,
+  Plus,
+  AlertTriangle,
+  PhoneCall,
+  CheckCircle2,
+  Download,
+  MapPin,
+  ArrowRight,
+  MessageSquare,
+  Compass,
+  Navigation,
+  Loader2,
+  Building,
+  ExternalLink,
+  ShieldCheck,
+} from "lucide-react";
 import { CaseChatPanel } from "@/components/chat/CaseChatPanel";
+import { OfficialLocationItem } from "@/components/map/cyber-cell-map";
+
+const CyberCellMap = dynamic(
+  () => import("@/components/map/cyber-cell-map"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="w-full h-80 rounded-2xl bg-surface-2 border border-line flex flex-col items-center justify-center gap-2">
+        <Loader2 className="w-6 h-6 animate-spin text-warning" />
+        <span className="text-xs text-ink-3">Loading Cyber Police Cell Locator Map...</span>
+      </div>
+    ),
+  }
+);
 import { useAuthStore } from "@/lib/auth-store";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -84,7 +115,89 @@ export default function CitizenDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeChatCase, setActiveChatCase] = useState<Case | null>(null);
+  const [downloadingCase, setDownloadingCase] = useState<string | null>(null);
+  const [locations, setLocations] = useState<OfficialLocationItem[]>([]);
+  const [locationsLoading, setLocationsLoading] = useState(false);
+  const [selectedStationId, setSelectedStationId] = useState<string | null>(null);
+  const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
   const pushToast = useToast();
+
+  const fetchCitizenLocations = useCallback(async (lat?: number, lng?: number) => {
+    setLocationsLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (lat !== undefined && lng !== undefined) {
+        params.append("lat", lat.toString());
+        params.append("lng", lng.toString());
+        params.append("radius_km", "150");
+      }
+      const query = params.toString() ? `?${params.toString()}` : "";
+      const res = await axios.get(api(`/official-locations${query}`), {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        withCredentials: true,
+      });
+      if (res.data?.locations) {
+        setLocations(res.data.locations);
+      }
+    } catch (err) {
+      console.error("Failed to load locations for citizen:", err);
+    } finally {
+      setLocationsLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    fetchCitizenLocations();
+  }, [fetchCitizenLocations]);
+
+  const handleDetectNearestCell = () => {
+    if (typeof navigator !== "undefined" && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          setUserCoords(coords);
+          fetchCitizenLocations(coords.lat, coords.lng);
+          pushToast("success", "Detected nearest jurisdictional cyber cells to your GPS location.");
+        },
+        () => {
+          fetchCitizenLocations();
+          pushToast("info", "Location access unavailable; showing national cyber cell headquarters.");
+        }
+      );
+    } else {
+      fetchCitizenLocations();
+    }
+  };
+
+  const handleDownloadPdf = async (caseNumber: string) => {
+    try {
+      setDownloadingCase(caseNumber);
+      const res = await axios.get(api(`/assistance-requests/${caseNumber}/dossier-pdf`), {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        responseType: "blob",
+        withCredentials: true,
+      });
+
+      const blob = new Blob([res.data], { type: "application/pdf" });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `DigitalRakshak_FIR_Dossier_${caseNumber}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      pushToast("success", "FIR Dossier PDF downloaded successfully.");
+    } catch (err: any) {
+      console.error("PDF download failed:", err);
+      // Fallback: open with token query parameter in new tab
+      const fallbackUrl = api(`/assistance-requests/${caseNumber}/dossier-pdf${token ? `?token=${token}` : ""}`);
+      window.open(fallbackUrl, "_blank");
+    } finally {
+      setDownloadingCase(null);
+    }
+  };
 
   const fetchCases = async () => {
    
@@ -190,19 +303,130 @@ if (!token) return;
       </div>
 
       <Rise index={4}>
-        <div className="p-4 rounded-card bg-surface-2 border border-line flex flex-col sm:flex-row items-center justify-between gap-3 mb-6">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-warning/15 text-warning flex items-center justify-center shrink-0">
-              <MapPin className="w-5 h-5" />
+        {/* Embedded Interactive Jurisdictional Cyber Cell Locator */}
+        <div className="rounded-card bg-surface-2 border border-line p-5 mb-8 shadow-sm space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-line">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center justify-center shrink-0">
+                <MapPin className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-bold text-ink">
+                    Official Cyber Police Cell Locator
+                  </h3>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                    INTERACTIVE RADAR
+                  </span>
+                </div>
+                <p className="text-xs text-ink-2 mt-0.5">
+                  Find verified local cyber police stations, official landlines, and nodal officers for in-person FIR filing or evidence handoff.
+                </p>
+              </div>
             </div>
-            <div>
-              <h3 className="text-sm font-semibold text-ink">Official Cyber Police Cell Locator</h3>
-              <p className="text-xs text-ink-2">Locate verified jurisdictional cyber police stations, landlines, and nodal officers.</p>
+
+            <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleDetectNearestCell}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold"
+              >
+                <Compass className="w-3.5 h-3.5 text-amber-400" />
+                <span>Locate Near Me</span>
+              </Button>
+              <Link
+                href="/locator"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-control bg-accent hover:bg-accent-hover text-white text-xs font-semibold transition shrink-0"
+              >
+                <span>Full Directory</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
             </div>
           </div>
-          <Link href="/locator" className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-md bg-warning text-black text-xs font-semibold hover:bg-warning/90 transition shrink-0">
-            Open Locator <ArrowRight className="w-3.5 h-3.5" />
-          </Link>
+
+          {/* Interactive Map & Nearest Stations Split Layout */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+            <div className="lg:col-span-8 h-80 sm:h-96 rounded-xl overflow-hidden border border-line bg-surface">
+              <CyberCellMap
+                locations={locations}
+                selectedStationId={selectedStationId}
+                onStationSelect={(st) => setSelectedStationId(st.id)}
+                userLocation={userCoords}
+              />
+            </div>
+
+            <div className="lg:col-span-4 space-y-2.5 h-80 sm:h-96 overflow-y-auto pr-1">
+              <div className="text-xs font-semibold text-ink-3 px-1 flex items-center justify-between">
+                <span>Verified Stations ({locations.length})</span>
+                <span className="font-mono text-[10px]">100% Gov Verified</span>
+              </div>
+
+              {locationsLoading ? (
+                <div className="h-64 flex flex-col items-center justify-center gap-2 text-ink-3">
+                  <Loader2 className="w-5 h-5 animate-spin text-amber-400" />
+                  <span className="text-xs">Locating jurisdictional cells...</span>
+                </div>
+              ) : locations.length === 0 ? (
+                <div className="p-6 text-center text-xs text-ink-3 bg-surface rounded-xl border border-line">
+                  No verified stations loaded yet.
+                </div>
+              ) : (
+                locations.map((loc) => {
+                  const isSelected = selectedStationId === loc.id;
+                  const phone = loc.landline_number || loc.helpline_number;
+                  return (
+                    <div
+                      key={loc.id}
+                      onClick={() => setSelectedStationId(loc.id)}
+                      className={`p-3 rounded-xl border transition-all cursor-pointer text-xs ${
+                        isSelected
+                          ? "bg-surface-3 border-accent ring-1 ring-accent text-ink"
+                          : "bg-surface hover:bg-surface-3/50 border-line text-ink-2"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-1 mb-1">
+                        <h4 className="font-semibold text-xs text-ink line-clamp-1">
+                          {loc.name}
+                        </h4>
+                        {loc.distance_km !== undefined && (
+                          <span className="text-[10px] font-mono text-emerald-400 font-bold shrink-0">
+                            {loc.distance_km} km
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-ink-3 line-clamp-1 mb-2">
+                        {loc.district}, {loc.state}
+                      </p>
+
+                      <div className="flex items-center gap-2 pt-1 border-t border-line/40">
+                        {phone && (
+                          <a
+                            href={`tel:${phone.replace(/\s+/g, "")}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-400 hover:text-amber-300"
+                          >
+                            <PhoneCall className="w-3 h-3" />
+                            <span>{phone}</span>
+                          </a>
+                        )}
+                        <a
+                          href={`https://www.google.com/maps/search/?api=1&query=${loc.latitude},${loc.longitude}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="ml-auto inline-flex items-center gap-1 text-[11px] text-ink-3 hover:text-ink"
+                        >
+                          <span>Directions</span>
+                          <ExternalLink className="w-2.5 h-2.5" />
+                        </a>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
         </div>
 
         <h2 className="font-display font-semibold text-lg tracking-tight text-ink mb-4 mt-8">My Cases</h2>
@@ -272,15 +496,25 @@ if (!token) return;
                         <MessageSquare className="w-3.5 h-3.5" />
                         Direct Officer Chat
                       </Button>
-                      <a
-                        href={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/assistance-requests/${c.case_number}/dossier-pdf`}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        disabled={downloadingCase === c.case_number}
+                        onClick={() => handleDownloadPdf(c.case_number)}
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-surface-2 hover:bg-surface-3 text-ink text-xs font-medium border border-line transition"
                       >
-                        <Download className="w-3.5 h-3.5 text-warning" />
-                        FIR Dossier PDF
-                      </a>
+                        {downloadingCase === c.case_number ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin text-warning" />
+                            <span>Generating PDF...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Download className="w-3.5 h-3.5 text-warning" />
+                            <span>FIR Dossier PDF</span>
+                          </>
+                        )}
+                      </Button>
                       {!isCompleted && !isResolved && (
                         <Button variant="secondary" size="sm" onClick={() => handleResolve(c.case_number)}>
                           <CheckCircle2 className="w-4 h-4 mr-1.5 text-success" />

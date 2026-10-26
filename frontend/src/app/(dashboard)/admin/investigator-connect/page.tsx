@@ -18,6 +18,7 @@ import {
   FileText
 } from "lucide-react";
 import { useAuthStore } from "@/lib/auth-store";
+import { api } from "@/lib/api";
 
 interface TriageCase {
   id: string;
@@ -55,7 +56,7 @@ export default function AdminInvestigatorConnectPage() {
   const fetchQueue = async () => {
     setLoading(true);
     try {
-      let url = `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/admin/cases/queue`;
+      let url = api("/admin/cases/queue");
       const params = new URLSearchParams();
       if (urgencyFilter !== "ALL") {
         params.append("urgency_level", urgencyFilter);
@@ -90,7 +91,7 @@ export default function AdminInvestigatorConnectPage() {
     setSubmittingAssign(true);
     try {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/admin/cases/${assignModalCase.id}/assign`,
+        api(`/admin/cases/${assignModalCase.id}/assign`),
         {
           method: "POST",
           headers: {
@@ -129,7 +130,7 @@ export default function AdminInvestigatorConnectPage() {
     setSubmittingOverride(true);
     try {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/admin/cases/${overrideModalCase.id}/triage-override`,
+        api(`/admin/cases/${overrideModalCase.id}/triage-override`),
         {
           method: "POST",
           headers: {

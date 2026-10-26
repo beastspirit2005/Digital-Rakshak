@@ -1,5 +1,5 @@
 from typing import Optional
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -18,9 +18,18 @@ def get_kb() -> KnowledgeBase:
         kb_instance = KnowledgeBase()
     return kb_instance
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/login-password")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/login-password", auto_error=False)
 
-async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(get_db)):
+async def get_current_user(
+    request: Request,
+    token: Optional[str] = Depends(oauth2_scheme),
+    db: AsyncSession = Depends(get_db)
+):
+    if not token:
+        token = request.query_params.get("token") or request.cookies.get("access_token")
+    if not token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+
     payload = decode_access_token(token)
     if not payload:
         print("Token Decode Failed"); raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
@@ -43,7 +52,16 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession
         
     return user
 
-async def get_current_user_allow_unapproved(token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(get_db)):
+async def get_current_user_allow_unapproved(
+    request: Request,
+    token: Optional[str] = Depends(oauth2_scheme),
+    db: AsyncSession = Depends(get_db)
+):
+    if not token:
+        token = request.query_params.get("token") or request.cookies.get("access_token")
+    if not token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+
     payload = decode_access_token(token)
     if not payload:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")

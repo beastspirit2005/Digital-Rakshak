@@ -7,7 +7,16 @@
  */
 
 const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || (isLocal ? "http://127.0.0.1:8000/v1" : "/api/v1");
+
+let configuredApiUrl = (process.env.NEXT_PUBLIC_API_URL || '').trim();
+// If running on production / Vercel (hostname is not localhost) and configured URL is localhost or empty, use relative /api/v1
+if (typeof window !== 'undefined' && !isLocal) {
+  if (!configuredApiUrl || configuredApiUrl.includes('localhost') || configuredApiUrl.includes('127.0.0.1')) {
+    configuredApiUrl = '/api/v1';
+  }
+}
+
+export const API_BASE_URL = configuredApiUrl || (isLocal ? "http://127.0.0.1:8000/v1" : "/api/v1");
 
 import axios from 'axios';
 axios.defaults.withCredentials = true;
