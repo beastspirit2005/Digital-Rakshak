@@ -63,8 +63,58 @@ class RakshakCoreClient:
         ]
         self.temperature = 1.0
 
+    def _ensure_model_files(self, target_dir: str) -> bool:
+        has_onnx = os.path.exists(os.path.join(target_dir, "model.onnx"))
+        has_pytorch = os.path.exists(os.path.join(target_dir, "pytorch_model.bin"))
+        if has_onnx or has_pytorch:
+            return True
+
+        if os.getenv("RAKSHAK_OFFLINE", "0") == "1":
+            return False
+
+        release_url = os.getenv(
+            "RAKSHAK_MODEL_RELEASE_URL",
+            "https://github.com/beastspirit2005/Digital-Rakshak/releases/download/v2.0.0-model/rakshak-core-v2.0-onnx.tar.gz"
+        )
+        print(f"Model files not found locally at {target_dir}. Attempting automatic download from GitHub Release...")
+        import urllib.request
+        import tarfile
+
+        os.makedirs(target_dir, exist_ok=True)
+        archive_path = os.path.join(target_dir, "model_archive.tar.gz")
+        try:
+            req = urllib.request.Request(
+                release_url,
+                headers={"User-Agent": "DigitalRakshak-Backend/2.0"}
+            )
+            with urllib.request.urlopen(req, timeout=300) as response, open(archive_path, "wb") as out_file:
+                block_size = 1024 * 1024
+                while True:
+                    buf = response.read(block_size)
+                    if not buf:
+                        break
+                    out_file.write(buf)
+
+            with tarfile.open(archive_path, "r:gz") as tar:
+                tar.extractall(path=target_dir)
+
+            if os.path.exists(archive_path):
+                os.remove(archive_path)
+
+            print(f"Model v{self.version} successfully downloaded and extracted to {target_dir}")
+            return True
+        except Exception as exc:
+            print(f"Notice: Auto-download from GitHub Release skipped/failed ({exc}). Using offline heuristics.")
+            if os.path.exists(archive_path):
+                try:
+                    os.remove(archive_path)
+                except Exception:
+                    pass
+            return False
+
     def load_model(self):
         target_dir = self.model_dir
+        self._ensure_model_files(target_dir)
         if not os.path.exists(target_dir):
             alt_dir = os.path.join(os.path.dirname(__file__), "..", "..", "models", "rakshak-core", "v1.0")
             if os.path.exists(alt_dir):
