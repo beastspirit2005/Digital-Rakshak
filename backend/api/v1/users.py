@@ -11,6 +11,7 @@ import string
 from infrastructure.db.session import get_db
 from infrastructure.smtp.email_service import send_welcome_email, send_account_created_email, send_account_deleted_email
 from domain.models.user import User
+from domain.models.audit_event import AuditEvent
 from core.security import decode_access_token, get_password_hash
 from api.deps import get_current_admin, get_current_user, OFFICIAL_INSTITUTIONAL_ROLES
 
@@ -105,19 +106,37 @@ async def get_me(db: AsyncSession = Depends(get_db), user: User = Depends(get_cu
 
 
 @router.get("/me/consent")
-async def get_my_consent(user: User = Depends(get_current_user)):
+async def get_my_consent(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     """
     Returns active consent preferences in accordance with DPDP Act 2023.
+    Persisted immutably in the database AuditEvent log.
     """
     from datetime import datetime, timezone
     uid = str(user.id)
-    stored = _user_consents.get(uid, {
-        "ai_threat_analysis": True,
-        "telemetry_monitoring": True,
-        "syndicate_intel_sharing": True,
-        "communication_alerts": True,
-        "last_updated": datetime.now(timezone.utc).isoformat()
-    })
+    
+    stored = _user_consents.get(uid)
+    if not stored:
+        res = await db.execute(
+            select(AuditEvent)
+            .where(AuditEvent.actor_id == user.id, AuditEvent.action == "DPDP_CONSENT_UPDATED")
+            .order_by(AuditEvent.timestamp.desc())
+            .limit(1)
+        )
+        latest_audit = res.scalar_one_or_none()
+        if latest_audit and latest_audit.metadata_json:
+            stored = latest_audit.metadata_json
+            _user_consents[uid] = stored
+            
+    if not stored:
+        stored = {
+            "ai_threat_analysis": True,
+            "telemetry_monitoring": True,
+            "syndicate_intel_sharing": True,
+            "communication_alerts": True,
+            "last_updated": datetime.now(timezone.utc).isoformat()
+        }
+        _user_consents[uid] = stored
+
     return {
         "user_id": uid,
         "dpdp_act_compliant": True,
@@ -127,18 +146,33 @@ async def get_my_consent(user: User = Depends(get_current_user)):
 
 
 @router.post("/me/consent")
-async def update_my_consent(data: ConsentUpdate, user: User = Depends(get_current_user)):
+async def update_my_consent(data: ConsentUpdate, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     """
     Updates or revokes specific data processing consents under DPDP Act 2023.
+    Persisted to database via AuditEvent and cached locally.
     """
     from datetime import datetime, timezone
     uid = str(user.id)
-    current = _user_consents.get(uid, {
-        "ai_threat_analysis": True,
-        "telemetry_monitoring": True,
-        "syndicate_intel_sharing": True,
-        "communication_alerts": True
-    })
+    
+    current = _user_consents.get(uid)
+    if not current:
+        res = await db.execute(
+            select(AuditEvent)
+            .where(AuditEvent.actor_id == user.id, AuditEvent.action == "DPDP_CONSENT_UPDATED")
+            .order_by(AuditEvent.timestamp.desc())
+            .limit(1)
+        )
+        latest_audit = res.scalar_one_or_none()
+        if latest_audit and latest_audit.metadata_json:
+            current = dict(latest_audit.metadata_json)
+        else:
+            current = {
+                "ai_threat_analysis": True,
+                "telemetry_monitoring": True,
+                "syndicate_intel_sharing": True,
+                "communication_alerts": True
+            }
+
     if data.ai_threat_analysis is not None:
         current["ai_threat_analysis"] = data.ai_threat_analysis
     if data.telemetry_monitoring is not None:
@@ -148,7 +182,20 @@ async def update_my_consent(data: ConsentUpdate, user: User = Depends(get_curren
     if data.communication_alerts is not None:
         current["communication_alerts"] = data.communication_alerts
     current["last_updated"] = datetime.now(timezone.utc).isoformat()
+    
     _user_consents[uid] = current
+    
+    # Persist immutable audit log entry to database
+    audit_log = AuditEvent(
+        actor_id=user.id,
+        actor_role=user.role,
+        action="DPDP_CONSENT_UPDATED",
+        resource_type="user",
+        resource_id=uid,
+        metadata_json=current
+    )
+    db.add(audit_log)
+    await db.commit()
 
     return {
         "status": "success",

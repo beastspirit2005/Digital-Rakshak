@@ -93,7 +93,8 @@ _cors_origins += [
     os.getenv("FRONTEND_URL", "http://localhost:3000")
 ]
 _origin_patterns = [
-    r"^https://([a-zA-Z0-9-]*rakshak[a-zA-Z0-9-]*)\.vercel\.app$",
+    r"^https://rakshak-backend(-[a-zA-Z0-9-]+)?\.vercel\.app$",
+    r"^https://digital-?rakshak(-[a-zA-Z0-9-]+)?\.vercel\.app$",
     r"^http://(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+):300[01]$",
 ]
 
@@ -155,19 +156,20 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 # OpenTelemetry Setup
 try:
-    from opentelemetry import trace
-    from opentelemetry.sdk.trace import TracerProvider
-    from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
-    from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+    if os.getenv("ENABLE_CONSOLE_TRACING", "false").lower() == "true":
+        from opentelemetry import trace
+        from opentelemetry.sdk.trace import TracerProvider
+        from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
+        from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
-    # Initialize tracing
-    provider = TracerProvider()
-    processor = BatchSpanProcessor(ConsoleSpanExporter())
-    provider.add_span_processor(processor)
-    trace.set_tracer_provider(provider)
+        # Initialize tracing
+        provider = TracerProvider()
+        processor = BatchSpanProcessor(ConsoleSpanExporter())
+        provider.add_span_processor(processor)
+        trace.set_tracer_provider(provider)
 
-    FastAPIInstrumentor.instrument_app(app)
-    logger.info("OpenTelemetry Tracing Enabled.")
+        FastAPIInstrumentor.instrument_app(app)
+        logger.info("OpenTelemetry Tracing Enabled.")
 except ImportError:
     logger.warning("OpenTelemetry packages not found. Skipping tracing instrumentation.")
 

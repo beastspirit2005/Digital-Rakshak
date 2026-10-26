@@ -452,40 +452,48 @@ async def submit_case(
     }
 
 @router.get("/spatial")
-async def get_spatial_cases(db: AsyncSession = Depends(get_db), user: Optional[User] = Depends(get_current_user_optional)):
+async def get_spatial_cases(
+    db: AsyncSession = Depends(get_db),
+    user: Optional[User] = Depends(get_current_user_optional)
+):
     """
-    Returns all cases with coordinates as a GeoJSON FeatureCollection.
+    Returns cases with coordinates as a GeoJSON FeatureCollection.
+    Enforces authentication and deterministic privacy jitter to prevent location triangulation.
     """
-    # Note for Hackathon: Strict role-based access control was removed.
-    # We now allow all authenticated users (including citizens) to see the spatial map.
-    role = user.role if user else "guest"
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required to access spatial intelligence")
+
+    role = user.role
         
-    # Fetch ALL cases to prevent dropping unknown locations
+    # Fetch cases
     result = await db.execute(select(Case))
     cases = result.scalars().all()
     
     import random
+    import hashlib
     
     features = []
     for case in cases:
-        # Default to a central coordinate (e.g., Central India) if unknown
+        # Default to a central coordinate (Central India) if unknown
         lat = case.latitude if case.latitude is not None else 21.1458
         lng = case.longitude if case.longitude is not None else 79.0882
         is_unknown = case.latitude is None
         
-        # Privacy Jitter / Stack Prevention
+        # Deterministic Privacy Jitter seeded by case ID (prevents multi-sample triangulation)
+        seed_val = int(hashlib.md5(str(case.id).encode("utf-8")).hexdigest()[:8], 16)
+        rng = random.Random(seed_val)
         if not is_unknown:
-            lat += random.uniform(-0.005, 0.005) # ~500m noise
-            lng += random.uniform(-0.005, 0.005)
+            lat += rng.uniform(-0.003, 0.003)  # ~300m deterministic noise
+            lng += rng.uniform(-0.003, 0.003)
         else:
-            lat += random.uniform(-1.5, 1.5) # Wide spread for unassigned cases
-            lng += random.uniform(-1.5, 1.5)
+            lat += rng.uniform(-1.0, 1.0)
+            lng += rng.uniform(-1.0, 1.0)
             
         features.append({
             "type": "Feature",
             "geometry": {
                 "type": "Point",
-                "coordinates": [lng, lat]
+                "coordinates": [round(lng, 6), round(lat, 6)]
             },
             "properties": {
                 "case_id": case.id,
@@ -506,11 +514,19 @@ async def get_spatial_cases(db: AsyncSession = Depends(get_db), user: Optional[U
     }
 
 @router.get("/clusters")
-async def get_spatial_clusters(db: AsyncSession = Depends(get_db), user: Optional[User] = Depends(get_current_user_optional)):
+async def get_spatial_clusters(
+    db: AsyncSession = Depends(get_db),
+    user: Optional[User] = Depends(get_current_user_optional)
+):
     """
     Returns GeoJSON LineStrings for cases connected in the Neo4j graph.
+    Requires authentication. Full scam narrative text is restricted to authorized investigators.
     """
-    role = user.role if user else "guest"
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required to access syndicate clusters")
+
+    role = user.role
+    is_official = role in ["admin", "police", "cyber_cell"]
         
     from infrastructure.graph.neo4j_client import IntelligenceGraph
     graph = IntelligenceGraph()
@@ -520,10 +536,9 @@ async def get_spatial_clusters(db: AsyncSession = Depends(get_db), user: Optiona
     features = []
     
     for cluster in clusters:
-        case_ids = cluster["case_ids"] # These are case.case_number strings actually, wait no, neo4j c.id is case.case_number
+        case_ids = cluster["case_ids"]
         
         # Fetch the Postgres records for these cases to get coordinates
-        # Neo4j query used c.id, which we set to case_number in add_case_entity_link
         result = await db.execute(select(Case).where(Case.case_number.in_(case_ids)).where(Case.latitude.isnot(None)))
         db_cases = result.scalars().all()
         
@@ -531,6 +546,9 @@ async def get_spatial_clusters(db: AsyncSession = Depends(get_db), user: Optiona
             continue
             
         coords = [[c.longitude, c.latitude] for c in db_cases]
+        
+        # Only expose raw narrative texts to authorized officials; redact for regular citizens
+        case_texts = [c.scam_text for c in db_cases] if is_official else []
         
         features.append({
             "type": "Feature",
@@ -542,7 +560,7 @@ async def get_spatial_clusters(db: AsyncSession = Depends(get_db), user: Optiona
                 "entity_type": cluster["entity_type"],
                 "entity_value": cluster["entity_value"],
                 "case_numbers": [c.case_number for c in db_cases],
-                "case_texts": [c.scam_text for c in db_cases] # Used by frontend to trigger summarization
+                "case_texts": case_texts
             }
         })
         
@@ -680,7 +698,7 @@ async def simulate_attack(db: AsyncSession = Depends(get_db), user: User = Depen
 @router.get("/{case_number}")
 async def get_case(
     case_number: str,
-    user: Optional[User] = Depends(get_current_user_optional),
+    user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -700,9 +718,6 @@ async def get_case(
         
     result = await db.execute(query)
     case = result.scalar_one_or_none()
-    
-    if user is None:
-        raise HTTPException(status_code=401, detail="Authentication required")
 
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
@@ -721,7 +736,7 @@ import io
 @router.get("/{case_number}/evidence")
 async def get_case_evidence(
     case_number: str,
-    user: Optional[User] = Depends(get_current_user_optional),
+    user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -733,9 +748,6 @@ async def get_case_evidence(
     
     result = await db.execute(select(Case).where(Case.case_number == case_number))
     case = result.scalar_one_or_none()
-    
-    if user is None:
-        raise HTTPException(status_code=401, detail="Authentication required")
 
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")

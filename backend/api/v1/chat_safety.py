@@ -75,12 +75,12 @@ async def acknowledge_policy(
     """
     Records timestamped consent to the Chat Safety and Monitoring Notice.
     """
-    user.chat_safety_policy_version = body.policy_version
+    user.chat_safety_policy_version = POLICY_VERSION
     user.chat_safety_accepted_at = datetime.now(timezone.utc)
     await db.commit()
     return {
         "status": "acknowledged",
-        "policy_version": body.policy_version,
+        "policy_version": POLICY_VERSION,
         "accepted_at": user.chat_safety_accepted_at.isoformat()
     }
 

@@ -27,16 +27,17 @@ class RegisterRequest(BaseModel):
     @field_validator('role')
     @classmethod
     def validate_role(cls, v: str):
+        if v == "admin":
+            raise ValueError("Admin accounts cannot be self-registered. Please contact an existing system administrator.")
         role_map = {
             "citizen": "citizen",
             "police": "police",
             "cyber_cell": "cyber_cell",
             "banker": "bank_employee",
-            "bank_employee": "bank_employee",
-            "admin": "admin"
+            "bank_employee": "bank_employee"
         }
         if v not in role_map:
-            raise ValueError(f"Invalid role '{v}'. Allowed roles: citizen, police, cyber_cell, banker, admin")
+            raise ValueError(f"Invalid role '{v}'. Allowed roles: citizen, police, cyber_cell, banker")
         return role_map[v]
     
     @field_validator('email')

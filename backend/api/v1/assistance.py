@@ -1,5 +1,5 @@
 import uuid
-import random
+import secrets
 import datetime
 from datetime import timezone
 from typing import Optional, List, Dict, Any
@@ -43,8 +43,8 @@ class AssistanceResponse(BaseModel):
 
 def generate_assistance_reference() -> str:
     year = datetime.datetime.now(timezone.utc).year
-    # 5-digit cryptographically safe random number
-    rand_code = random.randint(10000, 99999)
+    # 6-character cryptographically safe random hex (16.7M combinations per year)
+    rand_code = secrets.token_hex(3).upper()
     return f"DR-{year}-{rand_code}"
 
 @router.post("", response_model=AssistanceResponse, status_code=status.HTTP_201_CREATED)
