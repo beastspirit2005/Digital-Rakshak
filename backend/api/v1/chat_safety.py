@@ -41,7 +41,7 @@ class SendMessageRequest(BaseModel):
 class ReportMisconductRequest(BaseModel):
     case_id: Optional[str] = None
     reported_message_id: Optional[str] = None
-    reported_user_id: str
+    reported_user_id: Optional[str] = None
     category: str = Field(..., description="payment_demand, credential_harvesting, harassment, impersonation, recovery_scam")
     reason_narrative: str = Field(..., min_length=10)
 
@@ -108,11 +108,11 @@ async def send_case_message(
     if not case:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Case not found")
 
-    is_owner = case.submitted_by == user.id
-    is_assigned = getattr(case, "assigned_to", None) == user.id
-    is_admin_or_police = user.role in ["admin", "police", "cyber_cell"]
+    is_owner = str(case.submitted_by) == str(user.id)
+    is_assigned = str(getattr(case, "assigned_to", "") or "") == str(user.id)
+    is_admin = user.role == "admin"
 
-    if not (is_owner or is_assigned or is_admin_or_police):
+    if not (is_owner or is_assigned or is_admin):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to post to this case")
 
     # Run inspection engine
@@ -160,6 +160,19 @@ async def send_case_message(
     await db.commit()
     await db.refresh(msg)
 
+    # Dispatch on-platform notification to counterpart
+    try:
+        from domain.services.notification_service import NotificationService
+        await NotificationService.notify_case_message(
+            db=db,
+            case=case,
+            sender=user,
+            content=msg.content,
+        )
+        await db.commit()
+    except Exception as e:
+        print(f"[Warning] Failed to queue chat notification: {e}")
+
     return {
         "id": str(msg.id),
         "case_id": str(msg.case_id),
@@ -191,11 +204,11 @@ async def get_case_messages(
     if not case:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Case not found")
 
-    is_owner = case.submitted_by == user.id
-    is_assigned = getattr(case, "assigned_to", None) == user.id
-    is_admin_or_police = user.role in ["admin", "police", "cyber_cell"]
+    is_owner = str(case.submitted_by) == str(user.id)
+    is_assigned = str(getattr(case, "assigned_to", "") or "") == str(user.id)
+    is_admin = user.role == "admin"
 
-    if not (is_owner or is_assigned or is_admin_or_police):
+    if not (is_owner or is_assigned or is_admin):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
 
     q = select(CaseMessage).where(CaseMessage.case_id == c_uuid).order_by(CaseMessage.created_at.asc())
@@ -242,10 +255,12 @@ async def report_misconduct(
     Snapshots the Context Window (reported message + 5 preceding + 2 succeeding),
     calculates cryptographic SHA-256 digest, and creates a protected evidence record.
     """
-    try:
-        reported_user_uuid = uuid.UUID(body.reported_user_id)
-    except ValueError:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid reported user ID")
+    reported_user_uuid = None
+    if body.reported_user_id:
+        try:
+            reported_user_uuid = uuid.UUID(body.reported_user_id)
+        except ValueError:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid reported user ID")
 
     case_uuid = None
     if body.case_id:
@@ -253,6 +268,32 @@ async def report_misconduct(
             case_uuid = uuid.UUID(body.case_id)
         except ValueError:
             pass
+
+    # If reported_user_uuid was not provided, auto-resolve counterpart from case
+    if not reported_user_uuid and case_uuid:
+        c_res = await db.execute(select(Case).where(Case.id == case_uuid))
+        c_obj = c_res.scalars().first()
+        if c_obj:
+            if user.id == c_obj.submitted_by and getattr(c_obj, "assigned_to", None):
+                reported_user_uuid = c_obj.assigned_to
+            elif user.id == getattr(c_obj, "assigned_to", None):
+                reported_user_uuid = c_obj.submitted_by
+
+    if not reported_user_uuid and case_uuid:
+        # Fallback to finding the other sender from recent messages
+        recent_sender_q = select(CaseMessage.sender_id).where(
+            CaseMessage.case_id == case_uuid,
+            CaseMessage.sender_id != user.id
+        ).order_by(CaseMessage.created_at.desc()).limit(1)
+        other_sender = (await db.execute(recent_sender_q)).scalar()
+        if other_sender:
+            reported_user_uuid = other_sender
+
+    if not reported_user_uuid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Could not determine the counterpart party to report for this case."
+        )
 
     msg_uuid = None
     reported_msg = None
@@ -368,6 +409,22 @@ async def report_misconduct(
     db.add(audit)
 
     await db.commit()
+
+    # Dispatch on-platform notification to admins
+    try:
+        from domain.services.notification_service import NotificationService
+        await NotificationService.notify_admins(
+            db=db,
+            title="⚠️ Misconduct Allegation Filed",
+            message=f"{user.full_name or 'User'} filed a safety dispute ({body.category}): \"{body.reason_narrative[:60]}...\"",
+            type="misconduct_report",
+            priority="urgent",
+            link="/admin/disputes",
+            metadata={"report_id": str(report.id), "case_id": str(case_uuid) if case_uuid else None},
+        )
+        await db.commit()
+    except Exception as e:
+        print(f"[Warning] Failed to queue admin dispute notification: {e}")
 
     return {
         "report_id": str(report.id),

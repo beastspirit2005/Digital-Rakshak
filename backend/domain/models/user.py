@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, Boolean, DateTime, Integer
+from sqlalchemy import Column, String, Boolean, DateTime, Integer, Float, Text, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from infrastructure.db.session import Base
 
@@ -15,6 +15,26 @@ class User(Base):
     role = Column(String, default="citizen", nullable=False) # Roles: citizen, bank_employee, police, cyber_cell, admin
     is_active = Column(Boolean, default=True)
     is_approved = Column(Boolean, default=False) # True by default for citizens, False for others requiring admin approval
+    is_verified = Column(Boolean, default=False, nullable=False, server_default="false") # Email OTP verification state
+
+    # Duty Location & Station Information
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
+    city = Column(String(100), nullable=True, index=True)
+    state = Column(String(100), nullable=True, index=True)
+    station_name = Column(String(255), nullable=True)
+    badge_number = Column(String(50), nullable=True)
+    designation = Column(String(120), nullable=True)
+
+    # Official KYC Documents & Review Metadata
+    kyc_org_id_path = Column(String(500), nullable=True)
+    kyc_org_id_filename = Column(String(255), nullable=True)
+    kyc_aadhaar_path = Column(String(500), nullable=True)
+    kyc_aadhaar_filename = Column(String(255), nullable=True)
+    kyc_submitted_at = Column(DateTime(timezone=True), nullable=True)
+    kyc_reviewed_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    kyc_review_notes = Column(Text, nullable=True)
+
     otp = Column(String, nullable=True)
     otp_expires_at = Column(DateTime(timezone=True), nullable=True)
     otp_failed_attempts = Column(Integer, default=0, server_default="0")

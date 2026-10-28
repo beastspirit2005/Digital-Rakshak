@@ -68,24 +68,28 @@ export function CaseChatPanel({
   const [credentialWarning, setCredentialWarning] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const isFetchingRef = useRef(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
   // 1. Check Policy Consent Status
-  const checkPolicyStatus = useCallback(async () => {
+  const checkPolicyStatus = useCallback(async (signal?: AbortSignal) => {
     try {
       const res = await axios.get(api("/chat/policy-status"), {
         headers: { Authorization: `Bearer ${token}` },
         withCredentials: true,
+        signal,
       });
       const accepted = !!res.data?.is_accepted;
       setPolicyAccepted(accepted);
       if (!accepted) {
         setShowPolicyModal(true);
       }
-    } catch (err) {
+    } catch (err: any) {
+      if (axios.isCancel(err) || err.name === "CanceledError") return;
       console.error("Failed to check chat policy status:", err);
       // Default to asking consent if error
       setShowPolicyModal(true);
@@ -93,36 +97,49 @@ export function CaseChatPanel({
   }, [token]);
 
   // 2. Fetch Messages
-  const fetchMessages = useCallback(async (quiet = false) => {
+  const fetchMessages = useCallback(async (quiet = false, signal?: AbortSignal) => {
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
     if (!quiet) setLoading(true);
     try {
       const res = await axios.get(api(`/chat/cases/${caseId}/messages`), {
         headers: { Authorization: `Bearer ${token}` },
         withCredentials: true,
+        signal,
       });
       if (res.data?.messages) {
         setMessages(res.data.messages);
       }
     } catch (err: any) {
+      if (axios.isCancel(err) || err.name === "CanceledError") return;
       console.error("Failed to fetch messages:", err);
       if (!quiet) {
         pushToast("danger", `Could not load messages: ${formatApiError(err, "Please check network or case access.")}`);
       }
     } finally {
+      isFetchingRef.current = false;
       if (!quiet) setLoading(false);
     }
   }, [caseId, token, pushToast]);
 
   useEffect(() => {
-    checkPolicyStatus();
-    fetchMessages();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    checkPolicyStatus(controller.signal);
+    fetchMessages(false, controller.signal);
 
     // Auto-poll messages every 6 seconds
     const interval = setInterval(() => {
-      fetchMessages(true);
+      if (!controller.signal.aborted) {
+        fetchMessages(true, controller.signal);
+      }
     }, 6000);
 
-    return () => clearInterval(interval);
+    return () => {
+      controller.abort();
+      clearInterval(interval);
+    };
   }, [checkPolicyStatus, fetchMessages]);
 
   useEffect(() => {
@@ -197,33 +214,33 @@ export function CaseChatPanel({
   };
 
   // Open Misconduct Reporting Modal for a message
-  const handleOpenReport = (msg: ChatMessage) => {
-    setReportingMessage(msg);
+  const handleOpenReport = (msg?: ChatMessage) => {
+    setReportingMessage(msg || null);
     setShowReportModal(true);
   };
 
   return (
     <div
-      className={`flex flex-col h-full bg-[#0b101b] border border-white/10 rounded-2xl shadow-2xl overflow-hidden font-sans ${className}`}
+      className={`flex flex-col h-full bg-surface border border-line rounded-2xl shadow-2xl overflow-hidden font-sans text-ink ${className}`}
     >
       {/* Top Header */}
-      <div className="p-3.5 sm:p-4 bg-slate-900/90 border-b border-white/10 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-sky-600 to-cyan-500 p-[2px] flex items-center justify-center">
-            <div className="w-full h-full rounded-[10px] bg-slate-950 flex items-center justify-center">
-              <ShieldCheck className="w-5 h-5 text-cyan-400" />
+      <div className="p-3.5 sm:p-4 bg-surface-2 border-b border-line flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-sky-600 to-cyan-500 p-[2px] flex items-center justify-center shrink-0">
+            <div className="w-full h-full rounded-[10px] bg-surface flex items-center justify-center">
+              <ShieldCheck className="w-5 h-5 text-accent" />
             </div>
           </div>
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <span className="font-mono text-xs font-bold text-sky-400">
+              <span className="font-mono text-xs font-bold text-accent truncate">
                 {caseNumber}
               </span>
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border border-emerald-500/30 shrink-0">
                 OFFICIAL CHANNEL
               </span>
             </div>
-            <p className="text-xs text-slate-300 font-medium">
+            <p className="text-xs text-ink-2 font-medium truncate">
               {assignedOfficerName
                 ? `Officer ${assignedOfficerName} (${assignedOfficerRole || "Investigator"})`
                 : "Authorized Cyber Cell Duty Desk"}
@@ -231,18 +248,29 @@ export function CaseChatPanel({
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Header Report Misconduct Button */}
+          <button
+            onClick={() => handleOpenReport()}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-rose-600 dark:text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/25 transition-colors"
+            title="Report misconduct or dispute on this case"
+          >
+            <ShieldAlert className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Report Misconduct</span>
+          </button>
+
           <button
             onClick={() => fetchMessages(false)}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            className="p-1.5 rounded-lg text-ink-3 hover:text-ink hover:bg-surface-3 transition-colors"
             title="Refresh Messages"
           >
             <RefreshCw className="w-4 h-4" />
           </button>
+
           {onClose && (
             <button
               onClick={onClose}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              className="p-1.5 rounded-lg text-ink-3 hover:text-ink hover:bg-surface-3 transition-colors"
               title="Close Chat Panel"
             >
               <X className="w-4 h-4" />
@@ -252,33 +280,33 @@ export function CaseChatPanel({
       </div>
 
       {/* Safety Notice Strip */}
-      <div className="px-3.5 py-2 bg-gradient-to-r from-amber-500/10 via-rose-500/10 to-indigo-500/10 border-b border-white/5 flex items-center justify-between text-[11px] text-slate-300">
-        <div className="flex items-center gap-1.5">
-          <Lock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-          <span>
-            <strong className="text-amber-300">Zero Tolerance:</strong> Do not share OTPs, PINs, or transfer fees. All messages are cryptographically logged under BSA-2023.
+      <div className="px-3.5 py-2 bg-amber-500/10 dark:bg-amber-500/5 border-b border-line flex items-center justify-between text-[11px] text-ink-2">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <Lock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+          <span className="truncate">
+            <strong className="text-amber-600 dark:text-amber-300">Zero Tolerance:</strong> Do not share OTPs, PINs, or fees. Monitored under BSA-2023.
           </span>
         </div>
-        <span className="hidden sm:inline font-mono text-[10px] text-slate-400">
+        <span className="hidden md:inline font-mono text-[10px] text-ink-3 shrink-0 ml-2">
           SEC-MONITOR-V1
         </span>
       </div>
 
       {/* Message List */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3.5">
+      <div className="flex-1 overflow-y-auto p-4 space-y-3.5 bg-bg/40">
         {loading ? (
-          <div className="h-full flex flex-col items-center justify-center space-y-2 text-slate-400">
-            <Loader2 className="w-6 h-6 animate-spin text-cyan-400" />
+          <div className="h-full flex flex-col items-center justify-center space-y-2 text-ink-3">
+            <Loader2 className="w-6 h-6 animate-spin text-accent" />
             <span className="text-xs">Connecting to secure case channel...</span>
           </div>
         ) : messages.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center p-6 text-center space-y-3">
-            <div className="p-3 rounded-2xl bg-slate-900 border border-white/10 text-cyan-400">
+            <div className="p-3 rounded-2xl bg-surface-2 border border-line text-accent">
               <ShieldCheck className="w-8 h-8" />
             </div>
-            <h4 className="font-bold text-sm text-white">Direct Case Communications Channel</h4>
-            <p className="text-xs text-slate-400 max-w-sm leading-relaxed">
-              This channel enables direct, monitored coordination between the victim and the assigned investigator. Ask case questions, request updates, or submit additional context.
+            <h4 className="font-bold text-sm text-ink">Direct Case Communications Channel</h4>
+            <p className="text-xs text-ink-3 max-w-sm leading-relaxed">
+              This channel enables direct, monitored coordination between the citizen complainant and assigned duty officers. Ask questions, request updates, or submit additional context.
             </p>
           </div>
         ) : (
@@ -292,13 +320,13 @@ export function CaseChatPanel({
                 className={`flex flex-col group ${isSelf ? "items-end" : "items-start"}`}
               >
                 {/* Sender Tag */}
-                <div className="flex items-center gap-1.5 mb-1 px-1 text-[10px] text-slate-400">
-                  <span className="font-semibold text-slate-300">{m.sender_name}</span>
+                <div className="flex items-center gap-1.5 mb-1 px-1 text-[10px] text-ink-3">
+                  <span className="font-semibold text-ink-2">{m.sender_name}</span>
                   <span
                     className={`px-1.5 py-0.2 rounded text-[9px] uppercase font-bold ${
                       isOfficer
-                        ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
-                        : "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"
+                        ? "bg-amber-500/15 text-amber-600 dark:text-amber-300 border border-amber-500/30"
+                        : "bg-sky-500/15 text-sky-600 dark:text-sky-300 border border-sky-500/30"
                     }`}
                   >
                     {m.sender_role}
@@ -310,10 +338,10 @@ export function CaseChatPanel({
                 {/* Bubble Container */}
                 <div className="relative max-w-[85%] sm:max-w-[75%]">
                   <div
-                    className={`px-4 py-2.5 rounded-2xl text-xs leading-relaxed break-words shadow-md ${
+                    className={`px-4 py-2.5 rounded-2xl text-xs leading-relaxed break-words shadow-sm ${
                       isSelf
-                        ? "bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-br-sm"
-                        : "bg-slate-900/90 text-slate-100 border border-white/10 rounded-bl-sm"
+                        ? "bg-accent text-accent-contrast rounded-br-sm"
+                        : "bg-surface-2 text-ink border border-line rounded-bl-sm"
                     }`}
                   >
                     {m.content}
@@ -321,21 +349,22 @@ export function CaseChatPanel({
 
                   {/* Flagged warning badge if system flagged */}
                   {m.moderation_flag && (
-                    <div className="flex items-center gap-1 text-[10px] text-amber-300 mt-1 px-1">
-                      <AlertTriangle className="w-3 h-3 text-amber-400" />
+                    <div className="flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-300 mt-1 px-1">
+                      <AlertTriangle className="w-3 h-3 text-amber-500" />
                       <span>Security Notice: {m.moderation_flag}</span>
                     </div>
                   )}
 
-                  {/* Inline Report Action on messages from other party */}
+                  {/* Inline Report Action on messages from other party - Permanently Visible */}
                   {!isSelf && (
-                    <div className="opacity-0 group-hover:opacity-100 transition-opacity mt-1 flex items-center justify-end">
+                    <div className="mt-1 flex items-center justify-end">
                       <button
                         onClick={() => handleOpenReport(m)}
-                        className="inline-flex items-center gap-1 text-[10px] text-rose-400 hover:text-rose-300 font-medium px-1.5 py-0.5 rounded bg-rose-950/40 border border-rose-500/20 hover:border-rose-500/40"
+                        className="inline-flex items-center gap-1 text-[10px] text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 font-medium px-2 py-0.5 rounded bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 transition-colors"
+                        title="Report this specific message"
                       >
                         <ShieldAlert className="w-3 h-3" />
-                        <span>Report Misconduct</span>
+                        <span>Report Message</span>
                       </button>
                     </div>
                   )}
@@ -349,8 +378,8 @@ export function CaseChatPanel({
 
       {/* Real-time Credential Pre-Send Warning */}
       {credentialWarning && (
-        <div className="px-4 py-2 bg-rose-950/80 border-t border-rose-500/30 text-rose-200 text-xs flex items-center gap-2 animate-pulse">
-          <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+        <div className="px-4 py-2 bg-rose-500/15 border-t border-rose-500/30 text-rose-600 dark:text-rose-300 text-xs flex items-center gap-2 animate-pulse">
+          <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0" />
           <span>{credentialWarning}</span>
         </div>
       )}
@@ -358,7 +387,7 @@ export function CaseChatPanel({
       {/* Input Form */}
       <form
         onSubmit={handleSendMessage}
-        className="p-3 bg-slate-900/90 border-t border-white/10 flex items-center gap-2"
+        className="p-3 bg-surface-2 border-t border-line flex items-center gap-2"
       >
         <input
           type="text"
@@ -366,13 +395,13 @@ export function CaseChatPanel({
           onChange={(e) => setInputText(e.target.value)}
           placeholder="Type message to investigator... (never share OTP/PIN)"
           disabled={sending}
-          className="flex-1 px-3.5 py-2.5 rounded-xl text-xs bg-slate-950 border border-white/10 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 disabled:opacity-50"
+          className="flex-1 px-3.5 py-2.5 rounded-xl text-xs bg-surface border border-line text-ink placeholder:text-ink-3 focus:outline-none focus:ring-2 focus:ring-accent disabled:opacity-50"
         />
 
         <button
           type="submit"
           disabled={!inputText.trim() || sending}
-          className="px-4 py-2.5 rounded-xl font-semibold text-xs bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 transition-all flex items-center gap-1.5 shadow-md active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-4 py-2.5 rounded-xl font-bold text-xs bg-accent hover:bg-accent/90 text-accent-contrast transition-all flex items-center gap-1.5 shadow-sm active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {sending ? (
             <Loader2 className="w-4 h-4 animate-spin" />
@@ -396,24 +425,22 @@ export function CaseChatPanel({
       />
 
       {/* Report Misconduct Modal */}
-      {reportingMessage && (
-        <ReportMisconductModal
-          isOpen={showReportModal}
-          onClose={() => {
-            setShowReportModal(false);
-            setReportingMessage(null);
-          }}
-          caseId={caseId}
-          reportedMessageId={reportingMessage.id}
-          reportedUserId={reportingMessage.sender_id}
-          reportedUserName={reportingMessage.sender_name}
-          onReportSuccess={(digest) => {
-            pushToast("success", `Misconduct Preserved: Evidence snapshot generated. SHA-256: ${digest.substring(0, 16)}...`);
-            setShowReportModal(false);
-            setReportingMessage(null);
-          }}
-        />
-      )}
+      <ReportMisconductModal
+        isOpen={showReportModal}
+        onClose={() => {
+          setShowReportModal(false);
+          setReportingMessage(null);
+        }}
+        caseId={caseId}
+        reportedMessageId={reportingMessage?.id}
+        reportedUserId={reportingMessage?.sender_id}
+        reportedUserName={reportingMessage?.sender_name || (assignedOfficerName ? `Officer ${assignedOfficerName}` : "Case Counterpart")}
+        onReportSuccess={(digest) => {
+          pushToast("success", `Misconduct Preserved: Evidence snapshot generated. SHA-256: ${digest.substring(0, 16)}...`);
+          setShowReportModal(false);
+          setReportingMessage(null);
+        }}
+      />
     </div>
   );
 }

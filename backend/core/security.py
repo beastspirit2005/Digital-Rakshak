@@ -25,9 +25,11 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return encoded_jwt
 
+ACCEPTED_ALGORITHMS = ["HS256"]
+
 def decode_access_token(token: str):
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=ACCEPTED_ALGORITHMS)
         # Reject tokens explicitly issued by foreign issuers
         token_iss = payload.get("iss")
         if token_iss and token_iss != "digital-rakshak":

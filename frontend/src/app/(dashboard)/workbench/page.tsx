@@ -1,7 +1,7 @@
 "use client";
 
 import { api } from "@/lib/api";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { 
   FileText, 
   TrendingUp, 
@@ -14,7 +14,10 @@ import {
   Zap,
   Globe,
   Siren,
-  Terminal
+  Terminal,
+  AlertTriangle,
+  ChevronRight,
+  BellRing
 } from "lucide-react";
 import {
   AreaChart,
@@ -49,6 +52,8 @@ interface CaseRow {
   state?: string;
   priority: string;
   status: string;
+  is_nudged?: boolean;
+  last_nudged_at?: string;
 }
 
 export default function WorkbenchDashboard() {
@@ -114,6 +119,8 @@ export default function WorkbenchDashboard() {
 if (token) fetchData();
   }, [token]);
 
+  const nudgedCases = useMemo(() => recentCases.filter((c: any) => c.is_nudged), [recentCases]);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-300">
@@ -167,6 +174,40 @@ if (token) fetchData();
           </Link>
         </div>
       </div>
+
+      {/* Urgent Admin Inquiry Alert Banner */}
+      {nudgedCases.length > 0 && (
+        <div className="p-4 rounded-xl border border-rose-500/50 bg-gradient-to-r from-rose-500/20 via-rose-500/10 to-amber-500/10 shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-4 animate-in fade-in duration-300">
+          <div className="flex items-start md:items-center gap-3">
+            <div className="p-2.5 rounded-lg bg-rose-600 text-white shadow-md animate-pulse shrink-0">
+              <AlertTriangle className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-sm font-bold text-rose-600 dark:text-rose-400 font-mono tracking-wide flex items-center gap-1.5">
+                  ACTION REQUIRED: {nudgedCases.length} CASE INQUIRY{nudgedCases.length > 1 ? "IES" : ""} DISPATCHED
+                </h3>
+                <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-500 border border-rose-500/40">
+                  ADMIN SLA SUPERVISION
+                </span>
+              </div>
+              <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">
+                Platform Administrator requested expedited investigation remarks or evidentiary updates on priority assigned case(s).
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <Link
+              href={`/workbench/reports?case=${nudgedCases[0].case_number}&action=nudge`}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white shadow-md transition-all tracking-wide"
+            >
+              <BellRing className="w-4 h-4 animate-bounce" />
+              <span>Review Inquiry ({nudgedCases[0].case_number})</span>
+              <ChevronRight className="w-4 h-4" />
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* Top KPI Metrics Matrix */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 font-mono">
@@ -362,14 +403,32 @@ if (token) fetchData();
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
                 {recentCases.map((c) => (
-                  <tr key={c.id} className="hover:bg-slate-100/50 dark:hover:bg-slate-800/30 transition-colors group">
+                  <tr
+                    key={c.id}
+                    className={`transition-colors group ${
+                      c.is_nudged
+                        ? "bg-rose-500/10 hover:bg-rose-500/15 border-l-2 border-rose-500"
+                        : "hover:bg-slate-100/50 dark:hover:bg-slate-800/30"
+                    }`}
+                  >
                     <td className="px-4 py-3.5">
-                      <Link 
-                        href={`/workbench/workspace/${c.case_number}`} 
-                        className="font-bold text-emerald-600 dark:text-emerald-400 group-hover:text-emerald-700 dark:group-hover:text-emerald-300 flex items-center gap-2"
-                      >
-                        <Zap className="w-3 h-3 opacity-50" /> {c.case_number}
-                      </Link>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Link 
+                          href={c.is_nudged ? `/workbench/reports?case=${c.case_number}&action=nudge` : `/workbench/workspace/${c.case_number}`} 
+                          className={`font-bold flex items-center gap-2 ${
+                            c.is_nudged
+                              ? "text-rose-600 dark:text-rose-400 hover:text-rose-500"
+                              : "text-emerald-600 dark:text-emerald-400 group-hover:text-emerald-700 dark:group-hover:text-emerald-300"
+                          }`}
+                        >
+                          <Zap className="w-3 h-3 opacity-50" /> {c.case_number}
+                        </Link>
+                        {c.is_nudged && (
+                          <span className="inline-flex items-center gap-1 text-[9px] font-black px-1.5 py-0.5 rounded-full bg-rose-600 text-white animate-pulse">
+                            <BellRing className="w-2.5 h-2.5" /> Action Req
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3.5 text-slate-500 dark:text-slate-400 capitalize">
                       {(c.scam_type_code || "Unknown").replace(/_/g, " ")}

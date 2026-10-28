@@ -177,27 +177,27 @@ export default function CyberCellMap({
             className="dr-maplibre-popup z-40"
             maxWidth="320px"
           >
-            <div className="p-3 bg-[#0d1424] text-gray-200 rounded-xl space-y-2 text-xs border border-white/10 shadow-2xl">
+            <div className="p-3 bg-surface text-ink rounded-xl space-y-2 text-xs border border-line shadow-2xl backdrop-blur-md">
               <div className="flex items-center gap-1.5">
-                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider bg-amber-500/15 text-amber-600 dark:text-amber-300 border border-amber-500/30">
                   {activePopup.jurisdiction_level} level
                 </span>
-                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
                   <CheckCircle2 className="w-2.5 h-2.5" />
                   Verified
                 </span>
               </div>
 
-              <h4 className="font-bold text-white text-xs leading-snug">
+              <h4 className="font-bold text-ink text-xs leading-snug">
                 {activePopup.name}
               </h4>
-              <p className="text-[11px] text-gray-400 line-clamp-2">
+              <p className="text-[11px] text-ink-3 line-clamp-2">
                 {activePopup.address}
               </p>
 
               {activePopup.nodal_officer_designation && (
-                <div className="text-[10px] text-gray-300">
-                  <span className="text-gray-500 block uppercase font-bold">Nodal Officer</span>
+                <div className="text-[10px] text-ink-2">
+                  <span className="text-ink-3 block uppercase font-bold">Nodal Officer</span>
                   {activePopup.nodal_officer_designation}
                 </div>
               )}
@@ -206,7 +206,7 @@ export default function CyberCellMap({
                 <div className="pt-1">
                   <a
                     href={`tel:${activePopup.landline_number}`}
-                    className="inline-flex items-center gap-1 text-amber-400 font-mono font-bold hover:underline"
+                    className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400 font-mono font-bold hover:underline"
                   >
                     <PhoneCall className="w-3 h-3" />
                     {activePopup.landline_number}
@@ -214,12 +214,12 @@ export default function CyberCellMap({
                 </div>
               )}
 
-              <div className="pt-2 border-t border-white/10 flex items-center justify-between">
+              <div className="pt-2 border-t border-line flex items-center justify-between">
                 <a
                   href={activePopup.source_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-[10px] text-gray-400 hover:text-white flex items-center gap-1"
+                  className="text-[10px] text-ink-3 hover:text-ink flex items-center gap-1"
                 >
                   Govt Source <ExternalLink className="w-2.5 h-2.5" />
                 </a>
@@ -240,14 +240,14 @@ export default function CyberCellMap({
       </Map>
 
       {/* Map Legend Overlay */}
-      <div className="absolute bottom-3 left-3 z-10 bg-black/80 backdrop-blur-md px-3 py-2 rounded-xl border border-white/10 flex items-center gap-3 text-[11px] text-gray-300 shadow-lg">
+      <div className="absolute bottom-3 left-3 z-10 bg-surface/90 backdrop-blur-md px-3 py-2 rounded-xl border border-line flex items-center gap-3 text-[11px] text-ink-2 shadow-lg">
         <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded bg-amber-500 border border-white/40" />
+          <div className="w-3 h-3 rounded bg-amber-500 border border-line" />
           <span>Cyber Police Station</span>
         </div>
         {userLocation && (
           <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded-full bg-blue-500 border border-white" />
+            <div className="w-3 h-3 rounded-full bg-blue-500 border border-line" />
             <span>Your Location</span>
           </div>
         )}

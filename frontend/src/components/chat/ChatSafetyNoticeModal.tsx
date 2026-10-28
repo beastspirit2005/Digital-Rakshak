@@ -24,7 +24,7 @@ export function ChatSafetyNoticeModal({
   onConsentGiven,
   onCancel,
 }: ChatSafetyNoticeModalProps) {
-  const { token, updateUser } = useAuthStore();
+  const { token } = useAuthStore();
   const [agreed, setAgreed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -61,53 +61,53 @@ export function ChatSafetyNoticeModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-      <div className="bg-[#0e1320] border border-amber-500/30 rounded-2xl max-w-xl w-full p-6 sm:p-7 space-y-5 shadow-2xl relative">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/70 backdrop-blur-sm">
+      <div className="bg-surface border border-amber-500/40 rounded-2xl max-w-xl w-full p-6 sm:p-7 space-y-5 shadow-2xl relative text-ink">
         {/* Header */}
         <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-xl bg-amber-500/15 border border-amber-500/40 flex items-center justify-center shrink-0">
-            <ShieldAlert className="w-6 h-6 text-amber-400" />
+          <div className="w-11 h-11 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center shrink-0">
+            <ShieldAlert className="w-6 h-6 text-amber-500" />
           </div>
           <div>
-            <h2 className="text-lg sm:text-xl font-extrabold text-white">
+            <h2 className="text-lg sm:text-xl font-extrabold text-ink">
               Chat Safety & Evidence Monitoring Notice
             </h2>
-            <p className="text-xs text-amber-300 font-semibold">
+            <p className="text-xs text-amber-600 dark:text-amber-300 font-semibold">
               Mandatory transparency disclosure before messaging
             </p>
           </div>
         </div>
 
         {/* Core Transparency Points */}
-        <div className="space-y-3 text-xs text-gray-300 bg-white/5 p-4 rounded-xl border border-white/5">
+        <div className="space-y-3 text-xs text-ink-2 bg-surface-2 p-4 rounded-xl border border-line">
           <div className="flex items-start gap-2.5">
-            <Lock className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+            <Lock className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
             <div>
-              <strong className="text-white block">Hard Credential Protection</strong>
+              <strong className="text-ink block">Hard Credential Protection</strong>
               Never share passwords, OTPs, UPI PINs, or card CVVs. Delivery of any authentication secret is automatically blocked.
             </div>
           </div>
 
           <div className="flex items-start gap-2.5">
-            <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+            <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
             <div>
-              <strong className="text-white block">No Recovery Fees or Demands</strong>
+              <strong className="text-ink block">No Recovery Fees or Demands</strong>
               Official police and verified investigators NEVER demand registration fees, advance charges, or bribes. Any fee request will be flagged as a fraud attempt.
             </div>
           </div>
 
           <div className="flex items-start gap-2.5">
-            <Scale className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
+            <Scale className="w-4 h-4 text-sky-500 shrink-0 mt-0.5" />
             <div>
-              <strong className="text-white block">Equal Accountability & Contextual Preservation</strong>
+              <strong className="text-ink block">Equal Accountability & Contextual Preservation</strong>
               Both citizens and investigators can report misconduct. When reported, surrounding messages are snapshot into an immutable evidence package locked with SHA-256 digests.
             </div>
           </div>
 
           <div className="flex items-start gap-2.5">
-            <FileCheck2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+            <FileCheck2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
             <div>
-              <strong className="text-white block">Evidentiary Compliance (BSA 2023)</strong>
+              <strong className="text-ink block">Evidentiary Compliance (BSA 2023)</strong>
               Preserved digital records adhere to Sections 61–63 of the Bharatiya Sakshya Adhiniyam, 2023 for legal and judicial proceedings.
             </div>
           </div>
@@ -119,15 +119,15 @@ export function ChatSafetyNoticeModal({
             type="checkbox"
             checked={agreed}
             onChange={(e) => setAgreed(e.target.checked)}
-            className="mt-0.5 w-4 h-4 rounded border-gray-600 text-amber-500 focus:ring-amber-500 bg-[#161c2e]"
+            className="mt-0.5 w-4 h-4 rounded border-line text-amber-500 focus:ring-amber-500 bg-surface-2"
           />
-          <span className="text-xs text-gray-300 leading-relaxed">
+          <span className="text-xs text-ink-2 leading-relaxed">
             I have read and agree to the Chat Transparency Terms. I understand that messages are scanned for security, and misconduct evidence is cryptographically preserved.
           </span>
         </label>
 
         {error && (
-          <p className="text-xs text-red-400 font-semibold">{error}</p>
+          <p className="text-xs text-rose-500 font-semibold">{error}</p>
         )}
 
         {/* Actions */}
@@ -135,7 +135,7 @@ export function ChatSafetyNoticeModal({
           {onCancel && (
             <button
               onClick={onCancel}
-              className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 text-xs font-semibold transition"
+              className="px-4 py-2 rounded-lg bg-surface-2 hover:bg-surface-3 text-ink-2 text-xs font-semibold transition"
             >
               Cancel
             </button>

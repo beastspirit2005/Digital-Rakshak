@@ -26,7 +26,7 @@ async def get_current_user(
     db: AsyncSession = Depends(get_db)
 ):
     if not token:
-        token = request.query_params.get("token") or request.cookies.get("access_token")
+        token = request.cookies.get("access_token")
     if not token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
 
@@ -58,7 +58,7 @@ async def get_current_user_allow_unapproved(
     db: AsyncSession = Depends(get_db)
 ):
     if not token:
-        token = request.query_params.get("token") or request.cookies.get("access_token")
+        token = request.cookies.get("access_token")
     if not token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
 

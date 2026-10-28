@@ -47,6 +47,15 @@ def _run_migrations_sync():
 async def lifespan(app: FastAPI):
     loop = asyncio.get_event_loop()
     await loop.run_in_executor(None, _run_migrations_sync)
+
+    try:
+        from domain.models.notification import Notification
+        from infrastructure.db.session import engine, Base
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        logger.info("Database models verified and synchronized.")
+    except Exception as e:
+        logger.warning(f"Model sync note: {e}")
     
     if getattr(settings, "STREAM_CONSUMER_ENABLED", False):
         from runtime.stream_consumer import StreamConsumer
@@ -59,6 +68,11 @@ async def lifespan(app: FastAPI):
         from runtime.supabase_keepalive import supabase_keepalive
         asyncio.create_task(supabase_keepalive.start_daemon(interval_seconds=43200))
         logger.info("Supabase keep-alive anti-pause daemon registered.")
+
+    # Start Proactive SLA Overdue Monitor Daemon (runs every hour)
+    from runtime.sla_monitor_daemon import sla_monitor_daemon
+    asyncio.create_task(sla_monitor_daemon.start_daemon(interval_seconds=3600))
+    logger.info("Proactive SLA Overdue Monitor Daemon registered.")
 
     yield
 
@@ -196,6 +210,25 @@ class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
                 pass
         return await call_next(request)
 
+
+class EnterpriseSecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """
+    Enterprise-Grade Security Perimeter:
+    Enforces defence-in-depth HTTP security headers across all API routes.
+    Prevents Clickjacking, MIME sniffing, XSS, and unauthorized peripheral access.
+    """
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "geolocation=(self), camera=(), microphone=()"
+        return response
+
+
+app.add_middleware(EnterpriseSecurityHeadersMiddleware)
 app.add_middleware(RequestSizeLimitMiddleware, max_upload_size=30 * 1024 * 1024)
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
@@ -240,6 +273,7 @@ from api.v1.locations import router as locations_router
 from api.v1.chat_safety import router as chat_safety_router
 from api.v1.admin_disputes import router as admin_disputes_router
 from api.v1.police_proximity import router as police_proximity_router
+from api.v1.notifications import router as notifications_router
 
 app.include_router(auth_router, prefix=f"{settings.API_V1_STR}/auth", tags=["auth"])
 app.include_router(users_router, prefix=f"{settings.API_V1_STR}/users", tags=["users"])
@@ -269,6 +303,7 @@ app.include_router(locations_router, prefix=f"{settings.API_V1_STR}")
 app.include_router(chat_safety_router, prefix=f"{settings.API_V1_STR}")
 app.include_router(admin_disputes_router, prefix=f"{settings.API_V1_STR}")
 app.include_router(police_proximity_router, prefix=f"{settings.API_V1_STR}")
+app.include_router(notifications_router, prefix=f"{settings.API_V1_STR}")
 
 
 

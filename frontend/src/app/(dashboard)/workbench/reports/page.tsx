@@ -1,10 +1,11 @@
 "use client";
 
 import { api } from "@/lib/api";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { useAuthStore } from "@/lib/auth-store";
 import axios from "axios";
-import { Search, FileText, ChevronDown, ChevronUp, Send, MessageSquare } from "lucide-react";
+import { Search, FileText, ChevronDown, ChevronUp, Send, MessageSquare, Compass, Radio, AlertTriangle, BellRing, CheckCircle2, Download } from "lucide-react";
 import { CaseChatPanel } from "@/components/chat/CaseChatPanel";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -17,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { ZtivfMeters } from "@/components/ztivf-meters";
 import { useToast } from "@/components/ui/toast";
 import { CaseActivityTimeline } from "@/components/case/CaseActivityTimeline";
+import { CaseStepper } from "@/components/case/CaseStepper";
 import { LoadingOverlay } from "@/components/ui/loading-overlay";
 
 function CaseDetail({
@@ -33,6 +35,8 @@ function CaseDetail({
   onUndertake,
   onCompleteInvestigation,
   token,
+  isNudged,
+  onRefresh,
 }: {
   c: any;
   chatQuery: string;
@@ -47,36 +51,36 @@ function CaseDetail({
   onUndertake?: (caseId: string) => void;
   onCompleteInvestigation?: (caseId: string, formData: FormData) => void;
   token: string | null;
+  isNudged?: boolean;
+  onRefresh?: () => void;
 }) {
   const [selectedInv, setSelectedInv] = useState("");
-  const [evidenceUrl, setEvidenceUrl] = useState<string | null>(null);
   const [osintFlags, setOsintFlags] = useState<any[] | null>(null);
   const [scanningOsint, setScanningOsint] = useState(false);
   const [remark, setRemark] = useState("");
   const [attachment, setAttachment] = useState<File | null>(null);
   const [showVictimChat, setShowVictimChat] = useState(false);
+  const [progressRemark, setProgressRemark] = useState("");
+  const [submittingRemark, setSubmittingRemark] = useState(false);
   const pushToast = useToast();
-  
-  const loadEvidence = async () => {
+
+  const handleProgressRemarkSubmit = async () => {
+    if (!progressRemark.trim()) return;
+    setSubmittingRemark(true);
     try {
-      const res = await axios.get(api(`/cases/${c.case_number}/evidence`), {
-        headers: { Authorization: `Bearer ${token}` },
-        responseType: 'blob'
-      });
-      // Check if the response is JSON (contains a signed URL) or a raw blob
-      const contentType = String(res.headers['content-type'] || '');
-      if (contentType.includes('application/json')) {
-        const text = await res.data.text();
-        const json = JSON.parse(text);
-        if (json.url) {
-          setEvidenceUrl(json.url);
-          return;
-        }
-      }
-      const url = window.URL.createObjectURL(res.data);
-      setEvidenceUrl(url);
-    } catch (err) {
-      pushToast("danger", "No evidence found or failed to load.");
+      await axios.post(
+        api(`/cases/${c.case_number}/progress-remark`),
+        { remark: progressRemark.trim() },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      pushToast("success", "Evidentiary progress update logged and transmitted to Administrator.");
+      setProgressRemark("");
+      onRefresh?.();
+    } catch (err: any) {
+      console.error("Failed to submit progress remark", err);
+      pushToast("danger", err?.response?.data?.detail || "Failed to log progress remark");
+    } finally {
+      setSubmittingRemark(false);
     }
   };
 
@@ -124,6 +128,68 @@ function CaseDetail({
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 p-4 sm:p-6 relative">
+      {/* Priority Admin Investigation Inquiry Banner */}
+      {(c.is_nudged || isNudged) && (
+        <div className="lg:col-span-3 p-4 rounded-xl border border-rose-500/50 bg-gradient-to-r from-rose-500/15 via-rose-500/10 to-amber-500/10 shadow-lg animate-in fade-in duration-300">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <div className="p-2.5 rounded-lg bg-rose-500/20 text-rose-500 mt-0.5 shrink-0">
+                <AlertTriangle className="w-5 h-5 animate-bounce" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h4 className="text-sm font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wider flex items-center gap-1.5">
+                    Priority Admin Investigation Inquiry
+                  </h4>
+                  <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-500 border border-rose-500/40">
+                    SLA SUPERVISION ACTIVE
+                  </span>
+                </div>
+                <p className="text-xs text-ink-2 mt-1 leading-relaxed">
+                  Platform Administrator requested an expedited progress update and evidentiary submission for this case under priority SLA supervision.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Button
+                size="sm"
+                variant="secondary"
+                className="text-xs border-sky-500/30 text-sky-400 hover:bg-sky-500/15"
+                onClick={() => setShowVictimChat(true)}
+              >
+                <MessageSquare className="w-3.5 h-3.5 mr-1" />
+                Case Chat
+              </Button>
+            </div>
+          </div>
+
+          {/* Quick Evidentiary Remark Input to answer Admin & resolve inquiry */}
+          <div className="mt-3 pt-3 border-t border-rose-500/20 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+            <input
+              type="text"
+              placeholder="Enter evidentiary progress update to answer administrator..."
+              value={progressRemark}
+              onChange={(e) => setProgressRemark(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleProgressRemarkSubmit();
+                }
+              }}
+              className="flex-1 h-9 px-3 rounded-control text-xs bg-surface border border-rose-500/30 text-ink placeholder:text-ink-3 focus:outline-none focus:border-rose-400"
+            />
+            <Button
+              size="sm"
+              variant="primary"
+              disabled={submittingRemark || !progressRemark.trim()}
+              onClick={handleProgressRemarkSubmit}
+              className="bg-rose-600 hover:bg-rose-500 text-white text-xs h-9 font-medium shrink-0"
+            >
+              {submittingRemark ? "Submitting..." : "Submit Remark & Resolve Nudge"}
+            </Button>
+          </div>
+        </div>
+      )}
       <LoadingOverlay
         open={scanningOsint}
         variant="cyber"
@@ -138,7 +204,65 @@ function CaseDetail({
           "Synthesizing threat intelligence flags..."
         ]}
       />
+      <div className="col-span-full pb-2">
+        <CaseStepper status={c.status} />
+      </div>
+
       <div className="lg:col-span-2 space-y-4">
+        {/* If investigation is completed, show the official concluded card */}
+        {(c.status === "investigation_completed" || c.investigation_findings) && (
+          <div className="p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 dark:bg-emerald-950/20 space-y-3">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0">
+                <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-ink flex items-center gap-2">
+                  <span>Investigation Concluded & Docket Filed</span>
+                  <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-emerald-500 text-white font-semibold">
+                    Submitted
+                  </span>
+                </h4>
+                <p className="text-xs text-ink-3">
+                  Investigated by: <strong className="text-ink">{c.investigated_by || "Assigned Officer"}</strong>
+                  {c.investigation_completed_at && (
+                    <span> • {new Date(c.investigation_completed_at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}</span>
+                  )}
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 mb-1">
+                Submitted Findings & Evidence Summary:
+              </p>
+              <p className="text-sm text-ink whitespace-pre-wrap leading-relaxed bg-surface/70 p-3 rounded-lg border border-line">
+                {c.investigation_findings || "Findings submitted successfully."}
+              </p>
+            </div>
+
+            {c.investigation_attachment && (
+              <div className="flex items-center justify-between p-2.5 bg-surface rounded-lg border border-line">
+                <div className="flex items-center gap-2 truncate">
+                  <FileText className="w-4 h-4 text-accent shrink-0" />
+                  <span className="text-xs font-mono text-ink truncate">
+                    Attached Evidence: {c.investigation_attachment.split("/").pop()}
+                  </span>
+                </div>
+                <a
+                  href={c.investigation_attachment}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-accent font-semibold hover:underline shrink-0"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  Download
+                </a>
+              </div>
+            )}
+          </div>
+        )}
+
         <Inset className="p-4">
           <p className="text-xs text-ink-3 mb-2">Original report</p>
           <p className="text-sm text-ink whitespace-pre-wrap leading-relaxed">{c.scam_text}</p>
@@ -165,7 +289,6 @@ function CaseDetail({
         )}
         
         <div className="pt-2 flex flex-wrap gap-2">
-           <Button variant="secondary" size="sm" onClick={loadEvidence}>View Attached Evidence</Button>
            <Button variant="secondary" size="sm" onClick={downloadDossierPdf} className="border-warning/40 text-warning hover:bg-warning/10">
              Download FIR Dossier PDF
            </Button>
@@ -173,12 +296,6 @@ function CaseDetail({
              Scan OSINT Flags
            </Button>
         </div>
-        
-        {evidenceUrl && (
-          <div className="mt-4">
-            <a href={evidenceUrl} target="_blank" rel="noreferrer" className="text-accent-text text-sm underline">Open Evidence File</a>
-          </div>
-        )}
 
         {osintFlags && osintFlags.length > 0 && (
           <div className="mt-4 p-4 border border-red-500/30 bg-red-500/5 rounded-md">
@@ -257,19 +374,25 @@ function CaseDetail({
             </div>
           )}
           {(userRole === "police" || userRole === "cyber_cell") && c.status === "assigned" && (
-             <Button variant="primary" className="w-full" onClick={() => onAccept?.(c.case_number)}>
-                Accept Case for Investigation
-             </Button>
+             <div className="space-y-2">
+               <Button variant="primary" className="w-full" onClick={() => onAccept?.(c.case_number)}>
+                  Accept Case for Investigation
+               </Button>
+             </div>
           )}
           {(userRole === "police" || userRole === "cyber_cell") && (c.status === "submitted" || c.status === "under_review" || c.status === "escalated") && (
              <Button variant="primary" className="w-full" onClick={() => onUndertake?.(c.case_number)}>
                 Undertake Case
              </Button>
           )}
-          {(userRole === "police" || userRole === "cyber_cell") && c.status === "investigating" && (
-             <div className="space-y-3">
+          {(userRole === "police" || userRole === "cyber_cell") && (c.status === "investigating" || c.status === "assigned") && (
+             <div className="space-y-3 pt-2 border-t border-line/40">
+               <div className="flex items-center justify-between">
+                 <p className="text-[11px] font-bold text-ink">Submit Final Investigation Findings:</p>
+                 <span className="text-[10px] text-ink-3">Docket Entry</span>
+               </div>
                <textarea 
-                 placeholder="Investigation remarks (required)..." 
+                 placeholder="Enter detailed investigation findings, recovered assets, frozen accounts, or actions taken..." 
                  value={remark} 
                  onChange={(e) => setRemark(e.target.value)}
                  className="w-full text-sm p-2 rounded-control bg-surface-2 border border-line text-ink resize-none h-20"
@@ -282,7 +405,7 @@ function CaseDetail({
                <Button 
                  size="sm" 
                  variant="primary" 
-                 className="w-full bg-success hover:bg-success/90" 
+                 className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold" 
                  disabled={!remark.trim()}
                  onClick={() => {
                    const fd = new FormData();
@@ -291,9 +414,15 @@ function CaseDetail({
                    onCompleteInvestigation?.(c.case_number, fd);
                  }}
                >
-                  Complete Investigation
+                  Complete Investigation & Submit Docket
                </Button>
              </div>
+          )}
+          {c.status === "investigation_completed" && (
+            <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-500" />
+              <span>Investigation complete. Final findings submitted to Admin & Complainant.</span>
+            </div>
           )}
           {userRole !== "admin" && userRole !== "police" && userRole !== "cyber_cell" && (
              <p className="text-xs text-ink-3">No actions available.</p>
@@ -312,6 +441,19 @@ function CaseDetail({
             </Button>
           </div>
         </Inset>
+
+        {c.assignment_source === "map_radar_claim" && (
+          <Inset className="p-4 bg-accent/5 border border-accent/25">
+            <div className="flex items-center gap-2 text-xs font-bold text-accent mb-1">
+              <Compass className="w-4 h-4" />
+              <span>Origin: Self-Claimed via Tactical Map Radar</span>
+            </div>
+            <p className="text-xs text-ink-2 leading-relaxed">
+              This case was undertaken by you directly from the Proximity Radar. Victim identity was unmasked and direct monitored chat was enabled upon claim.
+              {c.claimed_at && ` Claim recorded on ${new Date(c.claimed_at).toLocaleString('en-IN')}.`}
+            </p>
+          </Inset>
+        )}
 
         {c.timeline_events && c.timeline_events.length > 0 && (
           <Inset className="p-4">
@@ -378,10 +520,14 @@ function CaseDetail({
   );
 }
 
-export default function ReportsRegisterPage() {
-const [cases, setCases] = useState<any[]>([]);
-const [loading, setLoading] = useState(true);
-const [error, setError] = useState("");
+function ReportsRegisterContent() {
+  const searchParams = useSearchParams();
+  const targetCaseNum = searchParams.get("case");
+  const targetAction = searchParams.get("action");
+
+  const [cases, setCases] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [chatQuery, setChatQuery] = useState("");
@@ -519,12 +665,29 @@ useEffect(() => {
   };
 
   const visibleCases = useMemo(() => {
-    let result = cases;
+    let result = [...cases];
     if (activeTab === "assigned") {
       result = result.filter((c) => c.assigned_to === user?.id || c.assigned_phone === user?.station_phone_number);
     } else if (activeTab === "unassigned") {
       result = result.filter((c) => !c.assigned_to && !c.assigned_phone);
     }
+
+    // Automatically shift urgent nudged cases and recently claimed map radar cases to the very top!
+    result.sort((a, b) => {
+      const aNudged = Boolean(a.is_nudged || (targetCaseNum && a.case_number === targetCaseNum));
+      const bNudged = Boolean(b.is_nudged || (targetCaseNum && b.case_number === targetCaseNum));
+      if (aNudged && !bNudged) return -1;
+      if (!aNudged && bNudged) return 1;
+
+      const aClaimed = a.assignment_source === "map_radar_claim" || a.is_claimed_recently;
+      const bClaimed = b.assignment_source === "map_radar_claim" || b.is_claimed_recently;
+      if (aClaimed && !bClaimed) return -1;
+      if (!aClaimed && bClaimed) return 1;
+      const aTime = new Date(a.claimed_at || a.created_at || 0).getTime();
+      const bTime = new Date(b.claimed_at || b.created_at || 0).getTime();
+      return bTime - aTime;
+    });
+
     const q = search.trim().toLowerCase();
     if (!q) return result;
     return result.filter(
@@ -534,7 +697,31 @@ useEffect(() => {
         (c.city || "").toLowerCase().includes(q) ||
         (c.scam_text || "").toLowerCase().includes(q)
     );
-  }, [cases, search, activeTab, user]);
+  }, [cases, search, activeTab, user, targetCaseNum]);
+
+  // Auto-Tab Switch, Auto-Expand, and Auto-Scroll on Deep Link
+  useEffect(() => {
+    if (!targetCaseNum || cases.length === 0) return;
+
+    const matched = cases.find(
+      (c) => c.case_number === targetCaseNum || c.id === targetCaseNum
+    );
+    if (matched) {
+      if (matched.assigned_to) {
+        setActiveTab("assigned");
+      } else {
+        setActiveTab("unassigned");
+      }
+      setExpandedId(matched.id);
+
+      setTimeout(() => {
+        const el = document.getElementById(`case-row-${matched.case_number}`);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 350);
+    }
+  }, [targetCaseNum, cases]);
 
   const toggleExpanded = (id: string) => {
     setExpandedId(expandedId === id ? null : id);
@@ -648,136 +835,198 @@ useEffect(() => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-line">
-                  {visibleCases.map((c) => (
-                    <React.Fragment key={c.id}>
-                      <tr
-                        className={cn(
-                          "cursor-pointer transition-colors duration-150 hover:bg-surface-2/60",
-                          expandedId === c.id && "bg-surface-2/60"
-                        )}
-                        onClick={() => toggleExpanded(c.id)}
-                      >
-                        <td className="px-6 py-4 font-medium text-ink tabular">{c.case_number}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-ink-2">
-                          {new Date(c.created_at.endsWith("Z") || c.created_at.includes("+") ? c.created_at : c.created_at + "Z").toLocaleString("en-IN", {
-                            dateStyle: "short",
-                            timeStyle: "short",
-                          })}
-                        </td>
-                        <td className="px-6 py-4 capitalize">
-                          {(c.scam_type_code || "Unknown").replace(/_/g, " ")}
-                        </td>
-                        <td className="px-6 py-4 text-ink-2">
-                          {c.city ? `${c.city}${c.state ? `, ${c.state}` : ""}` : "Unknown"}
-                        </td>
-                        <td className="px-6 py-4 text-right font-medium tabular">
-                          {c.threat_confidence_score != null ? `${(c.threat_confidence_score * 100).toFixed(1)}%` : "N/A"}
-                        </td>
-                        <td className="px-6 py-4">
-                          <PriorityBadge priority={c.priority} />
-                        </td>
-                        <td className="px-6 py-4">
-                          <StatusBadge status={c.status} />
-                        </td>
-                        <td className="px-6 py-4 text-right text-ink-3">
-                          {expandedId === c.id ? (
-                            <ChevronUp className="w-4 h-4 inline" />
-                          ) : (
-                            <ChevronDown className="w-4 h-4 inline" />
+                  {visibleCases.map((c) => {
+                    const isNudgedOrTargeted = Boolean(
+                      c.is_nudged || (targetCaseNum && c.case_number === targetCaseNum)
+                    );
+                    return (
+                      <React.Fragment key={c.id}>
+                        <tr
+                          id={`case-row-${c.case_number}`}
+                          className={cn(
+                            "cursor-pointer transition-all duration-200 hover:bg-surface-2/60",
+                            expandedId === c.id && "bg-surface-2/60",
+                            isNudgedOrTargeted &&
+                              "ring-2 ring-rose-500 bg-rose-500/10 shadow-[0_0_24px_rgba(244,63,94,0.35)] border-rose-500/60"
                           )}
-                        </td>
-                      </tr>
-                      <AnimatePresence initial={false}>
-                        {expandedId === c.id && (
-                          <tr>
-                            <td colSpan={8} className="p-0">
-                              <motion.div
-                                initial={reduced ? { opacity: 0 } : { height: 0, opacity: 0 }}
-                                animate={reduced ? { opacity: 1 } : { height: "auto", opacity: 1 }}
-                                exit={reduced ? { opacity: 0 } : { height: 0, opacity: 0 }}
-                                transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-                                className="overflow-hidden bg-bg/50"
-                              >
-                                <CaseDetail
-                                  c={c}
-                                  chatQuery={chatQuery}
-                                  setChatQuery={setChatQuery}
-                                  chatHistory={chatHistory}
-                                  chatLoading={chatLoading}
-                                  onChatSubmit={(e) => handleChatSubmit(e, c.id)}
-                                  userRole={user?.role || ""}
-                                  investigators={investigators}
-                                  onAssign={handleAssign}
-                                  onAccept={handleAccept}
-                                  onUndertake={handleUndertake}
-                                  onCompleteInvestigation={handleCompleteInvestigation}
-                                  token={token}
-                                />
-                              </motion.div>
-                            </td>
-                          </tr>
-                        )}
-                      </AnimatePresence>
-                    </React.Fragment>
-                  ))}
+                          onClick={() => toggleExpanded(c.id)}
+                        >
+                          <td className="px-6 py-4 font-medium text-ink tabular">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span>{c.case_number}</span>
+                              {isNudgedOrTargeted && (
+                                <span className="inline-flex items-center gap-1.5 text-[10px] font-black px-2 py-0.5 rounded-full bg-rose-600 text-white shadow-xs animate-pulse tracking-wide">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+                                  <BellRing className="w-3 h-3" />
+                                  <span>Admin Inquiry • Action Required</span>
+                                </span>
+                              )}
+                              {(c.assignment_source === "map_radar_claim" || c.is_claimed_recently) && (
+                                <span
+                                  className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-500/15 text-accent border border-accent/30 shadow-xs"
+                                  title={`Claimed directly from Proximity Radar ${c.claimed_at ? new Date(c.claimed_at).toLocaleTimeString() : ''}`}
+                                >
+                                  <Compass className="w-3 h-3 text-accent" />
+                                  <span>Map Claimed</span>
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-ink-2">
+                            {new Date(c.created_at.endsWith("Z") || c.created_at.includes("+") ? c.created_at : c.created_at + "Z").toLocaleString("en-IN", {
+                              dateStyle: "short",
+                              timeStyle: "short",
+                            })}
+                          </td>
+                          <td className="px-6 py-4 capitalize">
+                            {(c.scam_type_code || "Unknown").replace(/_/g, " ")}
+                          </td>
+                          <td className="px-6 py-4 text-ink-2">
+                            {c.city ? `${c.city}${c.state ? `, ${c.state}` : ""}` : "Unknown"}
+                          </td>
+                          <td className="px-6 py-4 text-right font-medium tabular">
+                            {c.threat_confidence_score != null ? `${(c.threat_confidence_score * 100).toFixed(1)}%` : "N/A"}
+                          </td>
+                          <td className="px-6 py-4">
+                            <PriorityBadge priority={c.priority} />
+                          </td>
+                          <td className="px-6 py-4">
+                            <StatusBadge status={c.status} />
+                          </td>
+                          <td className="px-6 py-4 text-right text-ink-3">
+                            {expandedId === c.id ? (
+                              <ChevronUp className="w-4 h-4 inline" />
+                            ) : (
+                              <ChevronDown className="w-4 h-4 inline" />
+                            )}
+                          </td>
+                        </tr>
+                        <AnimatePresence initial={false}>
+                          {expandedId === c.id && (
+                            <tr>
+                              <td colSpan={8} className="p-0">
+                                <motion.div
+                                  initial={reduced ? { opacity: 0 } : { height: 0, opacity: 0 }}
+                                  animate={reduced ? { opacity: 1 } : { height: "auto", opacity: 1 }}
+                                  exit={reduced ? { opacity: 0 } : { height: 0, opacity: 0 }}
+                                  transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+                                  className="overflow-hidden bg-bg/50"
+                                >
+                                  <CaseDetail
+                                    c={c}
+                                    chatQuery={chatQuery}
+                                    setChatQuery={setChatQuery}
+                                    chatHistory={chatHistory}
+                                    chatLoading={chatLoading}
+                                    onChatSubmit={(e) => handleChatSubmit(e, c.id)}
+                                    userRole={user?.role || ""}
+                                    investigators={investigators}
+                                    onAssign={handleAssign}
+                                    onAccept={handleAccept}
+                                    onUndertake={handleUndertake}
+                                    onCompleteInvestigation={handleCompleteInvestigation}
+                                    token={token}
+                                    isNudged={isNudgedOrTargeted}
+                                    onRefresh={fetchAllCases}
+                                  />
+                                </motion.div>
+                              </td>
+                            </tr>
+                          )}
+                        </AnimatePresence>
+                      </React.Fragment>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
 
             {/* mobile / tablet cards */}
             <ul className="lg:hidden divide-y divide-line">
-              {visibleCases.map((c) => (
-                <li key={c.id}>
-                  <button
-                    className="w-full text-left px-4 py-4 active:bg-surface-2/60"
-                    onClick={() => toggleExpanded(c.id)}
-                  >
-                    <div className="flex items-center justify-between gap-3 mb-2">
-                      <span className="font-medium text-ink tabular text-sm">{c.case_number}</span>
-                      <StatusBadge status={c.status} />
-                    </div>
-                    <div className="flex items-center justify-between gap-3 text-sm">
-                      <span className="text-ink-2 capitalize">
-                        {(c.scam_type_code || "Unknown").replace(/_/g, " ")}
-                        {c.city ? ` · ${c.city}` : ""}
-                      </span>
-                      <span className="text-ink font-medium tabular">
-                        {(c.threat_confidence_score * 100).toFixed(0)}%
-                      </span>
-                    </div>
-                  </button>
-                  <AnimatePresence initial={false}>
-                    {expandedId === c.id && (
-                      <motion.div
-                        initial={reduced ? { opacity: 0 } : { height: 0, opacity: 0 }}
-                        animate={reduced ? { opacity: 1 } : { height: "auto", opacity: 1 }}
-                        exit={reduced ? { opacity: 0 } : { height: 0, opacity: 0 }}
-                        transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-                        className="overflow-hidden bg-bg/50"
-                      >
-                        <CaseDetail
-                          c={c}
-                          chatQuery={chatQuery}
-                          setChatQuery={setChatQuery}
-                          chatHistory={chatHistory}
-                          chatLoading={chatLoading}
-                          onChatSubmit={(e) => handleChatSubmit(e, c.id)}
-                          userRole={user?.role || ""}
-                          investigators={investigators}
-                          onAssign={handleAssign}
-                          onAccept={handleAccept}
-                          onUndertake={handleUndertake}
-                          token={token}
-                        />
-                      </motion.div>
+              {visibleCases.map((c) => {
+                const isNudgedOrTargeted = Boolean(
+                  c.is_nudged || (targetCaseNum && c.case_number === targetCaseNum)
+                );
+                return (
+                  <li
+                    key={c.id}
+                    id={`case-row-mobile-${c.case_number}`}
+                    className={cn(
+                      "transition-all duration-200",
+                      isNudgedOrTargeted &&
+                        "ring-2 ring-rose-500 bg-rose-500/10 shadow-[0_0_20px_rgba(244,63,94,0.25)] rounded-xl my-2"
                     )}
-                  </AnimatePresence>
-                </li>
-              ))}
+                  >
+                    <button
+                      className="w-full text-left px-4 py-4 active:bg-surface-2/60"
+                      onClick={() => toggleExpanded(c.id)}
+                    >
+                      <div className="flex items-center justify-between gap-3 mb-2 flex-wrap">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-ink tabular text-sm">{c.case_number}</span>
+                          {isNudgedOrTargeted && (
+                            <span className="inline-flex items-center gap-1 text-[9px] font-black px-2 py-0.5 rounded-full bg-rose-600 text-white animate-pulse">
+                              <BellRing className="w-2.5 h-2.5" />
+                              <span>Action Required</span>
+                            </span>
+                          )}
+                        </div>
+                        <StatusBadge status={c.status} />
+                      </div>
+                      <div className="flex items-center justify-between gap-3 text-sm">
+                        <span className="text-ink-2 capitalize">
+                          {(c.scam_type_code || "Unknown").replace(/_/g, " ")}
+                          {c.city ? ` · ${c.city}` : ""}
+                        </span>
+                        <span className="text-ink font-medium tabular">
+                          {c.threat_confidence_score != null ? `${(c.threat_confidence_score * 100).toFixed(0)}%` : "N/A"}
+                        </span>
+                      </div>
+                    </button>
+                    <AnimatePresence initial={false}>
+                      {expandedId === c.id && (
+                        <motion.div
+                          initial={reduced ? { opacity: 0 } : { height: 0, opacity: 0 }}
+                          animate={reduced ? { opacity: 1 } : { height: "auto", opacity: 1 }}
+                          exit={reduced ? { opacity: 0 } : { height: 0, opacity: 0 }}
+                          transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+                          className="overflow-hidden bg-bg/50"
+                        >
+                          <CaseDetail
+                            c={c}
+                            chatQuery={chatQuery}
+                            setChatQuery={setChatQuery}
+                            chatHistory={chatHistory}
+                            chatLoading={chatLoading}
+                            onChatSubmit={(e) => handleChatSubmit(e, c.id)}
+                            userRole={user?.role || ""}
+                            investigators={investigators}
+                            onAssign={handleAssign}
+                            onAccept={handleAccept}
+                            onUndertake={handleUndertake}
+                            onCompleteInvestigation={handleCompleteInvestigation}
+                            token={token}
+                            isNudged={isNudgedOrTargeted}
+                            onRefresh={fetchAllCases}
+                          />
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </li>
+                );
+              })}
             </ul>
           </>
         )}
       </Card>
     </div>
+  );
+}
+
+export default function ReportsRegisterPage() {
+  return (
+    <Suspense fallback={<TableSkeleton rows={8} />}>
+      <ReportsRegisterContent />
+    </Suspense>
   );
 }

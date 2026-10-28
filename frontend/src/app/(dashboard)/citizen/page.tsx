@@ -1,8 +1,10 @@
 "use client";
 
 import { api } from "@/lib/api";
+import { cn } from "@/lib/utils";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import axios from "axios";
@@ -22,9 +24,11 @@ import {
   Building,
   ExternalLink,
   ShieldCheck,
+  Sparkles,
 } from "lucide-react";
 import { CaseChatPanel } from "@/components/chat/CaseChatPanel";
 import { OfficialLocationItem } from "@/components/map/cyber-cell-map";
+import { CaseStepper } from "@/components/case/CaseStepper";
 
 const CyberCellMap = dynamic(
   () => import("@/components/map/cyber-cell-map"),
@@ -60,56 +64,17 @@ interface Case {
   status: string;
   assigned_phone?: string;
   timeline_events?: any[];
+  investigation_findings?: string;
+  investigation_attachment?: string;
+  investigation_completed_at?: string;
+  investigated_by?: string;
 }
 
 const normalizeStatus = (status: string) => (status || "").toLowerCase().replace(/_/g, " ");
 
-function CaseStepper({ status }: { status: string }) {
-  const s = normalizeStatus(status);
-  const steps = ["submitted", "assigned", "investigating", "investigation completed", "resolved"];
-  const currentIndex = steps.indexOf(s);
-  
-  return (
-    <div className="flex items-center gap-2 mt-4 text-xs font-medium">
-      {steps.map((step, idx) => {
-        const isActive = idx <= currentIndex;
-        const isResolvedStep = step === "resolved" && isActive;
-        
-        return (
-          <div key={step} className="flex items-center gap-2 flex-1">
-            <div className={`flex items-center gap-1.5 ${isActive ? 'text-ink' : 'text-ink-3'}`}>
-              <div className={`w-4 h-4 rounded-full flex items-center justify-center border ${
-                isActive 
-                  ? isResolvedStep 
-                    ? 'border-success bg-success-tint text-success' 
-                    : 'border-warning bg-warning-tint text-warning'
-                  : 'border-line bg-surface-2'
-              }`}>
-                {isActive && (
-                  <div className={`w-1.5 h-1.5 rounded-full ${
-                    isResolvedStep ? 'bg-success' : 'bg-warning'
-                  }`} />
-                )}
-              </div>
-              <span className="capitalize">{step}</span>
-            </div>
-            {idx < steps.length - 1 && (
-              <div className={`h-px flex-1 ${
-                idx < currentIndex 
-                  ? steps[idx + 1] === "resolved" && s === "resolved"
-                    ? 'bg-success' 
-                    : 'bg-warning'
-                  : 'bg-line'
-              }`} />
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-export default function CitizenDashboard() {
+function CitizenDashboardContent() {
+  const searchParams = useSearchParams();
+  const targetCaseNum = searchParams.get("case");
   const { token, user } = useAuthStore();
   const [cases, setCases] = useState<Case[]>([]);
   const [loading, setLoading] = useState(true);
@@ -139,7 +104,12 @@ export default function CitizenDashboard() {
       if (res.data?.locations) {
         setLocations(res.data.locations);
       }
-    } catch (err) {
+    } catch (err: any) {
+      if (err.response?.status === 402) {
+        // Expected for free citizens: Pro subscription tier feature
+        setLocations([]);
+        return;
+      }
       console.error("Failed to load locations for citizen:", err);
     } finally {
       setLocationsLoading(false);
@@ -253,12 +223,22 @@ if (!token) return;
     }
   };
 
+  useEffect(() => {
+    if (!targetCaseNum || cases.length === 0) return;
+    setTimeout(() => {
+      const el = document.getElementById(`case-card-${targetCaseNum}`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }, 350);
+  }, [targetCaseNum, cases]);
+
   const totalReports = cases.length;
   const underReview = cases.filter((c) =>
-    ["under review", "pending", "submitted", "analyzing", "assigned", "investigating", "investigation_completed"].includes(normalizeStatus(c.status))
+    ["under review", "pending", "submitted", "analyzing", "assigned", "investigating"].includes(normalizeStatus(c.status))
   ).length;
   const resolved = cases.filter((c) =>
-    ["resolved", "closed", "completed"].includes(normalizeStatus(c.status))
+    ["resolved", "closed", "completed", "investigation completed"].includes(normalizeStatus(c.status))
   ).length;
 
   const firstName = (user?.full_name || "").split(" ")[0];
@@ -268,14 +248,22 @@ if (!token) return;
       <Rise>
         <PageHeader
           title={firstName ? `Hello, ${firstName}` : "Your reports"}
-          sub="Track what you've filed and where each case stands."
+          sub="Track what you've filed, monitor ongoing investigations, and safeguard your digital assets."
           actions={
-            <Link href="/report">
-              <Button variant="primary" size="lg">
-                <Plus className="w-4 h-4" />
-                Report a scam
-              </Button>
-            </Link>
+            <div className="flex items-center gap-2">
+              <Link href="/personal">
+                <Button variant="secondary" size="lg" className="inline-flex items-center gap-1.5 border border-amber-500/30 text-amber-300 bg-amber-500/10 hover:bg-amber-500/20">
+                  <Sparkles className="w-4 h-4 text-amber-400" />
+                  Pro Shield
+                </Button>
+              </Link>
+              <Link href="/report">
+                <Button variant="primary" size="lg">
+                  <Plus className="w-4 h-4" />
+                  Report a scam
+                </Button>
+              </Link>
+            </div>
           }
         />
       </Rise>
@@ -455,18 +443,33 @@ if (!token) return;
         ) : (
           <div className="space-y-6">
             {cases.map((c) => {
-              const isResolved = normalizeStatus(c.status) === "resolved";
+              const isResolved = normalizeStatus(c.status) === "resolved" || normalizeStatus(c.status) === "closed";
               const isInvestigating = normalizeStatus(c.status) === "investigating";
-              const isCompleted = normalizeStatus(c.status) === "investigation_completed" || normalizeStatus(c.status) === "investigation completed";
+              const isCompleted = normalizeStatus(c.status) === "investigation_completed" || normalizeStatus(c.status) === "investigation completed" || normalizeStatus(c.status) === "completed";
+              const isTargeted = Boolean(targetCaseNum && c.case_number === targetCaseNum);
+              const latestCompletedEvent = c.timeline_events?.slice().reverse().find((e: any) => e.action === "Investigation Completed");
+              const hasCompletedFindings = isCompleted || Boolean(c.investigation_findings || latestCompletedEvent);
               
               return (
-                <Card key={c.id} className="p-6 transition-all hover:border-[#253540] hover:shadow-card">
+                <Card
+                  key={c.id}
+                  id={`case-card-${c.case_number}`}
+                  className={cn(
+                    "p-6 transition-all hover:border-[#253540] hover:shadow-card",
+                    isTargeted && "ring-2 ring-emerald-500 bg-emerald-500/5 shadow-[0_0_24px_rgba(16,185,129,0.25)]"
+                  )}
+                >
                   <div className="flex flex-col sm:flex-row justify-between gap-4">
                     <div>
-                      <div className="flex items-center gap-3 mb-2">
+                      <div className="flex items-center gap-3 mb-2 flex-wrap">
                         <span className="font-semibold text-ink tabular">{c.case_number}</span>
                         <StatusBadge status={c.status} />
                         <PriorityBadge priority={c.priority} />
+                        {isTargeted && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                            Selected
+                          </span>
+                        )}
                       </div>
                       <p className="text-sm text-ink-2 capitalize">
                         {(c.scam_type_code || c.scam_type || "Unknown").replace(/_/g, " ")} • Filed on {new Date(c.created_at.endsWith("Z") || c.created_at.includes("+") ? c.created_at : c.created_at + "Z").toLocaleDateString("en-IN", {
@@ -475,13 +478,13 @@ if (!token) return;
                       </p>
                     </div>
                     
-                    <div className="flex items-center gap-3 self-start">
-                      {isCompleted && (
+                    <div className="flex items-center gap-3 self-start flex-wrap">
+                      {isCompleted && !isResolved && (
                         <>
                           <Button variant="secondary" size="sm" onClick={() => handleReopen(c.case_number)}>
                             Request Follow-up
                           </Button>
-                          <Button variant="primary" size="sm" className="bg-success hover:bg-success/90 text-white" onClick={() => handleResolve(c.case_number)}>
+                          <Button variant="primary" size="sm" className="bg-success hover:bg-success/90 text-white font-bold" onClick={() => handleResolve(c.case_number)}>
                             <CheckCircle2 className="w-4 h-4 mr-1.5" />
                             Accept & Resolve
                           </Button>
@@ -525,6 +528,79 @@ if (!token) return;
                   </div>
                   
                   <CaseStepper status={c.status} />
+
+                  {/* Official Police Investigation Findings & Action Report Card */}
+                  {hasCompletedFindings && (
+                    <div className="mt-5 p-4 rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-500/15 via-emerald-500/10 to-transparent shadow-sm space-y-3 animate-in fade-in">
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <div className="flex items-center gap-2">
+                          <div className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400">
+                            <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                          </div>
+                          <div>
+                            <h4 className="text-sm font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">
+                              Official Investigation Concluded
+                            </h4>
+                            <p className="text-[11px] text-ink-3">
+                              Investigating officer {c.investigated_by || latestCompletedEvent?.author || "in charge"} has submitted formal findings and action docket.
+                            </p>
+                          </div>
+                        </div>
+                        <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 uppercase">
+                          {isResolved ? "Case Resolved" : "Awaiting Acceptance"}
+                        </span>
+                      </div>
+
+                      {/* Submitted Findings & Action Notes */}
+                      <div className="p-3.5 rounded-lg bg-surface border border-line space-y-1.5">
+                        <p className="text-[10px] font-bold text-ink-3 uppercase tracking-wider flex items-center justify-between">
+                          <span>Officer Investigation Findings & Action Report</span>
+                          {(c.investigation_completed_at || latestCompletedEvent?.timestamp) && (
+                            <span className="font-mono text-[10px] text-ink-3">
+                              {new Date(c.investigation_completed_at || latestCompletedEvent?.timestamp).toLocaleString("en-IN")}
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-xs text-ink leading-relaxed whitespace-pre-wrap">
+                          {c.investigation_findings ||
+                            latestCompletedEvent?.remark ||
+                            "The investigating officer has completed formal evidentiary verification and recorded case resolution details on file."}
+                        </p>
+                      </div>
+
+                      {/* Official Attachment if present */}
+                      {(c.investigation_attachment || latestCompletedEvent?.attachment) && (
+                        <div className="flex items-center gap-2">
+                          <a
+                            href={c.investigation_attachment || latestCompletedEvent?.attachment}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1.5 text-xs font-semibold text-accent-text hover:underline bg-accent/10 px-3 py-1.5 rounded-lg border border-accent/20"
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                            Download Evidentiary Attachment / Closing Report
+                          </a>
+                        </div>
+                      )}
+
+                      {!isResolved && (
+                        <div className="flex items-center justify-between flex-wrap gap-2 pt-2 border-t border-emerald-500/20">
+                          <p className="text-xs text-ink-2">
+                            Please review the findings above to confirm resolution of your incident.
+                          </p>
+                          <div className="flex items-center gap-2">
+                            <Button variant="secondary" size="sm" onClick={() => handleReopen(c.case_number)} className="text-xs">
+                              Request Follow-up
+                            </Button>
+                            <Button variant="primary" size="sm" className="bg-success hover:bg-success/90 text-white text-xs font-bold" onClick={() => handleResolve(c.case_number)}>
+                              <CheckCircle2 className="w-4 h-4 mr-1.5" />
+                              Accept & Resolve Case
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                   
                   {isInvestigating && c.assigned_phone && (
                     <div className="mt-6 p-4 rounded-card bg-surface-2 border border-line flex items-center justify-between">
@@ -569,5 +645,13 @@ if (!token) return;
         </div>
       )}
     </div>
+  );
+}
+
+export default function CitizenDashboard() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-sm font-mono text-ink-3">Loading Citizen Portal...</div>}>
+      <CitizenDashboardContent />
+    </Suspense>
   );
 }

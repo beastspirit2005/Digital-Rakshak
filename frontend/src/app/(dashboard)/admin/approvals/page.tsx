@@ -27,11 +27,27 @@ import { TableSkeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
 import { RAICExecutionMonitor } from "@/components/ui/RAICExecutionMonitor";
+import { Badge } from "@/components/ui/badge";
+import { FileCheck2, MapPin, ExternalLink, Eye, FileText, Download, Building } from "lucide-react";
 
 interface PendingUser {
   id: string;
   email: string;
   full_name: string;
+  role: string;
+  is_verified?: boolean;
+  designation?: string;
+  station_name?: string;
+  station_phone_number?: string;
+  city?: string;
+  state?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  kyc_org_id_filename?: string;
+  kyc_aadhaar_filename?: string;
+  has_org_id_doc?: boolean;
+  has_aadhaar_doc?: boolean;
+  kyc_submitted_at?: string;
   created_at?: string;
 }
 
@@ -61,6 +77,39 @@ useState<VerificationCase[]>([]);
   const [overrideModalCase, setOverrideModalCase] = useState<VerificationCase | null>(null);
   const [overrideNotes, setOverrideNotes] = useState<string>("");
   const [qwenWeight, setQwenWeight] = useState<number>(0.35);
+  const [inspectingUser, setInspectingUser] = useState<PendingUser | null>(null);
+  const [rejectingUser, setRejectingUser] = useState<PendingUser | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
+  const [isRejecting, setIsRejecting] = useState(false);
+
+  const handleRejectUser = async () => {
+    if (!rejectingUser || !rejectReason.trim()) return;
+    setIsRejecting(true);
+    try {
+      const res = await fetch(api(`/users/${rejectingUser.id}/reject`), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ reason: rejectReason.trim() })
+      });
+      if (res.ok) {
+        setUsers((prev) => prev.filter((u) => u.id !== rejectingUser.id));
+        setRejectingUser(null);
+        setInspectingUser(null);
+        setRejectReason("");
+        toast("success", "Application rejected and applicant notified via email.");
+      } else {
+        const err = await res.json();
+        toast("danger", err.detail || "Failed to reject user.");
+      }
+    } catch (err) {
+      toast("danger", "Failed to reject user.");
+    } finally {
+      setIsRejecting(false);
+    }
+  };
 
   const fetchPendingCases = async () => {
 
@@ -195,20 +244,81 @@ fetchPendingCases();
   const userColumns: Column<PendingUser>[] = [
     {
       key: "name",
-      header: "Name",
+      header: "Applicant",
       mobile: "title",
-      render: (u) => <span className="font-mono font-bold text-ink">{u.full_name}</span>,
+      render: (u) => (
+        <div>
+          <span className="font-mono font-bold text-ink block">{u.full_name || "Applicant"}</span>
+          <span className="font-mono text-ink-3 text-xs">{u.email}</span>
+        </div>
+      ),
     },
     {
-      key: "email",
-      header: "Email",
-      render: (u) => <span className="font-mono text-ink-2 text-sm">{u.email}</span>,
+      key: "role",
+      header: "Role & Designation",
+      render: (u) => (
+        <div>
+          <Badge
+            tone={
+              u.role === "admin"
+                ? "danger"
+                : u.role === "police" || u.role === "cyber_cell"
+                ? "accent"
+                : "warning"
+            }
+            className="text-[10px] font-semibold uppercase"
+          >
+            {u.role.replace("_", " ")}
+          </Badge>
+          <span className="text-xs text-ink-2 block mt-0.5 truncate max-w-[180px]">
+            {u.designation || "Operational Personnel"}
+          </span>
+        </div>
+      ),
+    },
+    {
+      key: "station",
+      header: "Duty Station & Location",
+      render: (u) => (
+        <div>
+          <span className="text-xs font-semibold text-ink block truncate max-w-[200px]">
+            {u.station_name || "Regional Cell"}
+          </span>
+          <span className="text-[11px] text-ink-3 block">
+            {u.city && u.state ? `${u.city}, ${u.state}` : "Jurisdiction Pending"}
+          </span>
+        </div>
+      ),
+    },
+    {
+      key: "kyc",
+      header: "KYC Documents",
+      render: (u) => (
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {u.has_org_id_doc ? (
+            <Badge tone="success" className="text-[9px] px-1.5 py-0.2 inline-flex items-center gap-1">
+              <FileCheck2 className="w-2.5 h-2.5" />
+              <span>Official ID</span>
+            </Badge>
+          ) : (
+            <Badge tone="neutral" className="text-[9px] px-1.5 py-0.2">No ID Card</Badge>
+          )}
+          {u.has_aadhaar_doc ? (
+            <Badge tone="success" className="text-[9px] px-1.5 py-0.2 inline-flex items-center gap-1">
+              <FileCheck2 className="w-2.5 h-2.5" />
+              <span>Aadhaar</span>
+            </Badge>
+          ) : (
+            <Badge tone="neutral" className="text-[9px] px-1.5 py-0.2">No Aadhaar</Badge>
+          )}
+        </div>
+      ),
     },
     {
       key: "registered",
-      header: "Registered",
+      header: "Submitted",
       render: (u) => (
-        <span className="font-mono text-ink-3 text-sm">
+        <span className="font-mono text-ink-3 text-xs">
           {u.created_at ? new Date(u.created_at.endsWith("Z") || u.created_at.includes("+") ? u.created_at : u.created_at + "Z").toLocaleDateString("en-IN") : "—"}
         </span>
       ),
@@ -218,14 +328,25 @@ fetchPendingCases();
       header: "",
       align: "right",
       render: (u) => (
-        <Button
-          size="sm"
-          onClick={() => handleApproveUser(u.id)}
-          disabled={approvingUserId === u.id}
-          className="bg-success hover:bg-success/85 text-black font-mono font-bold border-none rounded-control transition-all"
-        >
-          {approvingUserId === u.id ? <RefreshCw className="w-4 h-4 animate-spin" /> : "Grant Credentials"}
-        </Button>
+        <div className="flex items-center justify-end gap-2">
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => setInspectingUser(u)}
+            className="text-xs font-mono inline-flex items-center gap-1"
+          >
+            <Eye className="w-3.5 h-3.5 text-accent-text" />
+            <span>Review KYC</span>
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => handleApproveUser(u.id)}
+            disabled={approvingUserId === u.id}
+            className="bg-success hover:bg-success/85 text-black font-mono font-bold border-none rounded-control transition-all"
+          >
+            {approvingUserId === u.id ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : "Approve"}
+          </Button>
+        </div>
       ),
     },
   ];

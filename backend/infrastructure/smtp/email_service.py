@@ -306,17 +306,48 @@ async def send_password_reset_otp_email(to_email: str, otp: str):
     """
     return await send_email(to_email, subject, body, is_html=True)
 
-async def send_case_assigned_victim_email(to_email: str, case_number: str) -> bool:
-    subject = f"Digital Rakshak - Update on Case #{case_number}"
+async def send_case_assigned_victim_email(
+    to_email: str,
+    case_number: str,
+    investigator_name: Optional[str] = None,
+    station_phone: Optional[str] = None,
+    station_name: Optional[str] = None,
+) -> bool:
+    subject = f"Digital Rakshak - Officer Appointed on Case #{case_number}"
+    officer_display = investigator_name or "An authorized investigation officer"
+    station_display = station_name or "Cyber Crime Police Station"
+    phone_display = station_phone or "National Cyber Helpline 1930"
+
     body = f"""
     <html>
-      <body style="font-family: Arial, sans-serif; color: #333;">
-        <h2 style="color: #4f46e5;">Case Assigned</h2>
-        <p>Your cybercrime report (Case #{case_number}) has been assigned to a police station by the admin.</p>
-        <p>The concerned official will shortly contact you on the phone number you provided.</p>
-        <p>You can track the progress on your Citizen Dashboard.</p>
-        <hr />
-        <p style="font-size: 12px; color: #888;">This is an automated message. Please do not reply.</p>
+      <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b; background-color: #f8fafc; padding: 24px;">
+        <div style="max-width: 580px; margin: 0 auto; background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+          <div style="background: linear-gradient(135deg, #0284c7, #2563eb); padding: 24px; color: #ffffff;">
+            <h2 style="margin: 0; font-size: 20px; font-weight: 700;">Digital Rakshak — Incident Assignment</h2>
+            <p style="margin: 6px 0 0; font-size: 13px; opacity: 0.9;">National Cyber Defense & Victim Assistance Core</p>
+          </div>
+          <div style="padding: 24px;">
+            <p style="font-size: 15px; line-height: 1.6; margin-top: 0;">
+              Your reported cybercrime incident (Case <strong>#{case_number}</strong>) has been undertaken for active investigation by <strong>{officer_display}</strong> at <strong>{station_display}</strong>.
+            </p>
+            <div style="background: #f1f5f9; border-radius: 12px; padding: 16px; margin: 20px 0; border-left: 4px solid #0284c7;">
+              <p style="margin: 0 0 8px; font-size: 13px; font-weight: 600; color: #334155;">Official Duty Assignment Details:</p>
+              <p style="margin: 4px 0; font-size: 13px; color: #475569;">• Assigned Officer: <strong>{officer_display}</strong></p>
+              <p style="margin: 4px 0; font-size: 13px; color: #475569;">• Duty Unit / Station: <strong>{station_display}</strong></p>
+              <p style="margin: 4px 0; font-size: 13px; color: #475569;">• Duty Desk Phone: <strong>{phone_display}</strong></p>
+              <p style="margin: 4px 0; font-size: 13px; color: #475569;">• Investigation Status: <strong>INVESTIGATING (Active)</strong></p>
+            </div>
+            <p style="font-size: 13px; color: #64748b; line-height: 1.6;">
+              <strong>Security Advisory:</strong> Digital Rakshak and official police personnel will <em>NEVER</em> ask for your passwords, OTPs, UPI PINs, or request payment for fund recovery.
+            </p>
+            <p style="font-size: 13px; color: #64748b; line-height: 1.6;">
+              You can monitor case progress, review evidence logs, or communicate directly via the monitored Case Chat in your Citizen Dashboard.
+            </p>
+          </div>
+          <div style="background: #f8fafc; padding: 16px 24px; border-top: 1px solid #e2e8f0; font-size: 11px; color: #94a3b8; text-align: center;">
+            This is an automated judicial communication recorded under the Bharatiya Sakshya Adhiniyam, 2023. Please do not reply directly to this email.
+          </div>
+        </div>
       </body>
     </html>
     """

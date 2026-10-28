@@ -37,11 +37,11 @@ export function DataTable<T>({
     <div className={className}>
       {/* desktop */}
       <div
-        className="hidden sm:block overflow-y-auto rounded-b-card border border-line/10 shadow-sm"
+        className="hidden sm:block overflow-y-auto rounded-b-card border border-line shadow-sm"
         style={maxHeight ? { maxHeight } : undefined}
       >
         <table className="w-full text-sm text-left">
-          <thead className="sticky top-0 z-10 bg-surface-2 text-ink-2 border-b border-line/10">
+          <thead className="sticky top-0 z-10 bg-surface-2 text-ink-2 border-b border-line">
             <tr>
               {columns.map((col) => (
                 <th
@@ -56,7 +56,7 @@ export function DataTable<T>({
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-line/10 bg-surface">
+          <tbody className="divide-y divide-line bg-surface">
             {rows.map((row) => (
               <tr
                 key={rowKey(row)}
@@ -85,7 +85,7 @@ export function DataTable<T>({
       </div>
 
       {/* mobile */}
-      <ul className="sm:hidden divide-y divide-line/15">
+      <ul className="sm:hidden divide-y divide-line">
         {rows.map((row) => (
           <li key={rowKey(row)}>
             <div
@@ -97,7 +97,7 @@ export function DataTable<T>({
                 {trailingCol && <div className="shrink-0">{trailingCol.render(row)}</div>}
               </div>
               {metaCols.length > 0 && (
-                <dl className="grid grid-cols-2 gap-x-4 gap-y-2 pt-2 border-t border-line/5">
+                <dl className="grid grid-cols-2 gap-x-4 gap-y-2 pt-2 border-t border-line">
                   {metaCols.map((col) => (
                     <div key={col.key} className="flex flex-col gap-0.5">
                       <dt className="text-ink-3 text-[10px] uppercase font-bold tracking-wider">{col.header}</dt>

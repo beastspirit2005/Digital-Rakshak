@@ -81,6 +81,7 @@ docker-compose.override.yml
 *.pdf
 .vercel
 .vercel.env
+scratch/
 
 # --- ML Weights and Data ---
 backend/models/

@@ -16,7 +16,7 @@ interface ReportMisconductModalProps {
   onClose: () => void;
   caseId?: string;
   reportedMessageId?: string;
-  reportedUserId: string;
+  reportedUserId?: string;
   reportedUserName?: string;
   onReportSuccess?: (sha256: string) => void;
 }
@@ -35,7 +35,7 @@ export function ReportMisconductModal({
   caseId,
   reportedMessageId,
   reportedUserId,
-  reportedUserName = "User",
+  reportedUserName = "Assigned Counterpart",
   onReportSuccess,
 }: ReportMisconductModalProps) {
   const { token } = useAuthStore();
@@ -57,6 +57,18 @@ export function ReportMisconductModal({
     setSubmitting(true);
     setError(null);
     try {
+      const payload: Record<string, any> = {
+        case_id: caseId,
+        category,
+        reason_narrative: narrative.trim(),
+      };
+      if (reportedMessageId) {
+        payload.reported_message_id = reportedMessageId;
+      }
+      if (reportedUserId) {
+        payload.reported_user_id = reportedUserId;
+      }
+
       const res = await fetch(
         api("/chat/safety-reports"),
         {
@@ -65,13 +77,7 @@ export function ReportMisconductModal({
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({
-            case_id: caseId,
-            reported_message_id: reportedMessageId,
-            reported_user_id: reportedUserId,
-            category,
-            reason_narrative: narrative.trim(),
-          }),
+          body: JSON.stringify(payload),
         }
       );
 
@@ -93,11 +99,12 @@ export function ReportMisconductModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-      <div className="bg-[#0e1320] border border-red-500/30 rounded-2xl max-w-lg w-full p-6 space-y-5 shadow-2xl relative text-gray-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/70 backdrop-blur-sm">
+      <div className="bg-surface border border-rose-500/40 rounded-2xl max-w-lg w-full p-6 space-y-5 shadow-2xl relative text-ink">
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 text-gray-400 hover:text-white"
+          className="absolute top-4 right-4 text-ink-3 hover:text-ink p-1 rounded-lg hover:bg-surface-2 transition-colors"
+          aria-label="Close modal"
         >
           <X className="w-5 h-5" />
         </button>
@@ -105,32 +112,32 @@ export function ReportMisconductModal({
         {!successDigest ? (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-red-500/15 border border-red-500/40 flex items-center justify-center shrink-0">
-                <AlertOctagon className="w-5 h-5 text-red-400" />
+              <div className="w-10 h-10 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center shrink-0">
+                <AlertOctagon className="w-5 h-5 text-rose-500" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-white">Report Misconduct</h3>
-                <p className="text-xs text-gray-400">
-                  Preserve evidence & trigger administrative dispute review
+                <h3 className="text-base font-bold text-ink">Report Misconduct</h3>
+                <p className="text-xs text-ink-3">
+                  Preserve cryptographic evidence & trigger administrative review
                 </p>
               </div>
             </div>
 
-            <div className="p-3 rounded-xl bg-white/5 border border-white/5 text-xs text-gray-300">
-              Reporting: <span className="font-semibold text-white">{reportedUserName}</span>
+            <div className="p-3 rounded-xl bg-surface-2 border border-line text-xs text-ink-2">
+              Reporting: <span className="font-semibold text-ink">{reportedUserName}</span>
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-gray-300 block mb-1">
+              <label className="text-xs font-semibold text-ink-2 block mb-1">
                 Violation Category
               </label>
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg bg-[#161c2e] border border-white/10 text-white text-xs focus:outline-none focus:border-red-500"
+                className="w-full px-3 py-2 rounded-lg bg-surface-2 border border-line text-ink text-xs focus:outline-none focus:border-rose-500"
               >
                 {CATEGORIES.map((c) => (
-                  <option key={c.value} value={c.value}>
+                  <option key={c.value} value={c.value} className="bg-surface text-ink">
                     {c.label}
                   </option>
                 ))}
@@ -138,7 +145,7 @@ export function ReportMisconductModal({
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-gray-300 block mb-1">
+              <label className="text-xs font-semibold text-ink-2 block mb-1">
                 Description of Violation
               </label>
               <textarea
@@ -146,33 +153,33 @@ export function ReportMisconductModal({
                 onChange={(e) => setNarrative(e.target.value)}
                 placeholder="Explain precisely what occurred, any demands made, or suspicious links provided..."
                 rows={4}
-                className="w-full p-3 rounded-lg bg-[#161c2e] border border-white/10 text-white placeholder-gray-500 text-xs focus:outline-none focus:border-red-500 leading-relaxed"
+                className="w-full p-3 rounded-lg bg-surface-2 border border-line text-ink placeholder:text-ink-3 text-xs focus:outline-none focus:border-rose-500 leading-relaxed"
               />
             </div>
 
-            <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-300 flex items-start gap-2">
-              <FileLock2 className="w-4 h-4 shrink-0 text-amber-400 mt-0.5" />
+            <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/25 text-[11px] text-amber-600 dark:text-amber-300 flex items-start gap-2">
+              <FileLock2 className="w-4 h-4 shrink-0 text-amber-500 mt-0.5" />
               <span>
-                Evidence Preservation: Submitting this report automatically locks the reported message and surrounding conversation context with a cryptographic SHA-256 seal for impartial admin review.
+                Evidence Preservation: Submitting this report automatically locks the conversation context with a cryptographic SHA-256 seal for impartial admin review.
               </span>
             </div>
 
             {error && (
-              <p className="text-xs text-red-400 font-semibold">{error}</p>
+              <p className="text-xs text-rose-500 font-semibold">{error}</p>
             )}
 
             <div className="flex items-center justify-end gap-3 pt-2">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 text-xs font-semibold transition"
+                className="px-4 py-2 rounded-lg bg-surface-2 hover:bg-surface-3 text-ink-2 text-xs font-semibold transition"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={submitting}
-                className="px-5 py-2.5 rounded-lg bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white font-bold text-xs transition shadow-lg shadow-red-600/25"
+                className="px-5 py-2.5 rounded-lg bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white font-bold text-xs transition shadow-lg shadow-rose-600/25"
               >
                 {submitting ? "Preserving Evidence..." : "Submit & Preserve Evidence"}
               </button>
@@ -180,26 +187,26 @@ export function ReportMisconductModal({
           </form>
         ) : (
           <div className="space-y-4 py-2 text-center">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-500/15 border border-emerald-500/40 flex items-center justify-center mx-auto">
-              <ShieldCheck className="w-6 h-6 text-emerald-400" />
+            <div className="w-12 h-12 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center mx-auto">
+              <ShieldCheck className="w-6 h-6 text-emerald-500" />
             </div>
-            <h3 className="text-base font-bold text-white">
+            <h3 className="text-base font-bold text-ink">
               Misconduct Evidence Preserved
             </h3>
-            <p className="text-xs text-gray-300 max-w-sm mx-auto leading-relaxed">
+            <p className="text-xs text-ink-3 max-w-sm mx-auto leading-relaxed">
               Your report has been submitted to the Admin Misconduct Review Queue. The conversation context has been sealed.
             </p>
-            <div className="p-3 rounded-xl bg-black/40 border border-white/10 text-left space-y-1">
-              <span className="text-[10px] uppercase font-bold text-gray-500 block">
+            <div className="p-3 rounded-xl bg-surface-2 border border-line text-left space-y-1">
+              <span className="text-[10px] uppercase font-bold text-ink-3 block">
                 Evidence SHA-256 Digest (BSA Sec. 63)
               </span>
-              <span className="font-mono text-emerald-400 text-[11px] break-all select-all block">
+              <span className="font-mono text-emerald-600 dark:text-emerald-400 text-[11px] break-all select-all block">
                 {successDigest}
               </span>
             </div>
             <button
               onClick={onClose}
-              className="w-full py-2.5 rounded-lg bg-white/10 hover:bg-white/15 text-white font-semibold text-xs transition"
+              className="w-full py-2.5 rounded-lg bg-surface-2 hover:bg-surface-3 text-ink font-semibold text-xs transition border border-line"
             >
               Done
             </button>

@@ -348,12 +348,21 @@ export default function CommandCenterDashboard() {
                 </div>
               )}
 
-              <div className="pt-3 text-right">
+              <div className="pt-3 flex items-center justify-between flex-wrap gap-2">
+                <Link
+                  href="/police/victims-map"
+                  className="inline-flex items-center gap-1.5 text-xs text-cyan-400 hover:text-cyan-300 font-semibold"
+                >
+                  <MapPin className="w-3.5 h-3.5" />
+                  <span>Launch Tactical Victims & Officer Deployment Grid</span>
+                  <ArrowUpRight className="w-3.5 h-3.5" />
+                </Link>
+
                 <Link
                   href="/workbench/map"
                   className="inline-flex items-center gap-1.5 text-xs text-emerald-400 hover:text-emerald-300"
                 >
-                  <span>Launch Interactive MapLibre / GeoJSON Viewer</span>
+                  <span>Launch Spatial MapLibre Engine</span>
                   <ArrowUpRight className="w-3.5 h-3.5" />
                 </Link>
               </div>

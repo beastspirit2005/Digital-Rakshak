@@ -38,6 +38,8 @@ const statusTone: Record<string, Tone> = {
   resolved: "success",
   closed: "success",
   completed: "success",
+  investigation_completed: "success",
+  "investigation completed": "success",
   approved: "success",
   under_review: "warning",
   pending: "warning",
@@ -47,10 +49,10 @@ const statusTone: Record<string, Tone> = {
   submitted: "accent",
 };
 
-export function StatusBadge({ status }: { status: string }) {
+export function StatusBadge({ status, className }: { status: string; className?: string }) {
   const key = (status || "").toLowerCase();
   const label = key.replace(/_/g, " ");
-  return <Badge tone={statusTone[key] ?? "neutral"} className="capitalize">{label}</Badge>;
+  return <Badge tone={statusTone[key] ?? "neutral"} className={cn("capitalize", className)}>{label}</Badge>;
 }
 
 const priorityTone: Record<string, Tone> = {

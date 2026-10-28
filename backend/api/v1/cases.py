@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Form, UploadFile, File
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.attributes import flag_modified
 from typing import Dict, Any, List, Optional
 from sqlalchemy import select
 import os
@@ -29,7 +30,18 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/login")
 
 @router.get("/alerts")
 @limiter.limit("20/minute")
-async def get_alerts(request: Request, db: AsyncSession = Depends(get_db)):
+async def get_alerts(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    user: Optional[User] = Depends(get_current_user_optional)
+):
+    if not user or user.role not in ["admin", "police", "cyber_cell"]:
+        return [
+            {"id": 1, "text": "ADVISORY: Never share UPI PIN, OTP, or remote screen-sharing access with unknown callers."},
+            {"id": 2, "text": "ALERT: Watch out for fake electricity bill disconnection messages and suspicious APK links."},
+            {"id": 3, "text": "SAFETY: Report cyber fraud immediately on 1930 or through the Digital Rakshak portal."}
+        ]
+
     from sqlalchemy import desc
     result = await db.execute(
         select(Case)
@@ -38,7 +50,7 @@ async def get_alerts(request: Request, db: AsyncSession = Depends(get_db)):
         .limit(3)
     )
     cases = result.scalars().all()
-    
+
     alerts = []
     for i, c in enumerate(cases):
         scam_type = (c.scam_type_code or "CYBER").upper()
@@ -46,11 +58,11 @@ async def get_alerts(request: Request, db: AsyncSession = Depends(get_db)):
             "id": i + 1,
             "text": f"ALERT: {scam_type} threat detected. Severity: CRITICAL."
         })
-        
+
     if not alerts:
         alerts = [
-            {"id": 1, "text": "SYSTEM NORMAL: No critical threats currently active in your region."},
-            {"id": 2, "text": "REMINDER: Always verify UPI payment requests before entering your PIN."}
+            {"id": 1, "text": "SYSTEM NORMAL: No critical threats currently active in your operational area."},
+            {"id": 2, "text": "REMINDER: Verify citizen complaints within 24 hours of dispatch."}
         ]
     return alerts
 
@@ -66,7 +78,7 @@ async def get_cases(request: Request, db: AsyncSession = Depends(get_db), skip: 
     if user is None:
         raise HTTPException(status_code=401, detail="Authentication required")
     role = user.role
-    if role not in ["admin", "police"]:
+    if role not in ["admin", "police", "cyber_cell"]:
         raise HTTPException(status_code=403, detail="Citizens must use /my endpoint")
         
     from sqlalchemy import desc
@@ -82,25 +94,70 @@ async def get_cases(request: Request, db: AsyncSession = Depends(get_db), skip: 
     )
     cases = result.scalars().all()
     
-    # Collect all unique submitter IDs
+    # Collect all unique submitter and assignee IDs
     submitter_ids = {c.submitted_by for c in cases if c.submitted_by}
+    assignee_ids = {c.assigned_to for c in cases if c.assigned_to}
+    all_user_ids = submitter_ids | assignee_ids
     
-    # Fetch all submitters in a single query
-    submitters = {}
-    if submitter_ids:
-        sub_res = await db.execute(select(User).where(User.id.in_(submitter_ids)))
-        for u in sub_res.scalars().all():
-            submitters[u.id] = u
+    users_map = {}
+    if all_user_ids:
+        u_res = await db.execute(select(User).where(User.id.in_(all_user_ids)))
+        for u in u_res.scalars().all():
+            users_map[u.id] = u
     
-    # Enrich with submitter details
+    now_utc = datetime.now(timezone.utc)
     enriched_cases = []
     for c in cases:
+        dna = c.attack_dna or {}
+        assignment_source = dna.get("assignment_source")
+        claimed_at = dna.get("claimed_at")
+        is_nudged = bool(dna.get("nudge_pending", False))
+        last_nudged_at = dna.get("last_nudged_at")
+        
+        if not assignment_source and c.timeline_events:
+            for ev in c.timeline_events:
+                if ev.get("method") == "map_radar_claim":
+                    assignment_source = "map_radar_claim"
+                    claimed_at = ev.get("timestamp")
+                    break
+                elif ev.get("method") == "admin_dispatch":
+                    assignment_source = "admin_dispatch"
+                    break
+
+        is_claimed_recently = False
+        if claimed_at:
+            try:
+                cl_dt = datetime.fromisoformat(claimed_at.replace("Z", "+00:00"))
+                if (now_utc - cl_dt).total_seconds() / 3600 <= 48:
+                    is_claimed_recently = True
+            except Exception:
+                pass
+
+        # Extract findings / conclusions if available from attack_dna or timeline
+        investigation_findings = dna.get("investigation_findings")
+        investigation_attachment = dna.get("investigation_attachment")
+        investigated_by = dna.get("investigated_by")
+        investigation_completed_at = dna.get("investigation_completed_at")
+
+        if not investigation_findings and c.timeline_events:
+            for ev in reversed(c.timeline_events):
+                if ev.get("action") == "Investigation Completed":
+                    investigation_findings = ev.get("remark")
+                    investigation_attachment = ev.get("attachment")
+                    investigated_by = ev.get("actor_name") or ev.get("author")
+                    investigation_completed_at = ev.get("timestamp")
+                    break
+
+        status_str = c.status.value if hasattr(c.status, "value") else str(c.status)
+        if "CaseStatus." in status_str:
+            status_str = status_str.replace("CaseStatus.", "")
+
         c_dict = {
             "id": str(c.id),
             "case_number": c.case_number,
             "created_at": c.created_at.isoformat() if c.created_at else None,
-            "status": c.status,
-            "priority": c.priority,
+            "status": status_str,
+            "priority": c.priority.value if hasattr(c.priority, "value") else str(c.priority),
             "scam_type_code": c.scam_type_code,
             "scam_text": c.scam_text,
             "assigned_phone": c.assigned_phone,
@@ -111,14 +168,47 @@ async def get_cases(request: Request, db: AsyncSession = Depends(get_db), skip: 
             "ai_decision": c.ai_decision,
             "threat_confidence_score": c.threat_confidence_score,
             "assigned_to": str(c.assigned_to) if c.assigned_to else None,
-            "timeline_events": c.timeline_events
+            "timeline_events": c.timeline_events,
+            "assignment_source": assignment_source,
+            "claimed_at": claimed_at,
+            "is_claimed_recently": is_claimed_recently,
+            "is_nudged": is_nudged,
+            "last_nudged_at": last_nudged_at,
+            "investigation_findings": investigation_findings,
+            "investigation_attachment": investigation_attachment,
+            "investigated_by": investigated_by,
+            "investigation_completed_at": investigation_completed_at
         }
         
-        submitter = submitters.get(c.submitted_by)
+        submitter = users_map.get(c.submitted_by)
         if submitter:
             c_dict["submitter_name"] = submitter.full_name
             c_dict["submitter_email"] = submitter.email
             c_dict["submitter_phone"] = submitter.station_phone_number
+
+        assignee = users_map.get(c.assigned_to)
+        if assignee:
+            c_dict["investigator"] = {
+                "id": str(assignee.id),
+                "name": assignee.full_name or "Official Investigator",
+                "email": assignee.email,
+                "phone": assignee.station_phone_number or c.assigned_phone,
+                "station": assignee.station_name or "Cyber Crime Police Station",
+                "badge_number": assignee.badge_number or "N/A",
+                "designation": assignee.designation or "Investigating Officer",
+                "city": assignee.city,
+                "state": assignee.state,
+            }
+            c_dict["assignee_name"] = assignee.full_name or "Official Investigator"
+            c_dict["assignee_station"] = assignee.station_name or "Cyber Crime Police Station"
+            c_dict["assignee_badge"] = assignee.badge_number
+            c_dict["is_assigned"] = True
+        else:
+            c_dict["investigator"] = None
+            c_dict["assignee_name"] = None
+            c_dict["assignee_station"] = None
+            c_dict["assignee_badge"] = None
+            c_dict["is_assigned"] = False
             
         enriched_cases.append(c_dict)
         
@@ -160,13 +250,112 @@ async def get_pending_cases(request: Request, db: AsyncSession = Depends(get_db)
 @limiter.limit("60/minute")
 async def get_my_cases(request: Request, db: AsyncSession = Depends(get_db), skip: int = 0, limit: int = 50, user: User = Depends(get_current_user)):
     """
-    Returns cases created by the current citizen.
+    Returns cases created by the current citizen with full investigation details and officer profiles.
     """
-    user_id = str(user.id)
     from sqlalchemy import desc
-    result = await db.execute(select(Case).where(Case.submitted_by == user.id).order_by(desc(Case.created_at)).offset(skip).limit(limit))
+    from domain.models.user import User as UserModel
+    from datetime import datetime, timezone
+
+    result = await db.execute(
+        select(Case)
+        .where(Case.submitted_by == user.id)
+        .order_by(desc(Case.created_at))
+        .offset(skip)
+        .limit(limit)
+    )
     cases = result.scalars().all()
-    return {"cases": cases}
+
+    # Collect assigned officer IDs
+    officer_ids = {c.assigned_to for c in cases if c.assigned_to}
+    users_map = {}
+    if officer_ids:
+        u_res = await db.execute(select(UserModel).where(UserModel.id.in_(list(officer_ids))))
+        users_map = {u.id: u for u in u_res.scalars().all()}
+
+    now_utc = datetime.now(timezone.utc)
+    cases_data = []
+    for c in cases:
+        dna = c.attack_dna or {}
+        assignment_source = dna.get("assignment_source")
+        claimed_at = dna.get("claimed_at")
+        is_nudged = dna.get("nudge_pending", False)
+        last_nudged_at = dna.get("last_nudged_at")
+
+        # Investigation findings
+        investigation_findings = dna.get("investigation_findings")
+        investigation_attachment = dna.get("investigation_attachment")
+        investigated_by = dna.get("investigated_by")
+        investigation_completed_at = dna.get("investigation_completed_at")
+
+        if not investigation_findings and c.timeline_events:
+            for ev in reversed(c.timeline_events):
+                if ev.get("action") == "Investigation Completed":
+                    investigation_findings = ev.get("remark")
+                    investigation_attachment = ev.get("attachment")
+                    investigated_by = ev.get("actor_name") or ev.get("author")
+                    investigation_completed_at = ev.get("timestamp")
+                    break
+
+        status_str = c.status.value if hasattr(c.status, "value") else str(c.status)
+        if "CaseStatus." in status_str:
+            status_str = status_str.replace("CaseStatus.", "")
+
+        c_dict = {
+            "id": str(c.id),
+            "case_number": c.case_number,
+            "created_at": c.created_at.isoformat() if c.created_at else None,
+            "status": status_str,
+            "priority": c.priority.value if hasattr(c.priority, "value") else str(c.priority),
+            "scam_type_code": c.scam_type_code,
+            "scam_text": c.scam_text,
+            "assigned_phone": c.assigned_phone,
+            "city": c.city,
+            "state": c.state,
+            "victim_phone": c.victim_phone,
+            "victim_address": c.victim_address,
+            "ai_decision": c.ai_decision,
+            "threat_confidence_score": c.threat_confidence_score,
+            "assigned_to": str(c.assigned_to) if c.assigned_to else None,
+            "timeline_events": c.timeline_events,
+            "assignment_source": assignment_source,
+            "claimed_at": claimed_at,
+            "is_nudged": is_nudged,
+            "last_nudged_at": last_nudged_at,
+            "investigation_findings": investigation_findings,
+            "investigation_attachment": investigation_attachment,
+            "investigated_by": investigated_by,
+            "investigation_completed_at": investigation_completed_at,
+            "estimated_loss_inr": getattr(c, "estimated_loss_inr", 0.0) or 0.0,
+            "fir_number": getattr(c, "fir_number", None),
+            "fir_registered": getattr(c, "fir_registered", False),
+        }
+
+        assignee = users_map.get(c.assigned_to)
+        if assignee:
+            c_dict["investigator"] = {
+                "id": str(assignee.id),
+                "name": assignee.full_name or "Official Investigator",
+                "email": assignee.email,
+                "phone": assignee.station_phone_number or c.assigned_phone,
+                "station": assignee.station_name or "Cyber Crime Police Station",
+                "badge_number": assignee.badge_number or "N/A",
+                "designation": assignee.designation or "Investigating Officer",
+                "city": assignee.city,
+                "state": assignee.state,
+            }
+            c_dict["assignee_name"] = assignee.full_name or "Official Investigator"
+            c_dict["assignee_station"] = assignee.station_name or "Cyber Crime Police Station"
+            c_dict["assignee_badge"] = assignee.badge_number
+            c_dict["is_assigned"] = True
+        else:
+            c_dict["investigator"] = None
+            c_dict["assignee_name"] = None
+            c_dict["assignee_station"] = None
+            c_dict["assignee_badge"] = None
+
+        cases_data.append(c_dict)
+
+    return {"cases": cases_data}
 
 from fastapi import BackgroundTasks, Request
 import httpx
@@ -174,7 +363,12 @@ import json
 
 @router.get("/location")
 @limiter.limit("30/minute")
-async def get_location(request: Request, lat: float, lon: float):
+async def get_location(
+    request: Request,
+    lat: float,
+    lon: float,
+    user: User = Depends(get_current_user)
+):
     """
     Proxies the reverse geocoding request to BigDataCloud to bypass frontend ad-blockers.
     Uses non-blocking async httpx and enforces rate limits.
@@ -272,15 +466,9 @@ async def submit_case(
     
     # 1.5 Save uploaded file if any
     if file and file_bytes:
-        import tempfile
-        upload_dir = os.path.join(tempfile.gettempdir(), "rakshak_uploads")
+        from core.config import settings
+        upload_dir = os.path.join(settings.UPLOAD_DIR, "cases")
         os.makedirs(upload_dir, exist_ok=True)
-        file_ext = os.path.splitext(file.filename)[1].lower()
-        
-        allowed_extensions = {".jpg", ".jpeg", ".png", ".pdf", ".apk"}
-        if file_ext not in allowed_extensions:
-            raise HTTPException(status_code=400, detail="Invalid file type. Only JPG, PNG, PDF, and APK are allowed.")
-            
         safe_filename = f"{new_case.case_number}_{uuid.uuid4().hex[:6]}{file_ext}"
         
         # Hybrid Storage Strategy
@@ -301,28 +489,25 @@ async def submit_case(
         file_path = local_tmp_path
         
         if is_cloud_storage:
-            from supabase import create_client
-            supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
-            
-            # Ensure bucket exists or create it
             try:
-                supabase.storage.get_bucket("evidence")
-            except Exception:
-                try:
-                    supabase.storage.create_bucket("evidence", options={"public": False})
-                except Exception:
-                    pass # Ignore if it already exists or creation fails
-            
-            try:
-                supabase.storage.from_("evidence").upload(
-                    path=safe_filename,
-                    file=file_bytes,
-                    file_options={"content-type": file.content_type or "application/octet-stream"}
-                )
-                file_path_in_db = f"supabase://evidence/{safe_filename}"
+                from infrastructure.storage.supabase_storage import supabase_storage
+                if supabase_storage.is_configured:
+                    await supabase_storage.ensure_bucket_exists("evidence", is_public=False)
+                    uploaded = await supabase_storage.upload_file(
+                        bucket_name="evidence",
+                        object_path=safe_filename,
+                        content=file_bytes,
+                        mime_type=file.content_type or "application/octet-stream"
+                    )
+                    if uploaded:
+                        file_path_in_db = f"supabase://evidence/{safe_filename}"
+                    else:
+                        is_cloud_storage = False
+                else:
+                    is_cloud_storage = False
             except Exception as e:
-                print(f"Supabase upload failed (likely RLS policy missing): {e}. Falling back to local storage.")
-                is_cloud_storage = False  # Trigger fallback
+                print(f"Supabase upload failed: {e}. Falling back to local storage.")
+                is_cloud_storage = False
         
         if not is_cloud_storage:
             final_file_path = os.path.join(upload_dir, safe_filename)
@@ -695,6 +880,64 @@ async def simulate_attack(db: AsyncSession = Depends(get_db), user: User = Depen
     except Exception as e:
         raise HTTPException(500, f"Simulation failed: {str(e)}")
 
+@router.get("/investigators/roster")
+@limiter.limit("60/minute")
+async def get_investigators_roster(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """
+    Returns the list of all registered and approved investigators/police officers
+    with active caseload count. Accessible to admins and officials.
+    """
+    if user.role not in ["admin", "police", "cyber_cell"]:
+        raise HTTPException(status_code=403, detail="Access restricted to platform officials.")
+
+    from domain.models.user import User
+    from sqlalchemy import func
+
+    # Fetch all approved police and cyber_cell users
+    query = select(User).where(
+        User.role.in_(["police", "cyber_cell"])
+    ).order_by(User.full_name)
+    res = await db.execute(query)
+    officers = res.scalars().all()
+
+    # Calculate active caseload per officer
+    caseload_query = (
+        select(Case.assigned_to, func.count(Case.id))
+        .where(
+            Case.status.in_([CaseStatus.assigned.value, CaseStatus.investigating.value, "assigned", "investigating"])
+        )
+        .group_by(Case.assigned_to)
+    )
+    c_res = await db.execute(caseload_query)
+    caseload_map = {row[0]: row[1] for row in c_res.all() if row[0]}
+
+    roster = []
+    for off in officers:
+        clean_name = off.full_name
+        if not clean_name:
+            handle = off.email.split("@")[0].replace(".", " ").replace("_", " ").title()
+            clean_name = f"Officer {handle}"
+
+        roster.append({
+            "id": str(off.id),
+            "name": clean_name,
+            "email": off.email,
+            "role": off.role,
+            "station": off.station_name or "Cyber Crime Police Station",
+            "badge_number": off.badge_number or "N/A",
+            "designation": off.designation or "Investigating Officer",
+            "phone": off.station_phone_number,
+            "city": off.city,
+            "state": off.state,
+            "active_cases": caseload_map.get(off.id, 0)
+        })
+
+    return {"investigators": roster}
+
 @router.get("/{case_number}")
 async def get_case(
     case_number: str,
@@ -725,8 +968,11 @@ async def get_case(
     role = user.role
     user_id = str(user.id)
     
-    if role == "citizen" and str(case.submitted_by) != user_id:
-        raise HTTPException(status_code=403, detail="Not authorized to view this case")
+    if role == "citizen":
+        if str(case.submitted_by) != user_id:
+            raise HTTPException(status_code=403, detail="Not authorized to view this case")
+    elif role not in ["admin", "police", "cyber_cell"]:
+        raise HTTPException(status_code=403, detail="Not authorized to view case details")
         
     return case
 
@@ -740,8 +986,8 @@ async def get_case_evidence(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Returns the evidence file securely. If Supabase, returns a signed URL.
-    If Local, decrypts the file in-memory and streams it.
+    Returns the evidence file securely. If Supabase, streams decrypted/signed content.
+    If Local, decrypts the file in-memory and streams it with fallback path resolution.
     """
     from domain.models.case import Case
     from domain.models.evidence import Evidence
@@ -755,8 +1001,11 @@ async def get_case_evidence(
     role = user.role
     user_id = str(user.id)
     
-    if role == "citizen" and str(case.submitted_by) != user_id:
-        raise HTTPException(status_code=403, detail="Not authorized to view this case")
+    if role == "citizen":
+        if str(case.submitted_by) != user_id:
+            raise HTTPException(status_code=403, detail="Not authorized to view this case")
+    elif role not in ["admin", "police", "cyber_cell"]:
+        raise HTTPException(status_code=403, detail="Not authorized to access case evidence")
         
     result = await db.execute(select(Evidence).where(Evidence.case_id == case.id))
     evidence = result.scalar_one_or_none()
@@ -768,48 +1017,68 @@ async def get_case_evidence(
     path = evidence.file_path
     
     if path.startswith("supabase://"):
-        bucket, filename = path.replace("supabase://", "").split("/", 1)
-        from supabase import create_client
-        supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
-        # Create a signed URL valid for 60 seconds
-        res = supabase.storage.from_(bucket).create_signed_url(filename, 60)
-        return {"url": res.get("signedURL", "")}
+        raw_target = path.replace("supabase://", "")
+        parts = raw_target.split("/", 1)
+        bucket = parts[0] if len(parts) == 2 else "evidence"
+        filename = parts[1] if len(parts) == 2 else parts[0]
         
-    elif path.startswith("local://"):
-        raw_name = path.replace("local://", "").strip()
-        filename = os.path.basename(raw_name)
-        base_dir = os.path.abspath(os.path.join(os.getcwd(), "uploads"))
-        file_path = os.path.abspath(os.path.join(base_dir, filename))
+        try:
+            from infrastructure.storage.supabase_storage import supabase_storage
+            file_bytes = await supabase_storage.download_file(bucket, filename)
+            if file_bytes:
+                file_ext = os.path.splitext(filename)[1].lower()
+                content_type = "application/octet-stream"
+                if file_ext in [".jpg", ".jpeg"]: content_type = "image/jpeg"
+                elif file_ext == ".png": content_type = "image/png"
+                elif file_ext == ".pdf": content_type = "application/pdf"
+                return StreamingResponse(io.BytesIO(file_bytes), media_type=content_type)
+        except Exception as e:
+            print(f"Supabase evidence download failed: {e}")
+            
+    # Resolve local file path (handles local:// and fallback from cloud)
+    raw_name = path.replace("local://", "").replace("supabase://", "").strip()
+    if "/" in raw_name:
+        raw_name = raw_name.split("/")[-1]
+    filename = os.path.basename(raw_name)
+    base_dir = os.path.abspath(os.path.join(os.getcwd(), "uploads"))
+    
+    candidate_dirs = [
+        base_dir,
+        os.path.join(base_dir, "cases"),
+        os.path.join(base_dir, "evidence_vault")
+    ]
+    file_path = None
+    for cdir in candidate_dirs:
+        cand = os.path.abspath(os.path.join(cdir, filename))
+        if os.path.exists(cand):
+            file_path = cand
+            break
         
-        if not file_path.startswith(base_dir):
-            raise HTTPException(status_code=400, detail="Invalid evidence file path")
-            
-        if not os.path.exists(file_path):
-            raise HTTPException(status_code=404, detail="File not found on disk")
-            
+    if not file_path:
+        raise HTTPException(status_code=404, detail="File not found on disk")
+        
+    with open(file_path, "rb") as buffer:
+        raw_data = buffer.read()
+        
+    # Attempt decryption if encrypted; if unencrypted (raw image/pdf), stream directly
+    decrypted_data = raw_data
+    try:
         from cryptography.fernet import Fernet
         from infrastructure.security.encryption import get_master_encryption_key
-        
         key = get_master_encryption_key()
         fernet = Fernet(key.encode())
+        decrypted_data = fernet.decrypt(raw_data)
+    except Exception:
+        # File is unencrypted raw media or uses different encoding
+        decrypted_data = raw_data
         
-        with open(file_path, "rb") as buffer:
-            encrypted_data = buffer.read()
-            
-        try:
-            decrypted_data = fernet.decrypt(encrypted_data)
-        except Exception:
-            raise HTTPException(status_code=500, detail="Failed to decrypt evidence")
-            
-        file_ext = os.path.splitext(filename)[1].lower()
-        content_type = "application/octet-stream"
-        if file_ext in [".jpg", ".jpeg"]: content_type = "image/jpeg"
-        elif file_ext == ".png": content_type = "image/png"
-        elif file_ext == ".pdf": content_type = "application/pdf"
-        
-        return StreamingResponse(io.BytesIO(decrypted_data), media_type=content_type)
-        
-    raise HTTPException(status_code=400, detail="Invalid evidence storage format")
+    file_ext = os.path.splitext(filename)[1].lower()
+    content_type = "application/octet-stream"
+    if file_ext in [".jpg", ".jpeg"]: content_type = "image/jpeg"
+    elif file_ext == ".png": content_type = "image/png"
+    elif file_ext == ".pdf": content_type = "application/pdf"
+    
+    return StreamingResponse(io.BytesIO(decrypted_data), media_type=content_type)
 
 @router.post("/{case_number}/assign")
 async def assign_case(
@@ -836,10 +1105,64 @@ async def assign_case(
     if not investigator or investigator.role not in ["police", "cyber_cell"]:
         raise HTTPException(status_code=400, detail="Invalid investigator ID")
         
-    case.status = CaseStatus.assigned.value
+    previous_assignee_id = case.assigned_to
+    is_reassignment = bool(previous_assignee_id and previous_assignee_id != investigator.id)
+
+    case.status = CaseStatus.investigating.value if case.status == CaseStatus.investigating.value else CaseStatus.assigned.value
     case.assigned_to = investigator.id
     case.assigned_phone = investigator.station_phone_number
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+    events = list(case.timeline_events or [])
+    action_label = "Case Reassigned by Admin" if is_reassignment else "Investigator Assigned by Admin"
+    events.append({
+        "action": action_label,
+        "author": "Administrator",
+        "actor_id": str(user.id),
+        "actor_name": user.full_name or "Administrator",
+        "method": "admin_dispatch",
+        "assigned_to_id": str(investigator.id),
+        "assigned_to_name": investigator.full_name,
+        "station": investigator.station_name,
+        "timestamp": now_iso
+    })
+    case.timeline_events = events
+    flag_modified(case, "timeline_events")
+
+    dna = dict(case.attack_dna or {})
+    dna["assignment_source"] = "admin_dispatch"
+    dna["assigned_by_admin"] = str(user.id)
+    dna["assigned_at"] = now_iso
+    case.attack_dna = dna
+    flag_modified(case, "attack_dna")
     
+    # Notify investigator & citizen
+    try:
+        from domain.services.notification_service import NotificationService
+        await NotificationService.create_notification(
+            db=db,
+            user_id=investigator.id,
+            title="📋 New Case Assigned",
+            message=f"Case #{case.case_number} has been assigned to you for investigation.",
+            type="case_assigned",
+            priority="high",
+            link=f"/workbench/reports?case={case.case_number}",
+            metadata={"case_id": str(case.id), "case_number": case.case_number}
+        )
+        if case.submitted_by:
+            await NotificationService.create_notification(
+                db=db,
+                user_id=case.submitted_by,
+                title="🛡️ Investigator Assigned",
+                message=f"Officer {investigator.full_name or 'Assigned Officer'} has been appointed to investigate your case #{case.case_number}.",
+                type="case_update",
+                priority="normal",
+                link=f"/citizen?case={case.case_number}",
+                metadata={"case_id": str(case.id), "case_number": case.case_number}
+            )
+    except Exception as notif_err:
+        pass
+
     await db.commit()
     
     from infrastructure.smtp.email_service import send_case_assigned_victim_email, send_case_assigned_investigator_email
@@ -897,41 +1220,131 @@ async def undertake_case(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Investigator self-assigns an unassigned case."""
+    """Investigator self-assigns an unassigned case from proximity radar or dockets."""
     if user.role not in ["police", "cyber_cell", "admin", "investigator"]:
         raise HTTPException(status_code=403, detail="Only investigators can undertake cases")
         
     import uuid as _uuid
     try:
         val_uuid = _uuid.UUID(case_number)
-        undertake_query = select(Case).where(or_(Case.case_number == case_number, Case.id == val_uuid))
+        undertake_query = select(Case).where(or_(Case.case_number == case_number, Case.id == val_uuid)).with_for_update()
     except Exception:
-        undertake_query = select(Case).where(Case.case_number == case_number)
+        undertake_query = select(Case).where(Case.case_number == case_number).with_for_update()
     result = await db.execute(undertake_query)
     case = result.scalar_one_or_none()
     
     if not case or case.status not in [CaseStatus.submitted.value, CaseStatus.under_review.value, CaseStatus.escalated.value]:
         raise HTTPException(status_code=404, detail="Case not found or not available to undertake")
         
-    # Fetch investigator details to get station_phone_number
     from domain.models.user import User
     investigator_res = await db.execute(select(User).where(User.id == str(user.id)))
     investigator = investigator_res.scalar_one_or_none()
     
+    inv_name = investigator.full_name if investigator else "Duty Officer"
+    now_iso = datetime.now(timezone.utc).isoformat()
+
     case.status = CaseStatus.investigating.value
     case.assigned_to = user.id
     case.assigned_phone = investigator.station_phone_number if investigator else None
+
+    # Record Claim Origin & Timeline Event
+    events = list(case.timeline_events or [])
+    events.append({
+        "action": "Claimed from Map Radar",
+        "author": "Investigator",
+        "actor_id": str(user.id),
+        "actor_name": inv_name,
+        "method": "map_radar_claim",
+        "timestamp": now_iso
+    })
+    case.timeline_events = events
+    flag_modified(case, "timeline_events")
+
+    dna = dict(case.attack_dna or {})
+    dna["assignment_source"] = "map_radar_claim"
+    dna["claimed_at"] = now_iso
+    dna["claimed_by"] = str(user.id)
+    case.attack_dna = dna
+    flag_modified(case, "attack_dna")
+
+    # 1. Notify ALL Admins on-platform
+    try:
+        from domain.services.notification_service import NotificationService
+        await NotificationService.notify_admins(
+            db=db,
+            title="🚨 Case Claimed from Map",
+            message=f"Case #{case.case_number} claimed by Officer {inv_name} ({getattr(investigator, 'role', 'investigator')}). Status: INVESTIGATING.",
+            type="case_assigned",
+            priority="high",
+            link=f"/admin/tracker?case={case.case_number}",
+            metadata={
+                "case_id": str(case.id),
+                "case_number": case.case_number,
+                "investigator_id": str(user.id),
+                "investigator_name": inv_name,
+                "status": "investigating"
+            }
+        )
+    except Exception as notif_admin_err:
+        pass
+
+    # 2. Notify Citizen On-Platform AND Via Email
+    if case.submitted_by:
+        try:
+            from domain.services.notification_service import NotificationService
+            await NotificationService.create_notification(
+                db=db,
+                user_id=case.submitted_by,
+                title="🔍 Investigation Commenced",
+                message=f"{inv_name} from {getattr(investigator, 'station_name', 'Cyber Crime Unit') or 'Cyber Crime Unit'} has claimed and commenced investigation of your case #{case.case_number}.",
+                type="case_update",
+                priority="high",
+                link="/citizen",
+                metadata={"case_id": str(case.id), "case_number": case.case_number}
+            )
+            # Dispatch email confirmation to citizen
+            sub_res = await db.execute(select(User).where(User.id == case.submitted_by))
+            submitter = sub_res.scalar_one_or_none()
+            if submitter and submitter.email:
+                from infrastructure.smtp.email_service import send_case_assigned_victim_email
+                await send_case_assigned_victim_email(
+                    to_email=submitter.email,
+                    case_number=case.case_number,
+                    investigator_name=inv_name,
+                    station_phone=investigator.station_phone_number if investigator else None,
+                    station_name=getattr(investigator, "station_name", None)
+                )
+        except Exception as notif_cit_err:
+            pass
+
+    # 3. Notify the claiming investigator in their own bell tray
+    try:
+        from domain.services.notification_service import NotificationService
+        await NotificationService.create_notification(
+            db=db,
+            user_id=user.id,
+            title="🎯 Case Claimed from Map Radar",
+            message=f"You undertook Case #{case.case_number} from the proximity map. Case has moved to the top of your register.",
+            type="case_assigned",
+            priority="normal",
+            link=f"/workbench/reports?case={case.case_number}",
+            metadata={"case_id": str(case.id), "case_number": case.case_number}
+        )
+    except Exception as notif_inv_err:
+        pass
+
     await db.commit()
-    
+
     from infrastructure.smtp.email_service import send_case_accepted_admin_email
     from core.config import settings
-    
-    # Notify Admin
     if settings.ADMIN_EMAIL:
-        inv_name = investigator.full_name if investigator else "Unknown"
         await send_case_accepted_admin_email(settings.ADMIN_EMAIL, case.case_number, inv_name)
-    
-    return {"message": f"Case {case_number} undertaken and is now INVESTIGATING"}
+
+    return {
+        "message": f"Case {case_number} undertaken and is now INVESTIGATING",
+        "assignment_source": "map_radar_claim",
+        "claimed_at": now_iso
+    }
 from datetime import datetime, timezone
 
 @router.post("/{case_number}/resolve")
@@ -947,19 +1360,58 @@ async def resolve_case(
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
         
-    if str(case.submitted_by) != str(user.id):
-        raise HTTPException(status_code=403, detail="Only the citizen who filed the report can resolve it")
+    if user.role != "admin" and str(case.submitted_by) != str(user.id):
+        raise HTTPException(status_code=403, detail="Only the citizen or an administrator can resolve this case.")
         
     case.status = CaseStatus.resolved.value
     
-    events = case.timeline_events or []
+    events = list(case.timeline_events or [])
+    now_iso = datetime.now(timezone.utc).isoformat()
     events.append({
         "action": "Resolved",
-        "author": "Citizen",
-        "timestamp": datetime.now(timezone.utc).isoformat()
+        "author": "Administrator" if user.role == "admin" else "Citizen",
+        "actor_id": str(user.id),
+        "actor_name": user.full_name or ("Administrator" if user.role == "admin" else "Citizen"),
+        "timestamp": now_iso
     })
     case.timeline_events = events
-    
+    flag_modified(case, "timeline_events")
+
+    # Notify investigator if assigned
+    resolver_label = "Administrator" if user.role == "admin" else "Citizen"
+    if case.assigned_to:
+        try:
+            from domain.services.notification_service import NotificationService
+            await NotificationService.create_notification(
+                db=db,
+                user_id=case.assigned_to,
+                title=f"✅ Case Resolved by {resolver_label}",
+                message=f"{resolver_label} marked case #{case.case_number} as resolved.",
+                type="case_update",
+                priority="normal",
+                link=f"/workbench/reports?case={case.case_number}",
+                metadata={"case_id": str(case.id), "case_number": case.case_number}
+            )
+        except Exception as notif_err:
+            pass
+
+    # If resolved by Admin, notify complainant Citizen
+    if user.role == "admin" and case.submitted_by:
+        try:
+            from domain.services.notification_service import NotificationService
+            await NotificationService.create_notification(
+                db=db,
+                user_id=case.submitted_by,
+                title="✅ Case Resolved by Administrator",
+                message=f"Administrator has reviewed and resolved your case #{case.case_number}.",
+                type="case_update",
+                priority="normal",
+                link=f"/citizen?case={case.case_number}",
+                metadata={"case_id": str(case.id), "case_number": case.case_number}
+            )
+        except Exception:
+            pass
+
     await db.commit()
     return {"message": f"Case {case_number} marked as RESOLVED"}
 
@@ -969,6 +1421,7 @@ from typing import Optional
 @router.post("/{case_number}/complete_investigation")
 async def complete_investigation(
     case_number: str,
+    request: Request,
     remark: Optional[str] = Form(None),
     file: Optional[UploadFile] = File(None),
     user: User = Depends(get_current_user),
@@ -981,36 +1434,106 @@ async def complete_investigation(
     result = await db.execute(select(Case).where(Case.case_number == case_number))
     case = result.scalar_one_or_none()
     
-    if not case or case.status != CaseStatus.investigating.value:
-        raise HTTPException(status_code=404, detail="Case not found or not in investigating status")
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+
+    status_str = (case.status.value if hasattr(case.status, "value") else str(case.status or "")).replace("CaseStatus.", "").lower()
+    if status_str in ["resolved", "closed"]:
+        raise HTTPException(status_code=400, detail=f"Case #{case_number} cannot be marked complete because it is already '{status_str}'.")
         
     attachment_url = None
     if file:
         from core.config import settings
-        from supabase import create_client
         import uuid
         file_ext = file.filename.split('.')[-1] if file.filename else 'bin'
         file_name = f"{case_number}_{uuid.uuid4().hex[:8]}.{file_ext}"
+        content = await file.read()
+        
+        uploaded = False
         try:
-            supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
-            content = await file.read()
-            res = supabase.storage.from_("evidence").upload(file_name, content, {"content-type": file.content_type})
-            attachment_url = supabase.storage.from_("evidence").get_public_url(file_name)
+            from infrastructure.storage.supabase_storage import supabase_storage
+            if supabase_storage.is_configured:
+                uploaded = await supabase_storage.upload_file(
+                    bucket_name="evidence",
+                    object_path=file_name,
+                    content=content,
+                    mime_type=file.content_type or "application/octet-stream"
+                )
+                if uploaded:
+                    attachment_url = f"{supabase_storage.url}/storage/v1/object/public/evidence/{file_name}"
         except Exception as e:
-            print(f"Investigation attachment upload failed: {e}")
+            print(f"Supabase upload attempt failed: {e}")
+            
+        if not uploaded:
+            upload_dir = os.path.join(settings.UPLOAD_DIR, "cases")
+            os.makedirs(upload_dir, exist_ok=True)
+            local_save = os.path.join(upload_dir, file_name)
+            with open(local_save, "wb") as f_out:
+                f_out.write(content)
+            attachment_url = f"/v1/cases/{case_number}/evidence"
+
+    # Fallback to JSON payload if submitted as JSON body
+    if not remark:
+        try:
+            body = await request.json()
+            remark = body.get("remark")
+            if not attachment_url:
+                attachment_url = body.get("attachment_url")
+        except Exception:
+            pass
             
     case.status = CaseStatus.investigation_completed.value
+    now_iso = datetime.now(timezone.utc).isoformat()
     
-    events = case.timeline_events or []
+    dna = dict(case.attack_dna or {})
+    dna["nudge_pending"] = False
+    dna["nudge_resolved_at"] = now_iso
+    dna["investigation_findings"] = remark
+    dna["investigation_attachment"] = attachment_url
+    dna["investigated_by"] = user.full_name or "Official Investigator"
+    dna["investigation_completed_at"] = now_iso
+    case.attack_dna = dna
+    flag_modified(case, "attack_dna")
+    
+    events = list(case.timeline_events or [])
     events.append({
         "action": "Investigation Completed",
         "author": "Investigator",
+        "actor_id": str(user.id),
+        "actor_name": user.full_name or "Official Investigator",
         "remark": remark,
         "attachment": attachment_url,
-        "timestamp": datetime.now(timezone.utc).isoformat()
+        "timestamp": now_iso
     })
     case.timeline_events = events
-    
+    flag_modified(case, "timeline_events")
+
+    # Notify Citizen and Administrators
+    try:
+        from domain.services.notification_service import NotificationService
+        if case.submitted_by:
+            await NotificationService.create_notification(
+                db=db,
+                user_id=case.submitted_by,
+                title="🏁 Investigation Completed",
+                message=f"Official investigation into your case #{case.case_number} has concluded." + (f" Remark: {remark[:60]}" if remark else ""),
+                type="case_update",
+                priority="high",
+                link=f"/citizen?case={case.case_number}",
+                metadata={"case_id": str(case.id), "case_number": case.case_number}
+            )
+        await NotificationService.notify_admins(
+            db=db,
+            title="🏁 Investigation Completed",
+            message=f"Officer {user.full_name or 'Investigator'} completed investigation on Case #{case.case_number}.",
+            type="case_update",
+            priority="normal",
+            link=f"/admin/tracker?case={case.case_number}",
+            metadata={"case_id": str(case.id), "case_number": case.case_number}
+        )
+    except Exception as notif_err:
+        print(f"Notification error on complete_investigation: {notif_err}")
+
     await db.commit()
     return {"message": "Investigation completed", "attachment_url": attachment_url}
 
@@ -1037,15 +1560,45 @@ async def reopen_case(
         
     case.status = CaseStatus.investigating.value
     
-    events = case.timeline_events or []
+    events = list(case.timeline_events or [])
+    now_iso = datetime.now(timezone.utc).isoformat()
     events.append({
         "action": "Reopened",
         "author": "Citizen",
+        "actor_id": str(user.id),
+        "actor_name": user.full_name or "Citizen",
         "remark": req.reason,
-        "timestamp": datetime.now(timezone.utc).isoformat()
+        "timestamp": now_iso
     })
     case.timeline_events = events
-    
+    flag_modified(case, "timeline_events")
+
+    # Notify Assigned Investigator
+    try:
+        from domain.services.notification_service import NotificationService
+        if case.assigned_to:
+            await NotificationService.create_notification(
+                db=db,
+                user_id=case.assigned_to,
+                title="⚠️ Case Reopened by Citizen",
+                message=f"Case #{case.case_number} was reopened by citizen: \"{req.reason[:60]}\"",
+                type="case_update",
+                priority="high",
+                link=f"/workbench/reports?case={case.case_number}",
+                metadata={"case_id": str(case.id), "case_number": case.case_number}
+            )
+        await NotificationService.notify_admins(
+            db=db,
+            title="⚠️ Case Reopened",
+            message=f"Case #{case.case_number} was reopened by complainant with note: \"{req.reason[:60]}\"",
+            type="case_update",
+            priority="normal",
+            link=f"/admin/tracker?case={case.case_number}",
+            metadata={"case_id": str(case.id), "case_number": case.case_number}
+        )
+    except Exception as notif_err:
+        pass
+
     await db.commit()
     return {"message": f"Case {case_number} reopened"}
 
@@ -1245,6 +1798,14 @@ async def process_case_background(
             case.status = CaseStatus.under_review.value
             await db.commit()
             return ai_decision
+        finally:
+            if file_path and os.path.exists(file_path):
+                base_fname = os.path.basename(file_path)
+                if base_fname.startswith("tmp_"):
+                    try:
+                        os.remove(file_path)
+                    except Exception as clean_err:
+                        print(f"Warning: Failed to clean up temp file {file_path}: {clean_err}")
 
 
 @router.post("/{case_number}/verify-ntir")
@@ -1360,3 +1921,221 @@ async def override_ai_decision_rlhf(
         "rlhf_override": current_decision["rlhf_override"]
     }
 
+
+
+@router.get("/sla/overdue")
+async def get_overdue_sla_cases(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """
+    Returns cases in 'investigating' or 'assigned' status exceeding their priority SLA threshold.
+    Accessible to admins and authorized officers.
+    Critical SLA: 24h, High SLA: 48h, Standard/Medium SLA: 72h.
+    """
+    from domain.models.case import Case, CaseStatus
+    from domain.models.user import User as UserModel
+    from datetime import datetime, timezone
+    from sqlalchemy import or_
+
+    query = select(Case).where(
+        Case.status.in_([CaseStatus.investigating.value, "investigating", CaseStatus.assigned.value, "assigned"])
+    )
+    res = await db.execute(query)
+    cases = res.scalars().all()
+
+    now_utc = datetime.now(timezone.utc)
+    sla_limits_hours = {
+        "critical": 24,
+        "high": 48,
+        "standard": 72,
+        "medium": 72,
+        "low": 96
+    }
+
+    inv_ids = {c.assigned_to for c in cases if c.assigned_to}
+    inv_map = {}
+    if inv_ids:
+        u_res = await db.execute(select(UserModel).where(UserModel.id.in_(inv_ids)))
+        for u in u_res.scalars().all():
+            inv_map[u.id] = {
+                "id": str(u.id),
+                "name": u.full_name or u.email,
+                "role": u.role,
+                "station": getattr(u, "station_name", None) or "Cyber Crime Unit",
+                "phone": u.station_phone_number,
+                "email": u.email
+            }
+
+    overdue_cases = []
+    for c in cases:
+        dna = c.attack_dna or {}
+        claimed_at_str = dna.get("claimed_at")
+
+        ref_time = None
+        if claimed_at_str:
+            try:
+                ref_time = datetime.fromisoformat(claimed_at_str.replace("Z", "+00:00"))
+            except Exception:
+                pass
+        if not ref_time and c.updated_at:
+            ref_time = c.updated_at.replace(tzinfo=timezone.utc) if c.updated_at.tzinfo is None else c.updated_at
+        if not ref_time and c.created_at:
+            ref_time = c.created_at.replace(tzinfo=timezone.utc) if c.created_at.tzinfo is None else c.created_at
+
+        if not ref_time:
+            continue
+
+        elapsed_hours = (now_utc - ref_time).total_seconds() / 3600
+        urgency = (getattr(c, "urgency_level", "") or c.priority or "standard").lower()
+        limit_hours = sla_limits_hours.get(urgency, 72)
+
+        if elapsed_hours > limit_hours:
+            hours_overdue = round(elapsed_hours - limit_hours, 1)
+            overdue_cases.append({
+                "id": str(c.id),
+                "case_number": c.case_number,
+                "status": c.status,
+                "priority": c.priority,
+                "urgency_level": urgency,
+                "scam_type_code": c.scam_type_code,
+                "city": c.city,
+                "state": c.state,
+                "estimated_loss_inr": getattr(c, "estimated_loss_inr", 0.0) or 0.0,
+                "elapsed_hours": round(elapsed_hours, 1),
+                "sla_limit_hours": limit_hours,
+                "hours_overdue": hours_overdue,
+                "assigned_to": str(c.assigned_to) if c.assigned_to else None,
+                "investigator": inv_map.get(c.assigned_to),
+                "timeline_events": c.timeline_events,
+                "created_at": c.created_at.isoformat() if c.created_at else None,
+            })
+
+    overdue_cases.sort(key=lambda x: x["hours_overdue"], reverse=True)
+    return {"overdue_count": len(overdue_cases), "cases": overdue_cases}
+
+
+@router.post("/{case_number}/nudge-investigator")
+async def nudge_investigator(
+    case_number: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """
+    Admin sends an urgent investigation status inquiry to the assigned officer.
+    Dispatches an in-app notification and appends to case activity timeline.
+    """
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Only administrators can dispatch investigation nudges.")
+
+    result = await db.execute(select(Case).where(Case.case_number == case_number))
+    case = result.scalar_one_or_none()
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+
+    if not case.assigned_to:
+        raise HTTPException(status_code=400, detail="Cannot nudge an unassigned case.")
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    dna = dict(case.attack_dna or {})
+    dna["nudge_pending"] = True
+    dna["last_nudged_at"] = now_iso
+    dna["nudge_author"] = user.full_name or "Administrator"
+    case.attack_dna = dna
+    flag_modified(case, "attack_dna")
+
+    events = list(case.timeline_events or [])
+    events.append({
+        "action": "Admin Status Inquiry (Nudge)",
+        "author": "Platform Admin",
+        "actor_id": str(user.id),
+        "actor_name": user.full_name or "Administrator",
+        "method": "sla_nudge",
+        "remark": "Administrator requested an expedited investigation progress and evidentiary update.",
+        "timestamp": now_iso
+    })
+    case.timeline_events = events
+    flag_modified(case, "timeline_events")
+
+    from domain.services.notification_service import NotificationService
+    await NotificationService.create_notification(
+        db=db,
+        user_id=case.assigned_to,
+        title="⚠️ Action Required: Case Status Inquiry",
+        message=f"Administrator requested an urgent progress update on Case #{case.case_number} (SLA monitoring).",
+        type="case_assigned",
+        priority="urgent",
+        link=f"/workbench/reports?case={case.case_number}&action=nudge",
+        metadata={"case_id": str(case.id), "case_number": case.case_number, "action": "nudge"}
+    )
+
+    await db.commit()
+    return {"status": "success", "message": f"Nudge reminder dispatched to assigned officer for Case #{case_number}."}
+
+
+class ProgressRemarkRequest(BaseModel):
+    remark: str
+
+
+@router.post("/{case_number}/progress-remark")
+async def add_progress_remark(
+    case_number: str,
+    req: ProgressRemarkRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Investigator logs an interim progress remark or evidentiary update.
+    This resolves any pending admin inquiry (nudge) and notifies administrators.
+    """
+    if user.role not in ["police", "cyber_cell", "admin"]:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+
+    result = await db.execute(select(Case).where(Case.case_number == case_number))
+    case = result.scalar_one_or_none()
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+
+    clean_remark = req.remark.strip()
+    if not clean_remark:
+        raise HTTPException(status_code=400, detail="Remark cannot be empty")
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    events = list(case.timeline_events or [])
+    events.append({
+        "action": "Progress Update Submitted",
+        "author": "Investigator",
+        "actor_id": str(user.id),
+        "actor_name": user.full_name or "Official Investigator",
+        "remark": clean_remark,
+        "timestamp": now_iso
+    })
+    case.timeline_events = events
+    flag_modified(case, "timeline_events")
+
+    dna = dict(case.attack_dna or {})
+    dna["nudge_pending"] = False
+    dna["nudge_resolved_at"] = now_iso
+    dna["last_progress_update_at"] = now_iso
+    case.attack_dna = dna
+    flag_modified(case, "attack_dna")
+
+    # Notify Admins that the officer submitted an investigation update
+    try:
+        from domain.services.notification_service import NotificationService
+        await NotificationService.notify_admins(
+            db=db,
+            title="📝 Investigation Progress Update",
+            message=f"Officer {user.full_name or 'Investigator'} posted an update on Case #{case.case_number}: \"{clean_remark[:70]}\"",
+            type="case_update",
+            priority="normal",
+            link=f"/admin/tracker?case={case.case_number}",
+            metadata={"case_id": str(case.id), "case_number": case.case_number}
+        )
+    except Exception as e:
+        print(f"Failed to dispatch admin notification for progress remark: {e}")
+
+    await db.commit()
+    return {"status": "success", "message": "Progress remark recorded and admin inquiry cleared."}

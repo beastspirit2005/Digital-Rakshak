@@ -15,8 +15,9 @@ import { api, formatApiError } from "@/lib/api";
   function routeForRole(role: string) {
     if (role === "admin") return "/admin";
     if (role === "citizen") return "/citizen";
-    if (role === "banker") return "/banker";
-    return "/workbench";
+    if (role === "banker" || role === "bank_employee") return "/banker";
+    if (role === "police" || role === "cyber_cell") return "/workbench";
+    return "/citizen";
   }
   function canAccessRoute(role: string, path: string) {
     if (path.startsWith("/admin")) {
@@ -35,8 +36,12 @@ import { api, formatApiError } from "@/lib/api";
       return ["admin", "banker", "bank_employee"].includes(role);
     }
 
-    if (path.startsWith("/citizen")) {
+    if (path.startsWith("/citizen") || path.startsWith("/personal")) {
       return ["admin", "citizen"].includes(role);
+    }
+
+    if (path.startsWith("/business")) {
+      return ["admin", "banker", "bank_employee"].includes(role);
     }
 
     return true;
