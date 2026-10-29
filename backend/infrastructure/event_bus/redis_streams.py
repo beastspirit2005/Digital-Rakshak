@@ -16,6 +16,7 @@ Design decisions
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from typing import Any, Dict, Optional
@@ -70,7 +71,7 @@ class EventBus:
                 retry_on_timeout=False,
             )
             # Verify connection
-            await self._redis.ping()
+            await asyncio.wait_for(self._redis.ping(), timeout=0.5)
             self._connected = True
             logger.info("EventBus connected to Redis at %s", settings.REDIS_URL)
 

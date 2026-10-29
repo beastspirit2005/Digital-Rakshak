@@ -54,13 +54,15 @@ export function LoadingOverlay({
   onCancel,
 }: LoadingOverlayProps) {
   const [internalStep, setInternalStep] = useState(0);
+  const [prevOpen, setPrevOpen] = useState(open);
 
-  // Reset internal step counter when opened
-  useEffect(() => {
+  // Reset internal step counter during render when opened (avoids cascading effect renders)
+  if (open !== prevOpen) {
+    setPrevOpen(open);
     if (open) {
       setInternalStep(0);
     }
-  }, [open]);
+  }
 
   // Handle auto-advancing steps if currentStepIndex is not explicitly controlled
   useEffect(() => {

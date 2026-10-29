@@ -80,7 +80,7 @@ class NotificationService:
                 notif = await NotificationService.create_notification(
                     db=db,
                     user_id=assigned_officer_id,
-                    title=f"💬 New Message on Case #{case.case_number}",
+                    title=f"New Message on Case #{case.case_number}",
                     message=f"{sender.full_name or 'Citizen Complainant'} sent a direct message: \"{snippet}\"",
                     type="chat_message",
                     priority="high",
@@ -111,7 +111,7 @@ class NotificationService:
                     notif = await NotificationService.create_notification(
                         db=db,
                         user_id=off.id,
-                        title=f"🚨 Direct Chat Request on Unassigned Case #{case.case_number}",
+                        title=f"Direct Chat Request on Unassigned Case #{case.case_number}",
                         message=f"Complainant {sender.full_name or 'Victim'} requested assistance: \"{snippet}\"",
                         type="chat_message",
                         priority="urgent",
@@ -133,7 +133,7 @@ class NotificationService:
                 notif = await NotificationService.create_notification(
                     db=db,
                     user_id=victim_id,
-                    title=f"💬 Officer Response on Case #{case.case_number}",
+                    title=f"Officer Response on Case #{case.case_number}",
                     message=f"{officer_title} replied to your case: \"{snippet}\"",
                     type="chat_message",
                     priority="high",
@@ -234,7 +234,7 @@ class NotificationService:
         return await NotificationService.create_notification(
             db=db,
             user_id=victim_id,
-            title=f"📋 Case Milestone Update: #{case.case_number}",
+            title=f"Case Milestone Update: #{case.case_number}",
             message=f"Your cyber fraud complaint status has updated to: {status_formatted}",
             type="case_status",
             priority="normal",

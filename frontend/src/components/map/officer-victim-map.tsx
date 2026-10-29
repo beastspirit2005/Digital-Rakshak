@@ -48,6 +48,7 @@ export interface VictimFeature {
     urgency_level: "critical" | "high" | "standard" | string;
     is_ongoing_fraud: boolean;
     estimated_loss_inr: number;
+    estimated_amount?: number;
     distance_km: number;
     city: string;
     state: string;
@@ -283,6 +284,13 @@ export default function OfficerVictimMap({
         mapStyle={mapStyleUrl}
         style={{ width: "100%", height: "100%" }}
         attributionControl={false}
+        onClick={(e) => {
+          if (!e.defaultPrevented) {
+            setActivePopup(null);
+            setActiveOfficerPopup(null);
+            onSelectCase(null);
+          }
+        }}
       >
         <NavigationControl position="bottom-right" showCompass={true} />
         <FullscreenControl position="bottom-right" />
@@ -463,7 +471,7 @@ export default function OfficerVictimMap({
                 {/* Claimed Tooltip Pill */}
                 {isMyClaim ? (
                   <div className="absolute -top-6 left-1/2 -translate-x-1/2 whitespace-nowrap px-1.5 py-0.2 rounded text-[9px] font-bold bg-cyan-950 border border-cyan-400 text-cyan-300 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity z-30">
-                    🎯 Claimed by You
+                    <ShieldCheck className="w-3.5 h-3.5 text-indigo-400 inline mr-1" />Claimed by You
                   </div>
                 ) : null}
 
@@ -606,14 +614,14 @@ export default function OfficerVictimMap({
             anchor="bottom"
             offset={[0, -18]}
             closeButton={true}
-            closeOnClick={false}
+            closeOnClick={true}
             onClose={() => {
               setActivePopup(null);
               onSelectCase(null);
             }}
             className="digital-rakshak-map-popup z-40"
           >
-            <div className="w-[300px] sm:w-[350px] p-3 text-ink bg-surface rounded-xl border border-line shadow-2xl space-y-3 font-sans max-h-[85vh] overflow-y-auto">
+            <div className="w-[340px] sm:w-[420px] p-3.5 text-ink bg-surface rounded-xl border border-line shadow-2xl space-y-3 font-sans max-h-[85vh] overflow-y-auto">
               {/* Header */}
               <div className="flex items-start justify-between gap-2 border-b border-line pb-2">
                 <div>
@@ -670,7 +678,7 @@ export default function OfficerVictimMap({
                 <div>
                   <span className="text-[10px] text-ink-3 block">Reported Loss</span>
                   <span className="font-bold text-amber-600 dark:text-amber-400">
-                    ₹{Number(activePopup.properties.estimated_loss_inr || 0).toLocaleString("en-IN")}
+                    ₹{Number(activePopup.properties.estimated_loss_inr || activePopup.properties.estimated_amount || 0).toLocaleString("en-IN")}
                   </span>
                 </div>
                 <div>
@@ -690,10 +698,15 @@ export default function OfficerVictimMap({
                 </div>
               )}
 
-              {/* Narrative snippet */}
-              <p className="text-xs text-ink-2 italic line-clamp-2 bg-surface-2 p-2 rounded border border-line">
-                &ldquo;{activePopup.properties.narrative}&rdquo;
-              </p>
+              {/* Complaint Narrative */}
+              <div className="space-y-1">
+                <span className="text-[10px] uppercase font-bold text-ink-3 tracking-wider block">
+                  Complaint Narrative
+                </span>
+                <div className="max-h-36 overflow-y-auto p-2.5 rounded-lg bg-surface-2/80 border border-line text-xs text-ink leading-relaxed break-words scrollbar-thin">
+                  &ldquo;{activePopup.properties.narrative}&rdquo;
+                </div>
+              </div>
 
               {/* Differential Privacy Notice */}
               <div className="flex items-center gap-1.5 text-[10px] px-2 py-1.5 rounded bg-surface-2 border border-line">
@@ -763,21 +776,29 @@ export default function OfficerVictimMap({
                 </div>
               )}
 
-              {/* Police Officer Claim Action */}
-              <div className="pt-1 flex items-center gap-2">
-                {activePopup.properties.is_assigned_to_me ? (
+              {/* Action Buttons: Investigation Workspace & Officer Claim */}
+              <div className="pt-1 flex flex-col sm:flex-row items-center gap-2">
+                {isAdmin ? (
                   <Link
-                    href={`/workbench/reports`}
-                    className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors"
+                    href={`/workbench/workspace/${activePopup.properties.case_number || activePopup.properties.reference}`}
+                    className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-accent hover:bg-accent-hover text-white transition-colors shadow-xs"
+                  >
+                    <span>Open Case Workspace</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                ) : activePopup.properties.is_assigned_to_me ? (
+                  <Link
+                    href={`/workbench/workspace/${activePopup.properties.case_number || activePopup.properties.reference}`}
+                    className="flex-1 w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors"
                   >
                     <span>Open Case in Workbench</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </Link>
-                ) : onClaimCase && !isAdmin ? (
+                ) : onClaimCase ? (
                   <button
                     onClick={() => onClaimCase(activePopup)}
                     disabled={claimingId === activePopup.properties.case_id}
-                    className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white transition-all shadow-md active:scale-95 disabled:opacity-50"
+                    className="flex-1 w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white transition-all shadow-md active:scale-95 disabled:opacity-50"
                   >
                     {claimingId === activePopup.properties.case_id ? (
                       <>

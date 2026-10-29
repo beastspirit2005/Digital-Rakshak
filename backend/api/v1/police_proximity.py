@@ -180,6 +180,16 @@ async def get_nearby_victims(
             except Exception:
                 pass
 
+        # Fallback cascade for reported loss: DB estimated_loss_inr -> DB estimated_amount -> AI narrative extraction -> 0.0
+        loss_val = (
+            getattr(c, "estimated_loss_inr", None)
+            or getattr(c, "estimated_amount", None)
+        )
+        if not loss_val and c.scam_text:
+            from domain.services.financial_loss_extractor import extract_financial_loss
+            loss_val = extract_financial_loss(c.scam_text)
+        resolved_loss = float(loss_val) if loss_val else 0.0
+
         features.append({
             "type": "Feature",
             "geometry": {
@@ -193,12 +203,13 @@ async def get_nearby_victims(
                 "incident_type": c.scam_type_code or "Cyber Incident",
                 "urgency_level": urgency_val,
                 "is_ongoing_fraud": getattr(c, "is_ongoing_fraud", False),
-                "estimated_loss_inr": getattr(c, "estimated_loss_inr", 0.0) or 0.0,
+                "estimated_loss_inr": resolved_loss,
+                "estimated_amount": resolved_loss,
                 "distance_km": dist,
                 "city": c.city or "Unknown",
                 "state": c.state or "Unknown",
                 "status": c.status.value if hasattr(c.status, "value") else str(c.status),
-                "narrative": (c.scam_text[:140] + "...") if c.scam_text and len(c.scam_text) > 140 else (c.scam_text or "No statement provided"),
+                "narrative": c.scam_text or "No statement provided",
                 "assigned_to": str(c.assigned_to) if getattr(c, "assigned_to", None) else None,
                 "assignee_name": assignee_info["name"] if assignee_info else None,
                 "assignee_role": assignee_info["role"] if assignee_info else None,

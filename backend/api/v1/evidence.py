@@ -93,15 +93,41 @@ async def upload_evidence(
         raise HTTPException(status_code=500, detail=f"Evidence Vault upload error: {str(e)}")
 
 
-def _check_evidence_access(evidence: Evidence, user: Optional[User]) -> None:
+async def _check_evidence_access(evidence: Evidence, user: Optional[User], db: AsyncSession) -> None:
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication required to access Evidence Vault artifacts.",
         )
-    # Institutional roles have forensic oversight access
-    if user.role in ["admin", "police", "cyber_cell", "banker", "bank_employee"]:
+    # Institutional roles: Admin and Police/Cyber Cell have authorized forensic access
+    if user.role in ["admin", "police", "cyber_cell"]:
         return
+
+    # Bank officers are strictly restricted to financial scam cases (CS-03 BOLA Hardening)
+    if user.role in ["banker", "bank_employee"]:
+        if not evidence.case_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Bank officers are only authorized to access evidence attached to financial fraud cases.",
+            )
+        from domain.models.case import Case
+        case_res = await db.execute(select(Case).where(Case.id == evidence.case_id))
+        case = case_res.scalars().first()
+        if not case:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Associated case not found for this evidence artifact.",
+            )
+        scam_code = (case.scam_type_code or "").upper()
+        financial_keywords = ("FIN", "BANK", "UPI", "PAY", "CARD", "LOAN", "INVEST", "CRYPTO", "MULE", "FRAUD", "TXN")
+        is_financial = any(kw in scam_code for kw in financial_keywords)
+        if not is_financial:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access Denied: Bank officers are only authorized to view evidence associated with financial fraud investigations.",
+            )
+        return
+
     # Citizens can only access their own submitted evidence
     if evidence.evidence_owner and evidence.evidence_owner == user.id:
         return
@@ -128,7 +154,7 @@ async def get_evidence_details(
     if not evidence:
         raise HTTPException(status_code=404, detail="Evidence artifact not found")
 
-    _check_evidence_access(evidence, user)
+    await _check_evidence_access(evidence, user, db)
 
     repo = EvidenceRepository(db)
 
@@ -167,7 +193,7 @@ async def get_chain_of_custody_history(
     if not evidence:
         raise HTTPException(status_code=404, detail="Evidence artifact not found")
 
-    _check_evidence_access(evidence, user)
+    await _check_evidence_access(evidence, user, db)
 
     repo = EvidenceRepository(db)
     history = await repo.get_history(evidence_id)
@@ -223,7 +249,7 @@ async def download_evidence_file(
     if not evidence or not path_to_check:
         raise HTTPException(status_code=404, detail="Evidence file missing or not found on server")
 
-    _check_evidence_access(evidence, user)
+    await _check_evidence_access(evidence, user, db)
 
     # Record access log
     repo = EvidenceRepository(db)

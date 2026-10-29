@@ -20,8 +20,7 @@ import {
   Lock,
   Layers,
   Zap,
-  Image as ImageIcon
-} from "lucide-react";
+  Image as ImageIcon, X } from "lucide-react";
 import { RAICExecutionMonitor } from "@/components/ui/RAICExecutionMonitor";
 import { LoadingOverlay } from "@/components/ui/loading-overlay";
 import { api } from "@/lib/api";
@@ -191,7 +190,7 @@ export default function CounterfeitIntelligenceHubPage() {
           <span className="flex items-center gap-2 font-bold">
             <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> SUCCESS: Forensic Advisory & Note DNA Spec transmitted to RBI Fake Currency Control Cell & National Banking Grid.
           </span>
-          <button onClick={() => setAdvisorySent(false)} className="text-slate-400 hover:text-slate-700 dark:hover:text-white">✕</button>
+          <button onClick={() => setAdvisorySent(false)} className="text-slate-400 hover:text-slate-700 dark:hover:text-white"><X className="w-4 h-4" /></button>
         </motion.div>
       )}
 

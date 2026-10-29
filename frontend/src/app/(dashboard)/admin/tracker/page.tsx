@@ -24,8 +24,7 @@ import {
   BellRing,
   CheckCircle2,
   Flame,
-  UserCheck
-} from "lucide-react";
+  UserCheck, AlertCircle, X, Shield } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, Inset } from "@/components/ui/card";
 import { StatusBadge, PriorityBadge, Badge } from "@/components/ui/badge";
@@ -370,10 +369,10 @@ export default function AdminUniversalTracker() {
                 className="w-full text-xs p-2 rounded-xl bg-surface-2 border border-line text-ink font-medium focus:outline-none focus:border-accent"
               >
                 <option value="all">All Officers ({roster.length} registered)</option>
-                <option value="unassigned">⚠️ Unassigned Cases ({unassignedCount})</option>
+                <option value="unassigned">[Unassigned] Cases ({unassignedCount})</option>
                 {roster.map((off) => (
                   <option key={off.id} value={off.id}>
-                    👮 {off.name} ({off.badge_number && off.badge_number !== "N/A" ? `#${off.badge_number}` : off.station}) • {off.active_cases} active
+                    Officer: {off.name} ({off.badge_number && off.badge_number !== "N/A" ? `#${off.badge_number}` : off.station}) • {off.active_cases} active
                   </option>
                 ))}
               </select>
@@ -501,7 +500,7 @@ export default function AdminUniversalTracker() {
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.2 rounded border border-amber-500/20">
-                            ⚠️ Unassigned
+                            <span className="inline-flex items-center gap-1 text-amber-400 font-medium"><AlertTriangle className="w-3.5 h-3.5 shrink-0" />Unassigned</span>
                           </span>
                         )}
                         {c.investigator?.station && (
@@ -780,7 +779,7 @@ export default function AdminUniversalTracker() {
                     ) : (
                       <div className="py-2 text-center space-y-2">
                         <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-600 dark:text-amber-400 font-medium">
-                          ⚠️ No investigator has taken charge of this incident yet.
+                          <span className="inline-flex items-center gap-1.5"><AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />No investigator has taken charge of this incident yet.</span>
                         </div>
                         <Button
                           variant="primary"
@@ -848,9 +847,7 @@ export default function AdminUniversalTracker() {
               <button 
                 onClick={() => setReassignModalOpen(false)} 
                 className="w-7 h-7 rounded-lg flex items-center justify-center text-ink-3 hover:text-ink hover:bg-surface-2 transition-colors font-bold text-sm"
-              >
-                ✕
-              </button>
+              ><X className="w-4 h-4" /></button>
             </div>
 
             <p className="text-xs text-ink-2 leading-relaxed">

@@ -93,3 +93,14 @@ backend/wheels/
 
 .env
 .env*.local
+
+# --- Sanitisation: Test Dumps & Sensitive Session Artifacts (CS-01 / CS-03) ---
+backend/admin_sessions.txt
+backend/users.txt
+backend/api_test*.txt
+backend/citizen_check.txt
+backend/backend_tree.txt
+frontend/frontend_log.txt
+frontend/lint-results.txt
+frontend/src/frontend_tree.txt
+temp_val.txt

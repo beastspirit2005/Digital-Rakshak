@@ -181,6 +181,14 @@ async def case_copilot_chat(
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
 
+    is_admin = (user.role == "admin")
+    is_assigned = (str(case.assigned_to) == str(user.id)) if getattr(case, "assigned_to", None) else False
+    if not (is_admin or is_assigned):
+        raise HTTPException(
+            status_code=403,
+            detail="Access Denied: You must be the assigned investigator or a platform administrator to consult the AI Case Co-Pilot for this case."
+        )
+
     # Build Context
     context = f"""
     CASE FACT SHEET

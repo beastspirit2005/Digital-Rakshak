@@ -380,28 +380,28 @@ export function IngestTransactionModal({
                 onClick={() => applyPreset("normal")}
                 className="px-2.5 py-1 text-[11px] rounded-pill bg-surface-1 border border-line/20 hover:border-success/40 text-ink hover:text-success transition-all"
               >
-                ✅ Kirana UPI (₹250 - Pass)
+                <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block mr-1.5" />Kirana UPI (₹250 - Pass)
               </button>
               <button
                 type="button"
                 onClick={() => applyPreset("step_up")}
                 className="px-2.5 py-1 text-[11px] rounded-pill bg-surface-1 border border-line/20 hover:border-warning/40 text-ink hover:text-warning transition-all"
               >
-                ⚠️ New Device Spike (₹19.5k - Step-Up)
+                <span className="w-2 h-2 rounded-full bg-amber-400 inline-block mr-1.5" />New Device Spike (₹19.5k - Step-Up)
               </button>
               <button
                 type="button"
                 onClick={() => applyPreset("hold")}
                 className="px-2.5 py-1 text-[11px] rounded-pill bg-surface-1 border border-line/20 hover:border-peach/40 text-ink hover:text-peach transition-all"
               >
-                🛑 Off-Hours Hopping (₹48k - Hold)
+                <span className="w-2 h-2 rounded-full bg-rose-400 inline-block mr-1.5" />Off-Hours Hopping (₹48k - Hold)
               </button>
               <button
                 type="button"
                 onClick={() => applyPreset("quarantine")}
                 className="px-2.5 py-1 text-[11px] rounded-pill bg-surface-1 border border-line/20 hover:border-danger/40 text-ink hover:text-danger transition-all"
               >
-                🚨 Syndicate Mule Drain (₹198k - Quarantine)
+                <span className="w-2 h-2 rounded-full bg-rose-600 inline-block mr-1.5" />Syndicate Mule Drain (₹198k - Quarantine)
               </button>
             </div>
           </div>

@@ -1,14 +1,15 @@
 "use client";
 
+
 import React, { useEffect, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { api } from "@/lib/api";
+import { ShieldAlert, PhoneCall } from "lucide-react";
 
 export function NationalAlertTicker() {
   const [mounted, setMounted] = useState(false);
   const [alertItems, setAlertItems] = useState<React.ReactNode[]>([
-    <span key="1" className="flex items-center gap-1.5">
-      🛡 NATIONAL CYBER HELPLINE <span className="text-[#F59E0B] font-bold">1930</span>
+    <span key="1" className="flex items-center gap-1.5"><ShieldAlert className="w-3.5 h-3.5 text-[#F59E0B] inline mr-1" />NATIONAL CYBER HELPLINE <span className="text-[#F59E0B] font-bold">1930</span>
     </span>,
     <span key="2">REPORT CYBER FRAUD IMMEDIATELY</span>,
     <span key="3" className="flex items-center gap-1.5 text-[#F59E0B] font-semibold tracking-wide">
@@ -73,7 +74,7 @@ export function NationalAlertTicker() {
             <span className="relative inline-flex rounded-full h-2 w-2 bg-[#00D9A3]"></span>
           </span>
           <span className="tracking-wide">
-            📞 National Cyber Helpline <span className="text-[#F59E0B] font-extrabold">1930</span>
+            <PhoneCall className="w-4 h-4 text-amber-400 inline mr-1.5 animate-pulse" />National Cyber Helpline <span className="text-[#F59E0B] font-extrabold">1930</span>
           </span>
         </div>
       </div>

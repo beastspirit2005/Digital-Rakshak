@@ -120,7 +120,7 @@ export default function TransactionMonitoringPage() {
     if (newTxn.risk_band === "CRITICAL" || newTxn.risk_band === "HIGH") {
       pushToast(
         "danger",
-        `🚨 High Risk Alert: ${newTxn.transaction_id} (₹${newTxn.amount.toLocaleString("en-IN")}) flagged as ${newTxn.decision}`
+        `High Risk Alert: ${newTxn.transaction_id} (₹${newTxn.amount.toLocaleString("en-IN")}) flagged as ${newTxn.decision}`
       );
     }
   }, [pushToast]);

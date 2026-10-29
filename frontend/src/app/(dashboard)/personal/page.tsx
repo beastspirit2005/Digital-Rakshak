@@ -23,8 +23,7 @@ import {
   Trash2,
   Info,
   Loader2,
-  Mail
-} from "lucide-react";
+  Mail, Check, X } from "lucide-react";
 
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/auth-store";
@@ -747,7 +746,7 @@ export default function PersonalProtectionPortal() {
                         <ul className="space-y-1.5 text-xs text-muted-foreground">
                           {currentResult.guidance.map((g, i) => (
                             <li key={i} className="flex items-start gap-2">
-                              <span className="text-primary font-bold">✓</span>
+                              <Check className="w-4 h-4 text-primary shrink-0" />
                               <span className="text-foreground/90">{g}</span>
                             </li>
                           ))}
@@ -922,9 +921,7 @@ export default function PersonalProtectionPortal() {
               <button 
                 onClick={() => setShowUpgradeModal(false)}
                 className="text-muted-foreground hover:text-foreground text-sm font-semibold p-1"
-              >
-                ✕
-              </button>
+              ><X className="w-4 h-4" /></button>
             </div>
 
             {/* Plan Options - 3 Cards */}
@@ -1028,9 +1025,7 @@ export default function PersonalProtectionPortal() {
               <button 
                 onClick={() => setShowCancelModal(false)}
                 className="text-muted-foreground hover:text-foreground text-sm font-semibold p-1"
-              >
-                ✕
-              </button>
+              ><X className="w-4 h-4" /></button>
             </div>
 
             <p className="text-sm text-muted-foreground leading-relaxed">
@@ -1095,9 +1090,7 @@ export default function PersonalProtectionPortal() {
               <button 
                 onClick={() => setShowInvoiceEmailModal(false)}
                 className="text-muted-foreground hover:text-foreground text-sm font-semibold p-1"
-              >
-                ✕
-              </button>
+              ><X className="w-4 h-4" /></button>
             </div>
 
             <p className="text-sm text-muted-foreground leading-relaxed">

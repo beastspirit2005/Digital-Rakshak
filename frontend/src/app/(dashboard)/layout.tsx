@@ -60,7 +60,7 @@ export interface NavSection {
   items: NavItem[];
 }
 
-export const adminNavSections: NavSection[] = [
+const adminNavSections: NavSection[] = [
   {
     label: "Tactical Operations",
     items: [
@@ -91,7 +91,7 @@ export const adminNavSections: NavSection[] = [
   },
 ];
 
-export const investigatorNavSections: NavSection[] = [
+const investigatorNavSections: NavSection[] = [
   {
     label: "Patrol & Tactical Dispatch",
     items: [
@@ -118,7 +118,7 @@ export const investigatorNavSections: NavSection[] = [
   },
 ];
 
-export const nodalNavSections: NavSection[] = [
+const nodalNavSections: NavSection[] = [
   {
     label: "Fraud Interception & Liens",
     items: [
@@ -141,7 +141,7 @@ export const nodalNavSections: NavSection[] = [
   },
 ];
 
-export const citizenNavSections: NavSection[] = [
+const citizenNavSections: NavSection[] = [
   {
     label: "Protection & Incidents",
     items: [

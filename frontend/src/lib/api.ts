@@ -120,6 +120,7 @@ axios.interceptors.response.use(
         // Redirect to login only if not already there
         if (typeof window !== "undefined" && !window.location.pathname.includes("/auth/login")) {
           window.location.href = "/auth/login?expired=1";
+          return new Promise(() => {});
         }
       }
     }

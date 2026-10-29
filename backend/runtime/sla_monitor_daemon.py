@@ -40,6 +40,7 @@ class SLAMonitorDaemon:
         from domain.models.user import User
         from domain.services.notification_service import NotificationService
         from sqlalchemy import select
+        from sqlalchemy.orm.attributes import flag_modified
 
         now_utc = datetime.now(timezone.utc)
         self.last_run_at = now_utc
@@ -138,7 +139,7 @@ class SLAMonitorDaemon:
                                 await NotificationService.create_notification(
                                     db=session,
                                     user_id=c.assigned_to,
-                                    title=f"⚠️ Case SLA Overdue Notice: #{c.case_number}",
+                                    title=f"Case SLA Overdue Notice: #{c.case_number}",
                                     message=f"Investigation for Case #{c.case_number} has exceeded its {limit_hours}h SLA limit (+{hours_overdue}h). Please submit an evidentiary progress update.",
                                     type="case_assigned",
                                     priority="high",
@@ -163,6 +164,7 @@ class SLAMonitorDaemon:
                             "timestamp": now_iso
                         })
                         c.timeline_events = events
+                        flag_modified(c, "timeline_events")
 
                         dna["last_sla_reminder_at"] = now_iso
                         dna["sla_breached"] = True
@@ -171,6 +173,7 @@ class SLAMonitorDaemon:
                             dna["nudge_pending"] = True
                             dna["last_nudged_at"] = now_iso
                         c.attack_dna = dna
+                        flag_modified(c, "attack_dna")
 
                         notified_count += 1
 

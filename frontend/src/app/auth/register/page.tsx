@@ -16,8 +16,7 @@ import {
   RefreshCw,
   ArrowRight,
   MapPin,
-  Lock
-} from "lucide-react";
+  Lock, Check } from "lucide-react";
 import axios from "axios";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -557,7 +556,7 @@ export default function RegisterPage() {
                 />
                 {orgIdFile && (
                   <span className="text-[10px] text-emerald-400 mt-1 block">
-                    ✓ {orgIdFile.name} ({(orgIdFile.size / 1024).toFixed(1)} KB)
+                    <><Check className="w-3.5 h-3.5 text-emerald-400 inline mr-1" />{orgIdFile.name}</> ({(orgIdFile.size / 1024).toFixed(1)} KB)
                   </span>
                 )}
               </div>
@@ -576,7 +575,7 @@ export default function RegisterPage() {
                 />
                 {aadhaarFile && (
                   <span className="text-[10px] text-emerald-400 mt-1 block">
-                    ✓ {aadhaarFile.name} ({(aadhaarFile.size / 1024).toFixed(1)} KB)
+                    <><Check className="w-3.5 h-3.5 text-emerald-400 inline mr-1" />{aadhaarFile.name}</> ({(aadhaarFile.size / 1024).toFixed(1)} KB)
                   </span>
                 )}
               </div>

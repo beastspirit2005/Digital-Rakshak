@@ -12,8 +12,7 @@ import {
   CheckCircle2,
   Info,
   ShieldAlert,
-  Sparkles
-} from "lucide-react";
+  Sparkles, Check } from "lucide-react";
 import axios from "axios";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
@@ -408,7 +407,7 @@ export default function PreventionSuite() {
                     <ul className="space-y-1 text-xs text-muted-foreground">
                       {result.guidance.map((g: string, i: number) => (
                         <li key={i} className="flex items-start gap-2">
-                          <span className="text-primary font-bold">✓</span>
+                          <Check className="w-4 h-4 text-primary shrink-0" />
                           <span className="text-foreground/90">{g}</span>
                         </li>
                       ))}

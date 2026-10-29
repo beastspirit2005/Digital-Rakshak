@@ -4,7 +4,7 @@ import { api } from "@/lib/api";
 import React, { useEffect, useMemo, useState } from "react";
 import { useAuthStore } from "@/lib/auth-store";
 import axios from "axios";
-import { Search, FileText, ChevronDown, ChevronUp, Send, ShieldCheck, CheckCircle2, Download } from "lucide-react";
+import { Search, FileText, ChevronDown, ChevronUp, Send, ShieldCheck, CheckCircle2, Download, AlertCircle } from "lucide-react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Card, Inset } from "@/components/ui/card";
@@ -305,7 +305,7 @@ function CaseDetail({
           ) : userRole === "admin" ? (
             <div className="space-y-3">
                <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs text-amber-600 dark:text-amber-400 font-medium">
-                 ⚠️ No officer assigned to this case.
+                 <span className="inline-flex items-center gap-1.5 text-amber-400"><AlertCircle className="w-3.5 h-3.5 shrink-0" />No officer assigned to this case.</span>
                </div>
                <select 
                  className="w-full text-xs p-2 rounded-control bg-surface-2 border border-line text-ink"

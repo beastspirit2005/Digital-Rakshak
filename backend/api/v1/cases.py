@@ -1,9 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Form, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, status, Form, UploadFile, File, Header
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.attributes import flag_modified
 from typing import Dict, Any, List, Optional
-from sqlalchemy import select
+from sqlalchemy import select, or_
 import os
 import shutil
 import uuid
@@ -948,7 +948,7 @@ async def get_case(
     Get a single case by case number.
     Admins/officials can fetch any case. Citizens can only fetch their own.
     """
-    from sqlalchemy import select, or_
+    from sqlalchemy import select, or_, or_
     from domain.models.case import Case
     import uuid
     
@@ -1133,6 +1133,26 @@ async def assign_case(
     dna["assignment_source"] = "admin_dispatch"
     dna["assigned_by_admin"] = str(user.id)
     dna["assigned_at"] = now_iso
+
+    # AI Financial Loss Extraction on Assignment
+    if (case.estimated_loss_inr is None or case.estimated_loss_inr <= 0) and case.scam_text:
+        from domain.services.financial_loss_extractor import extract_financial_loss
+        extracted_loss = extract_financial_loss(case.scam_text)
+        if extracted_loss and extracted_loss > 0:
+            case.estimated_loss_inr = float(extracted_loss)
+            case.estimated_amount = float(extracted_loss)
+            events.append({
+                "action": "AI Financial Loss Identified",
+                "author": "AI Engine",
+                "actor_id": "ai_financial_loss_extractor",
+                "actor_name": "DigitalRakshak AI",
+                "amount_inr": float(extracted_loss),
+                "timestamp": now_iso
+            })
+            case.timeline_events = events
+            flag_modified(case, "timeline_events")
+            dna["ai_extracted_financial_loss"] = float(extracted_loss)
+
     case.attack_dna = dna
     flag_modified(case, "attack_dna")
     
@@ -1142,7 +1162,7 @@ async def assign_case(
         await NotificationService.create_notification(
             db=db,
             user_id=investigator.id,
-            title="📋 New Case Assigned",
+            title="New Case Assigned",
             message=f"Case #{case.case_number} has been assigned to you for investigation.",
             type="case_assigned",
             priority="high",
@@ -1153,7 +1173,7 @@ async def assign_case(
             await NotificationService.create_notification(
                 db=db,
                 user_id=case.submitted_by,
-                title="🛡️ Investigator Assigned",
+                title="Investigator Assigned",
                 message=f"Officer {investigator.full_name or 'Assigned Officer'} has been appointed to investigate your case #{case.case_number}.",
                 type="case_update",
                 priority="normal",
@@ -1264,6 +1284,26 @@ async def undertake_case(
     dna["assignment_source"] = "map_radar_claim"
     dna["claimed_at"] = now_iso
     dna["claimed_by"] = str(user.id)
+
+    # AI Financial Loss Extraction on Undertaking
+    if (case.estimated_loss_inr is None or case.estimated_loss_inr <= 0) and case.scam_text:
+        from domain.services.financial_loss_extractor import extract_financial_loss
+        extracted_loss = extract_financial_loss(case.scam_text)
+        if extracted_loss and extracted_loss > 0:
+            case.estimated_loss_inr = float(extracted_loss)
+            case.estimated_amount = float(extracted_loss)
+            events.append({
+                "action": "AI Financial Loss Identified",
+                "author": "AI Engine",
+                "actor_id": "ai_financial_loss_extractor",
+                "actor_name": "DigitalRakshak AI",
+                "amount_inr": float(extracted_loss),
+                "timestamp": now_iso
+            })
+            case.timeline_events = events
+            flag_modified(case, "timeline_events")
+            dna["ai_extracted_financial_loss"] = float(extracted_loss)
+
     case.attack_dna = dna
     flag_modified(case, "attack_dna")
 
@@ -1272,7 +1312,7 @@ async def undertake_case(
         from domain.services.notification_service import NotificationService
         await NotificationService.notify_admins(
             db=db,
-            title="🚨 Case Claimed from Map",
+            title="Case Claimed from Map",
             message=f"Case #{case.case_number} claimed by Officer {inv_name} ({getattr(investigator, 'role', 'investigator')}). Status: INVESTIGATING.",
             type="case_assigned",
             priority="high",
@@ -1295,7 +1335,7 @@ async def undertake_case(
             await NotificationService.create_notification(
                 db=db,
                 user_id=case.submitted_by,
-                title="🔍 Investigation Commenced",
+                title="Investigation Commenced",
                 message=f"{inv_name} from {getattr(investigator, 'station_name', 'Cyber Crime Unit') or 'Cyber Crime Unit'} has claimed and commenced investigation of your case #{case.case_number}.",
                 type="case_update",
                 priority="high",
@@ -1323,7 +1363,7 @@ async def undertake_case(
         await NotificationService.create_notification(
             db=db,
             user_id=user.id,
-            title="🎯 Case Claimed from Map Radar",
+            title="Case Claimed from Map Radar",
             message=f"You undertook Case #{case.case_number} from the proximity map. Case has moved to the top of your register.",
             type="case_assigned",
             priority="normal",
@@ -1385,7 +1425,7 @@ async def resolve_case(
             await NotificationService.create_notification(
                 db=db,
                 user_id=case.assigned_to,
-                title=f"✅ Case Resolved by {resolver_label}",
+                title=f"Case Resolved by {resolver_label}",
                 message=f"{resolver_label} marked case #{case.case_number} as resolved.",
                 type="case_update",
                 priority="normal",
@@ -1402,7 +1442,7 @@ async def resolve_case(
             await NotificationService.create_notification(
                 db=db,
                 user_id=case.submitted_by,
-                title="✅ Case Resolved by Administrator",
+                title="Case Resolved by Administrator",
                 message=f"Administrator has reviewed and resolved your case #{case.case_number}.",
                 type="case_update",
                 priority="normal",
@@ -1515,7 +1555,7 @@ async def complete_investigation(
             await NotificationService.create_notification(
                 db=db,
                 user_id=case.submitted_by,
-                title="🏁 Investigation Completed",
+                title="Investigation Completed",
                 message=f"Official investigation into your case #{case.case_number} has concluded." + (f" Remark: {remark[:60]}" if remark else ""),
                 type="case_update",
                 priority="high",
@@ -1524,7 +1564,7 @@ async def complete_investigation(
             )
         await NotificationService.notify_admins(
             db=db,
-            title="🏁 Investigation Completed",
+            title="Investigation Completed",
             message=f"Officer {user.full_name or 'Investigator'} completed investigation on Case #{case.case_number}.",
             type="case_update",
             priority="normal",
@@ -1580,7 +1620,7 @@ async def reopen_case(
             await NotificationService.create_notification(
                 db=db,
                 user_id=case.assigned_to,
-                title="⚠️ Case Reopened by Citizen",
+                title="Case Reopened by Citizen",
                 message=f"Case #{case.case_number} was reopened by citizen: \"{req.reason[:60]}\"",
                 type="case_update",
                 priority="high",
@@ -1589,7 +1629,7 @@ async def reopen_case(
             )
         await NotificationService.notify_admins(
             db=db,
-            title="⚠️ Case Reopened",
+            title="Case Reopened",
             message=f"Case #{case.case_number} was reopened by complainant with note: \"{req.reason[:60]}\"",
             type="case_update",
             priority="normal",
@@ -1615,7 +1655,7 @@ async def process_case_background(
 ):
     from infrastructure.db.session import AsyncSessionLocal
     from domain.models.case import Case
-    from sqlalchemy import select
+    from sqlalchemy import select, or_
     import asyncio
     
     async with AsyncSessionLocal() as db:
@@ -1756,6 +1796,18 @@ async def process_case_background(
             extracted_type = fused_decision.get("scam_type_classification") or fused_decision.get("threat_class") or fused_decision.get("scam_type")
             if extracted_type:
                 case.scam_type_code = str(extracted_type).strip().replace(" ", "_").upper()
+
+            # AI Financial Loss Extraction on Intake / Background Analysis
+            if (case.estimated_loss_inr is None or case.estimated_loss_inr <= 0) and case.scam_text:
+                from domain.services.financial_loss_extractor import extract_financial_loss
+                extracted_loss = extract_financial_loss(case.scam_text)
+                if extracted_loss and extracted_loss > 0:
+                    case.estimated_loss_inr = float(extracted_loss)
+                    case.estimated_amount = float(extracted_loss)
+                    dna = dict(case.attack_dna or {})
+                    dna["ai_extracted_financial_loss"] = float(extracted_loss)
+                    case.attack_dna = dna
+                    flag_modified(case, "attack_dna")
             
             # Coordinates
             CITY_COORDINATES = {
@@ -1796,6 +1848,12 @@ async def process_case_background(
             case.threat_confidence_score = 0.5
             case.ai_decision = ai_decision
             case.status = CaseStatus.under_review.value
+            if (case.estimated_loss_inr is None or case.estimated_loss_inr <= 0) and case.scam_text:
+                from domain.services.financial_loss_extractor import extract_financial_loss
+                extracted_loss = extract_financial_loss(case.scam_text)
+                if extracted_loss and extracted_loss > 0:
+                    case.estimated_loss_inr = float(extracted_loss)
+                    case.estimated_amount = float(extracted_loss)
             await db.commit()
             return ai_decision
         finally:
@@ -2015,6 +2073,37 @@ async def get_overdue_sla_cases(
     return {"overdue_count": len(overdue_cases), "cases": overdue_cases}
 
 
+@router.post("/sla/evaluate-cron")
+async def evaluate_sla_cron(
+    x_cron_secret: Optional[str] = Header(None, alias="x-cron-secret"),
+    user: Optional[User] = Depends(get_current_user_optional)
+):
+    """
+    Authenticated cron trigger for evaluating SLA breaches across active cases.
+    Can be invoked by serverless cron jobs (Vercel Cron / Cloud Scheduler) passing
+    the `x-cron-secret` header, or by an authenticated administrator.
+    """
+    from core.config import settings
+    from runtime.sla_monitor_daemon import sla_monitor_daemon
+    from datetime import datetime, timezone
+
+    is_valid_secret = bool(x_cron_secret and x_cron_secret == settings.SECRET_KEY)
+    is_admin = bool(user and getattr(user, "role", None) == "admin")
+
+    if not (is_valid_secret or is_admin):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden: Requires valid x-cron-secret header or admin credentials"
+        )
+
+    breached_count = await sla_monitor_daemon.check_cases_sla()
+    return {
+        "status": "success",
+        "evaluated_at": datetime.now(timezone.utc).isoformat(),
+        "breached_count": breached_count
+    }
+
+
 @router.post("/{case_number}/nudge-investigator")
 async def nudge_investigator(
     case_number: str,
@@ -2062,7 +2151,7 @@ async def nudge_investigator(
     await NotificationService.create_notification(
         db=db,
         user_id=case.assigned_to,
-        title="⚠️ Action Required: Case Status Inquiry",
+        title="Action Required: Case Status Inquiry",
         message=f"Administrator requested an urgent progress update on Case #{case.case_number} (SLA monitoring).",
         type="case_assigned",
         priority="urgent",
@@ -2127,7 +2216,7 @@ async def add_progress_remark(
         from domain.services.notification_service import NotificationService
         await NotificationService.notify_admins(
             db=db,
-            title="📝 Investigation Progress Update",
+            title="Investigation Progress Update",
             message=f"Officer {user.full_name or 'Investigator'} posted an update on Case #{case.case_number}: \"{clean_remark[:70]}\"",
             type="case_update",
             priority="normal",

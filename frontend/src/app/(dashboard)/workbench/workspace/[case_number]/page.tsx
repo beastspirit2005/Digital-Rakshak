@@ -26,10 +26,10 @@ import {
   Building2,
   PhoneCall,
   Mail,
-  AlertCircle
-} from "lucide-react";
+  AlertCircle, X } from "lucide-react";
 
 import { RAICExecutionMonitor } from "@/components/ui/RAICExecutionMonitor";
+import { CaseStepper } from "@/components/case/CaseStepper";
 
 interface CaseDetails {
   id: string;
@@ -275,10 +275,15 @@ export default function InvestigatorWorkspacePage() {
         </div>
       </div>
 
+      {/* Visual Investigation Progress Stepper (CS-02/CS-05 Integration) */}
+      <div className="bg-slate-900/60 p-4 rounded-xl border border-slate-800/80 shadow-inner">
+        <CaseStepper status={caseData.status} />
+      </div>
+
       {actionStatus && (
         <div className="p-3 rounded-lg bg-emerald-950/40 border border-emerald-500/40 text-emerald-300 text-xs font-mono flex items-center justify-between">
           <span>{actionStatus}</span>
-          <button onClick={() => setActionStatus(null)} className="text-slate-400 hover:text-white">✕</button>
+          <button onClick={() => setActionStatus(null)} className="text-slate-400 hover:text-white"><X className="w-4 h-4" /></button>
         </div>
       )}
 

@@ -282,7 +282,7 @@ class ApiKeyResponse(BaseModel):
 class ApiKeyCreatedResponse(ApiKeyResponse):
     plaintext_key: str = Field(
         ...,
-        description="⚠️ Shown ONCE. Store securely — cannot be retrieved again."
+        description="Shown ONCE. Store securely — cannot be retrieved again."
     )
 
 

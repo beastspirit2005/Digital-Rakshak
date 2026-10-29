@@ -55,7 +55,9 @@ export default function AdminPage() {
         : []
     );
   } catch (err: any) {
-    console.error("Failed to load users:", err);
+    if (err?.response?.status !== 401) {
+      console.error("Failed to load users:", err);
+    }
 
     setUsers([]);
 

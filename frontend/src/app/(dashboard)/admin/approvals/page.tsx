@@ -17,8 +17,7 @@ import {
   History,
   CornerDownRight,
   UserX,
-  Activity
-} from "lucide-react";
+  Activity, X } from "lucide-react";
 import { useAuthStore } from "@/lib/auth-store";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -712,9 +711,7 @@ fetchPendingCases();
               <button
                 onClick={() => setOverrideModalCase(null)}
                 className="text-ink-3 hover:text-ink bg-surface-2 hover:bg-surface-3 p-1 rounded-control transition-colors text-xs"
-              >
-                ✕
-              </button>
+              ><X className="w-4 h-4" /></button>
             </div>
 
             <div className="space-y-4 text-xs">

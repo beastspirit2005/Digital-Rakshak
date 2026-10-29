@@ -104,6 +104,27 @@ Within the AI Copilot help system (`GlobalChatWidget`):
 *   **Pro Priority Badge:** Recognizes Digital Rakshak Pro subscribers and institutional users.
 *   **1-Click Human Support Escalation (`POST /help/escalate-priority`):** Immediately flags the chat session, generates an emergency `SupportTicket` in the duty investigator queue (`status: "live_chat"`), and injects a real-time confirmation receipt with ticket tracking into the copilot session.
 
+### 15. Automated AI Financial Loss Extractor & Spatial Proximity Loss Resolution
+To eliminate blind spots in financial exposure reporting and ensure real financial damages are surfaced immediately:
+*   **Deterministic NLP & Magnitude Engine (`financial_loss_extractor.py`):** Automatically parses unstructured complaint statements, bank switch transfer memos, and WhatsApp/SMS fraud transcripts to extract loss amounts. It natively supports Indian financial notation (`INR 95,000.00`, `Rs. 45,000`, `₹75,000`), action-specific verbs (`transferred`, `debited`, `lost`, `defrauded of`), and vernacular multipliers (`Lakhs`, `Crores`, `k`).
+*   **Automated Loss Extraction on Assignment & Undertaking:** When an administrator assigns a case (`POST /cases/{case_number}/assign`) or an officer claims it from the map radar (`POST /cases/{case_number}/undertake`), the AI extractor verifies if the financial loss is unrecorded or zero, parses the narrative, persists `estimated_loss_inr` and `estimated_amount` to PostgreSQL, and logs an `"AI Financial Loss Identified"` event in the immutable case timeline.
+*   **Dynamic Radar Fallback Cascade:** The Proximity Radar API (`/police/nearby-victims`) computes reported loss via a resilient fallback cascade (`c.estimated_loss_inr || c.estimated_amount || extract_financial_loss(c.scam_text) || 0.0`), guaranteeing that existing and escalated transactions immediately reflect exact losses on the spatial radar.
+*   **Overhauled Tactical Map Popup (`officer-victim-map.tsx`):**
+    *   **Dismissal on Map Click:** Clicking anywhere on the empty map canvas immediately closes active popups (`closeOnClick={true}` + map canvas click listener).
+    *   **Full Unclipped Complaint Narrative:** Removed 140-character backend slicing and frontend 2-line clamping, presenting the full complaint statement in a styled, scrollable card.
+    *   **1-Click Case Workspace Navigation:** Direct deep-link button opening `/workbench/workspace/{case_number}` for immediate forensic investigation.
+    *   **Overflow-Protected Threat Exposure Strip:** Rounded whole-rupee formatting (`₹66,78,906`) with auxiliary compact Indian notation (`(₹66.79 L)`) and `min-w-0` grid containment to prevent metric card collisions.
+
+### 16. Enterprise Design System Refresh & Production Codebase Sanitisation
+To elevate the platform to sovereign defense and enterprise SIEM standards:
+*   **Zero-Emoji Enterprise Standard:** Replaced raw emojis across 20+ frontend pages and backend notification services with custom, accessible UI components (`PageHeader`, `SectionHeader`, `Callout`), featuring subtle ambient glows, semantic status badges, and Lucide vector icons.
+*   **BOLA & BFLA Security Hardening:**
+    *   *Broken Object-Level Authorization (BOLA):* Evidence Vault access (`/api/v1/evidence`) strictly enforces role-based financial case scoping, preventing unauthorized banking personnel from viewing non-financial evidence.
+    *   *Broken Function-Level Authorization (BFLA):* AI Copilot chat endpoints (`/api/v1/chat`) restrict multi-agent reasoning to assigned investigators and administrators.
+*   **SQLAlchemy JSON Mutation Integrity:** Integrated `flag_modified` across all JSON-backed attributes (`attack_dna`, `timeline_events`), ensuring real-time SLA state mutations and assignment timestamps are persisted reliably.
+*   **Serverless SLA Cron Trigger:** Added an authenticated cron webhook (`POST /api/v1/cases/sla/evaluate-cron`) protected by bearer secret tokens for serverless execution.
+*   **Operational Script Consolidation:** Reorganized 30+ loose root scripts into categorized directories (`backend/scripts/` and `backend/scripts/manual_tests/`), supported by 8 technical engineering audit reports in `docs/engineering/`.
+
 ---
 
 ## System Architecture
@@ -400,6 +421,23 @@ docker run -d -p 8000:8000 --env-file ./backend/.env --name dr-backend 1065925/d
 docker pull 1065925/digital-rakshak-frontend:latest
 docker run -d -p 3000:3000 --env-file ./frontend/.env.local --name dr-frontend 1065925/digital-rakshak-frontend:latest
 ```
+
+---
+
+## 📚 Engineering Documentation & Audit Reports
+
+The platform includes detailed architectural and security audits in `docs/engineering/`:
+
+| Report | Path | Purpose |
+|--------|------|---------|
+| **Codebase Audit** | [`docs/engineering/CODEBASE_AUDIT.md`](docs/engineering/CODEBASE_AUDIT.md) | Comprehensive system inventory, anti-pattern scan, and dead code audit |
+| **Security Audit** | [`docs/engineering/SECURITY_AUDIT.md`](docs/engineering/SECURITY_AUDIT.md) | OWASP API Top 10 assessment, BOLA/BFLA remediation, and auth boundary verification |
+| **Performance Report** | [`docs/engineering/PERFORMANCE_REPORT.md`](docs/engineering/PERFORMANCE_REPORT.md) | Latency benchmarks, DB query optimization, and connection pool profiling |
+| **Frontend Optimization** | [`docs/engineering/FRONTEND_OPTIMIZATION.md`](docs/engineering/FRONTEND_OPTIMIZATION.md) | Bundle analysis, Webpack/Turbopack tuning, and component lifecycle efficiency |
+| **Dependency Audit** | [`docs/engineering/DEPENDENCY_AUDIT.md`](docs/engineering/DEPENDENCY_AUDIT.md) | CVE scan, outdated dependency check, and package licensing validation |
+| **Refactoring Changelog** | [`docs/engineering/REFACTORING_CHANGELOG.md`](docs/engineering/REFACTORING_CHANGELOG.md) | Complete changelog of architectural, schema, and API refactorings |
+| **Release Readiness** | [`docs/engineering/RELEASE_READINESS.md`](docs/engineering/RELEASE_READINESS.md) | Production checklist, deployment verification, and zero-defect sign-off |
+| **RAIC Model Training** | [`docs/engineering/RAIC_MODEL_TRAINING_ASSESSMENT.md`](docs/engineering/RAIC_MODEL_TRAINING_ASSESSMENT.md) | RAIC architecture evaluation, hardware matrix, and Blackwell/CUDA sm_120 assessment |
 
 ---
 

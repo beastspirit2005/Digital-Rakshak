@@ -826,13 +826,13 @@ def _render_invoice_html(inv: TaxInvoiceResponse) -> str:
   <div class="container">
     <div class="actions">
       <button class="btn" onclick="window.close()">Close</button>
-      <button class="btn btn-primary" onclick="window.print()">🖨️ Print / Save as PDF</button>
+      <button class="btn btn-primary" onclick="window.print()">Print / Save as PDF</button>
     </div>
 
     <div class="invoice-box">
       <div class="header">
         <div class="brand">
-          <div class="brand-logo">🛡️</div>
+          <div class="brand-logo">DR</div>
           <div>
             <div class="brand-name">Digital Rakshak</div>
             <div class="brand-sub">Cyber Defense Core India</div>

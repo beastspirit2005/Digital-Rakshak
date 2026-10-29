@@ -18,6 +18,7 @@ import {
   Flame,
   ArrowUpRight,
   Play,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import { RAICExecutionMonitor } from "@/components/ui/RAICExecutionMonitor";
@@ -225,9 +226,7 @@ export default function CommandCenterDashboard() {
             <span className="flex items-center gap-2 font-bold">
               <Zap className="w-4 h-4 text-emerald-400" /> {simulationMsg}
             </span>
-            <button onClick={() => setSimulationMsg(null)} className="text-ink-3 hover:text-ink cursor-pointer">
-              ✕
-            </button>
+            <button onClick={() => setSimulationMsg(null)} className="text-ink-3 hover:text-ink cursor-pointer"><X className="w-4 h-4" /></button>
           </motion.div>
         )}
       </AnimatePresence>

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ShieldAlert, AlertTriangle, CheckCircle, Bug, Lock, HelpCircle } from "lucide-react";
+import { ShieldAlert, AlertTriangle, CheckCircle, Bug, Lock, HelpCircle, CheckCircle2, XCircle } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Security Disclaimer & Vulnerability Disclosure | Digital Rakshak",
@@ -70,21 +70,21 @@ export default function SecurityDisclaimerPage() {
             <div className="p-4 rounded-xl bg-[#121B22] border border-[#253540] space-y-2">
               <span className="font-bold text-emerald-400 block">What Digital Rakshak Does:</span>
               <ul className="space-y-1.5 text-xs text-[#94A3B8]">
-                <li>✓ Classifies phishing links and scam SMS messages.</li>
-                <li>✓ Disassembles APK files to inspect dangerous permissions.</li>
-                <li>✓ Maps suspect accounts against known cybercrime clusters.</li>
-                <li>✓ Formats forensic evidence for official 1930 reporting.</li>
-                <li>✓ Alerts citizens to active national cyber fraud waves.</li>
+                <li className="flex items-start gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" /><span>Classifies phishing links and scam SMS messages.</span></li>
+                <li className="flex items-start gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" /><span>Disassembles APK files to inspect dangerous permissions.</span></li>
+                <li className="flex items-start gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" /><span>Maps suspect accounts against known cybercrime clusters.</span></li>
+                <li className="flex items-start gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" /><span>Formats forensic evidence for official 1930 reporting.</span></li>
+                <li className="flex items-start gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" /><span>Alerts citizens to active national cyber fraud waves.</span></li>
               </ul>
             </div>
             <div className="p-4 rounded-xl bg-[#121B22] border border-[#253540] space-y-2">
               <span className="font-bold text-rose-400 block">What Digital Rakshak Does NOT Do:</span>
               <ul className="space-y-1.5 text-xs text-[#94A3B8]">
-                <li>✕ Cannot independently freeze bank accounts or UPI wallets.</li>
-                <li>✕ Cannot reverse unauthorized financial debit transfers.</li>
-                <li>✕ Cannot autonomously file criminal police FIRs on your behalf.</li>
-                <li>✕ Cannot monitor all applications or private phone calls.</li>
-                <li>✕ Cannot guarantee reimbursement for financial losses.</li>
+                <li className="flex items-start gap-2"><XCircle className="w-3.5 h-3.5 text-rose-400 shrink-0 mt-0.5" /><span>Cannot independently freeze bank accounts or UPI wallets.</span></li>
+                <li className="flex items-start gap-2"><XCircle className="w-3.5 h-3.5 text-rose-400 shrink-0 mt-0.5" /><span>Cannot reverse unauthorized financial debit transfers.</span></li>
+                <li className="flex items-start gap-2"><XCircle className="w-3.5 h-3.5 text-rose-400 shrink-0 mt-0.5" /><span>Cannot autonomously file criminal police FIRs on your behalf.</span></li>
+                <li className="flex items-start gap-2"><XCircle className="w-3.5 h-3.5 text-rose-400 shrink-0 mt-0.5" /><span>Cannot monitor all applications or private phone calls.</span></li>
+                <li className="flex items-start gap-2"><XCircle className="w-3.5 h-3.5 text-rose-400 shrink-0 mt-0.5" /><span>Cannot guarantee reimbursement for financial losses.</span></li>
               </ul>
             </div>
           </div>

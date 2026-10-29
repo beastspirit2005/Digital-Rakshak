@@ -10,7 +10,7 @@ import { api, formatApiError } from "@/lib/api";
   import { Button } from "@/components/ui/button";
   import { Input, Label, FormError, FormNotice, OtpInput } from "@/components/ui/field";
   import { Segmented } from "@/components/ui/tabs";
-  import { Mail, Lock as LockIcon } from "lucide-react";
+  import { Mail, Lock as LockIcon, AlertTriangle } from "lucide-react";
 
   function routeForRole(role: string) {
     if (role === "admin") return "/admin";
@@ -162,7 +162,7 @@ import { api, formatApiError } from "@/lib/api";
                   animate={{ opacity: 1, scale: 1 }}
                   className="p-3.5 rounded-xl border border-red-500/20 bg-red-500/10 text-red-400 text-xs sm:text-sm font-medium flex items-center gap-2.5 shadow-[0_4px_12px_rgba(239,68,68,0.15)] leading-relaxed"
                 >
-                  <span className="text-base leading-none">⚠️</span>
+                  <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
                   <div className="flex-1 text-left">{error}</div>
                 </motion.div>
               )}
@@ -278,7 +278,7 @@ import { api, formatApiError } from "@/lib/api";
                   animate={{ opacity: 1, scale: 1 }}
                   className="p-3.5 rounded-xl border border-red-500/20 bg-red-500/10 text-red-400 text-xs sm:text-sm font-medium flex items-center gap-2.5 shadow-[0_4px_12px_rgba(239,68,68,0.15)] leading-relaxed"
                 >
-                  <span className="text-base leading-none">⚠️</span>
+                  <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
                   <div className="flex-1 text-left">{error}</div>
                 </motion.div>
               )}

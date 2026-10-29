@@ -19,8 +19,7 @@ import {
   Clock, 
   CreditCard,
   Code2,
-  Play
-} from "lucide-react";
+  Play, AlertTriangle, X } from "lucide-react";
 
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/auth-store";
@@ -528,7 +527,7 @@ export default function BusinessEnterprisePortal() {
           <div className="bg-card border border-border/80 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-5">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-bold">Create Machine API Key</h3>
-              <button onClick={() => { setShowKeyModal(false); setCreatedPlaintextKey(null); }} className="text-muted-foreground hover:text-foreground">✕</button>
+              <button onClick={() => { setShowKeyModal(false); setCreatedPlaintextKey(null); }} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
             </div>
 
             {!createdPlaintextKey ? (
@@ -552,7 +551,7 @@ export default function BusinessEnterprisePortal() {
             ) : (
               <div className="space-y-4">
                 <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg text-xs text-amber-600 dark:text-amber-400">
-                  ⚠️ <strong>Save this key now.</strong> For security reasons, this key will never be shown again.
+                  <div className="flex items-center gap-1.5 text-amber-400 font-semibold mb-1"><AlertTriangle className="w-4 h-4 shrink-0" /> Save this key now.</div> For security reasons, this key will never be shown again.
                 </div>
                 <div className="flex items-center gap-2">
                   <Input value={createdPlaintextKey} readOnly className="font-mono text-xs" />

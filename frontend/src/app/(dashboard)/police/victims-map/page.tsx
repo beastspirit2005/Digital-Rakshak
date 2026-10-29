@@ -344,7 +344,7 @@ export default function PoliceVictimsMapPage() {
       (v) => v.properties.urgency_level === "critical" || v.properties.is_ongoing_fraud
     ).length;
     const totalLoss = victims.reduce(
-      (acc, v) => acc + (v.properties.estimated_loss_inr || 0),
+      (acc, v) => acc + Number(v.properties.estimated_loss_inr || v.properties.estimated_amount || 0),
       0
     );
     const assigned = victims.filter((v) => v.properties.status === "assigned" || v.properties.assigned_to).length;
@@ -440,7 +440,7 @@ export default function PoliceVictimsMapPage() {
 
       {/* Tactical Metrics Strip */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="p-4 rounded-xl bg-surface-2 border border-border shadow-sm">
+        <div className="p-4 rounded-xl bg-surface-2 border border-border shadow-sm min-w-0 overflow-hidden">
           <div className="flex items-center justify-between text-xs text-ink-3 mb-1">
             <span>Reported Incidents</span>
             <Radio className="w-4 h-4 text-sky-400" />
@@ -451,7 +451,7 @@ export default function PoliceVictimsMapPage() {
           </div>
         </div>
 
-        <div className="p-4 rounded-xl bg-surface-2 border border-border shadow-sm">
+        <div className="p-4 rounded-xl bg-surface-2 border border-border shadow-sm min-w-0 overflow-hidden">
           <div className="flex items-center justify-between text-xs text-rose-400 mb-1">
             <span>Critical Threats</span>
             <Flame className="w-4 h-4 text-rose-500 animate-pulse" />
@@ -460,18 +460,30 @@ export default function PoliceVictimsMapPage() {
           <div className="text-[11px] text-rose-400/80 mt-1">Immediate intervention SLA</div>
         </div>
 
-        <div className="p-4 rounded-xl bg-surface-2 border border-border shadow-sm">
+        <div className="p-4 rounded-xl bg-surface-2 border border-border shadow-sm min-w-0 overflow-hidden">
           <div className="flex items-center justify-between text-xs text-amber-400 mb-1">
             <span>Threat Exposure</span>
-            <AlertTriangle className="w-4 h-4 text-amber-400" />
+            <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
           </div>
-          <div className="text-2xl font-black text-amber-300">
-            ₹{metrics.totalLoss.toLocaleString("en-IN")}
+          <div
+            className="text-xl sm:text-2xl font-black text-amber-300 tracking-tight truncate"
+            title={`₹${Math.round(metrics.totalLoss).toLocaleString("en-IN")}`}
+          >
+            ₹{Math.round(metrics.totalLoss).toLocaleString("en-IN")}
           </div>
-          <div className="text-[11px] text-ink-3 mt-1">Reported loss in scope</div>
+          <div className="text-[11px] text-ink-3 mt-1 flex items-center justify-between gap-1 flex-wrap">
+            <span>Reported loss in scope</span>
+            {metrics.totalLoss >= 100000 && (
+              <span className="font-mono text-amber-400/90 font-semibold text-[10px]">
+                {metrics.totalLoss >= 10000000
+                  ? `(₹${(metrics.totalLoss / 10000000).toFixed(2)} Cr)`
+                  : `(₹${(metrics.totalLoss / 100000).toFixed(2)} L)`}
+              </span>
+            )}
+          </div>
         </div>
 
-        <div className="p-4 rounded-xl bg-surface-2 border border-border shadow-sm">
+        <div className="p-4 rounded-xl bg-surface-2 border border-border shadow-sm min-w-0 overflow-hidden">
           <div className="flex items-center justify-between text-xs text-emerald-400 mb-1">
             <span>Active Duty Units</span>
             <ShieldCheck className="w-4 h-4 text-emerald-400" />

@@ -64,7 +64,7 @@ export function GlobalChatWidget() {
       const sysMsg: Message = {
         id: Date.now().toString(),
         role: "assistant",
-        content: `★ **Priority Support Escalated (${ticketNum})**\n\nYour session has been prioritized and routed to our on-duty human investigator team. A specialized investigator will review your recent queries and case records.`,
+        content: `**Priority Support Escalated (${ticketNum})**\n\nYour session has been prioritized and routed to our on-duty human investigator team. A specialized investigator will review your recent queries and case records.`,
         timestamp: Date.now(),
         engine: "Human Investigator Priority Queue",
       };
