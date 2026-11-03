@@ -515,3 +515,21 @@ input[type="text"][maxlength="1"]:focus {
 html {
   scroll-behavior: smooth;
 }
+/* MapLibre Tactical Radar Popup Customization */
+.digital-rakshak-map-popup .maplibregl-popup-content {
+  background: transparent !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+  border-radius: 0.75rem !important;
+}
+
+.digital-rakshak-map-popup .maplibregl-popup-close-button {
+  display: none !important;
+}
+
+.digital-rakshak-map-popup .maplibregl-popup-tip {
+  border-top-color: var(--surface) !important;
+  border-bottom-color: var(--surface) !important;
+  border-left-color: var(--surface) !important;
+  border-right-color: var(--surface) !important;
+}

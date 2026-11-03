@@ -29,7 +29,8 @@ import {
   UserCheck,
   Send,
   User,
-  Users
+  Users,
+  X
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -368,6 +369,13 @@ export default function OfficerVictimMap({
                   e.originalEvent.stopPropagation();
                   setActiveOfficerPopup(off);
                   setActivePopup(null);
+                  if (mapRef.current) {
+                    mapRef.current.easeTo({
+                      center: [lng, lat],
+                      duration: 400,
+                      essential: true,
+                    });
+                  }
                 }}
               >
                 <div className="relative cursor-pointer group">
@@ -425,6 +433,13 @@ export default function OfficerVictimMap({
                 setActivePopup(v);
                 setActiveOfficerPopup(null);
                 onSelectCase(v);
+                if (mapRef.current) {
+                  mapRef.current.easeTo({
+                    center: [lng, lat],
+                    duration: 400,
+                    essential: true,
+                  });
+                }
               }}
             >
               <div className="relative cursor-pointer group">
@@ -491,14 +506,13 @@ export default function OfficerVictimMap({
           <Popup
             longitude={activeOfficerPopup.coordinates[0]}
             latitude={activeOfficerPopup.coordinates[1]}
-            anchor="bottom"
-            offset={[0, -18]}
-            closeButton={true}
-            closeOnClick={false}
+            offset={16}
+            closeButton={false}
+            closeOnClick={true}
             onClose={() => setActiveOfficerPopup(null)}
             className="digital-rakshak-map-popup z-50"
           >
-            <div className="w-[300px] sm:w-[340px] p-3 text-ink bg-surface rounded-xl border border-line shadow-2xl space-y-3 font-sans">
+            <div className="w-[calc(100vw-36px)] max-w-[320px] sm:max-w-[350px] p-3.5 text-ink bg-surface rounded-xl border border-line shadow-2xl space-y-3 font-sans max-h-[min(480px,calc(100vh-220px))] overflow-y-auto">
               <div className="flex items-start justify-between border-b border-line pb-2">
                 <div>
                   <div className="flex items-center gap-1.5 flex-wrap">
@@ -518,6 +532,14 @@ export default function OfficerVictimMap({
                     {activeOfficerPopup.designation || activeOfficerPopup.station_name}
                   </p>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setActiveOfficerPopup(null)}
+                  className="p-1 rounded-lg text-ink-3 hover:text-ink hover:bg-surface-2 transition-colors shrink-0 ml-1"
+                  title="Close popup"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
 
               {/* Station & Contact */}
@@ -611,9 +633,8 @@ export default function OfficerVictimMap({
           <Popup
             longitude={activePopup.geometry.coordinates[0]}
             latitude={activePopup.geometry.coordinates[1]}
-            anchor="bottom"
-            offset={[0, -18]}
-            closeButton={true}
+            offset={16}
+            closeButton={false}
             closeOnClick={true}
             onClose={() => {
               setActivePopup(null);
@@ -621,7 +642,7 @@ export default function OfficerVictimMap({
             }}
             className="digital-rakshak-map-popup z-40"
           >
-            <div className="w-[340px] sm:w-[420px] p-3.5 text-ink bg-surface rounded-xl border border-line shadow-2xl space-y-3 font-sans max-h-[85vh] overflow-y-auto">
+            <div className="w-[calc(100vw-36px)] max-w-[390px] sm:max-w-[420px] p-3.5 text-ink bg-surface rounded-xl border border-line shadow-2xl space-y-3 font-sans max-h-[min(520px,calc(100vh-220px))] overflow-y-auto">
               {/* Header */}
               <div className="flex items-start justify-between gap-2 border-b border-line pb-2">
                 <div>
@@ -655,14 +676,27 @@ export default function OfficerVictimMap({
                     {activePopup.properties.incident_type}
                   </h4>
                 </div>
-                {!isAllIndia && (
-                  <div className="text-right">
-                    <span className="text-[10px] text-ink-3 block">Distance</span>
-                    <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                      {activePopup.properties.distance_km} km
-                    </span>
-                  </div>
-                )}
+                <div className="flex items-center gap-2">
+                  {!isAllIndia && (
+                    <div className="text-right">
+                      <span className="text-[10px] text-ink-3 block">Distance</span>
+                      <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                        {activePopup.properties.distance_km} km
+                      </span>
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActivePopup(null);
+                      onSelectCase(null);
+                    }}
+                    className="p-1 rounded-lg text-ink-3 hover:text-ink hover:bg-surface-2 transition-colors shrink-0"
+                    title="Close dialog"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
 
               {/* Origin Banner if claimed by officer */}

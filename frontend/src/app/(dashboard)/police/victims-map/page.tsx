@@ -673,7 +673,7 @@ export default function PoliceVictimsMapPage() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Map Canvas */}
         <div
-          className={`lg:col-span-8 xl:col-span-9 h-[540px] sm:h-[620px] lg:h-[720px] w-full ${
+          className={`lg:col-span-8 xl:col-span-9 h-[520px] sm:h-[600px] lg:h-[calc(100vh-280px)] min-h-[520px] max-h-[820px] w-full ${
             mobileTab === "list" ? "hidden sm:block" : "block"
           }`}
         >
@@ -700,7 +700,7 @@ export default function PoliceVictimsMapPage() {
 
         {/* Sidebar Case Cards List */}
         <div
-          className={`lg:col-span-4 xl:col-span-3 h-[540px] sm:h-[620px] lg:h-[720px] overflow-y-auto pr-1 space-y-3 ${
+          className={`lg:col-span-4 xl:col-span-3 h-[520px] sm:h-[600px] lg:h-[calc(100vh-280px)] min-h-[520px] max-h-[820px] overflow-y-auto pr-1 space-y-3 ${
             mobileTab === "map" ? "hidden sm:block" : "block"
           }`}
         >

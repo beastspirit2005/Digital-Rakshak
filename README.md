@@ -110,10 +110,14 @@ To eliminate blind spots in financial exposure reporting and ensure real financi
 *   **Automated Loss Extraction on Assignment & Undertaking:** When an administrator assigns a case (`POST /cases/{case_number}/assign`) or an officer claims it from the map radar (`POST /cases/{case_number}/undertake`), the AI extractor verifies if the financial loss is unrecorded or zero, parses the narrative, persists `estimated_loss_inr` and `estimated_amount` to PostgreSQL, and logs an `"AI Financial Loss Identified"` event in the immutable case timeline.
 *   **Dynamic Radar Fallback Cascade:** The Proximity Radar API (`/police/nearby-victims`) computes reported loss via a resilient fallback cascade (`c.estimated_loss_inr || c.estimated_amount || extract_financial_loss(c.scam_text) || 0.0`), guaranteeing that existing and escalated transactions immediately reflect exact losses on the spatial radar.
 *   **Overhauled Tactical Map Popup (`officer-victim-map.tsx`):**
-    *   **Dismissal on Map Click:** Clicking anywhere on the empty map canvas immediately closes active popups (`closeOnClick={true}` + map canvas click listener).
+    *   **Dynamic Viewport-Aware Anchoring:** Replaced rigid bottom anchoring with intelligent MapLibre multi-directional anchoring (`top`, `bottom`, `left`, `right`) and a universal 16px offset, preventing popups for top-edge markers from clipping behind navigation bars.
+    *   **Smooth Camera Auto-Centering:** Clicking any victim or officer pin initiates a smooth 400ms camera pan (`mapRef.current.easeTo`) to keep the target and popup centered in view.
+    *   **Dismissal on Map Click & Integrated Close Button:** Popups can be immediately closed either by clicking the empty map canvas (`closeOnClick={true}`) or via the explicit `<X>` button in the card header.
     *   **Full Unclipped Complaint Narrative:** Removed 140-character backend slicing and frontend 2-line clamping, presenting the full complaint statement in a styled, scrollable card.
     *   **1-Click Case Workspace Navigation:** Direct deep-link button opening `/workbench/workspace/{case_number}` for immediate forensic investigation.
     *   **Overflow-Protected Threat Exposure Strip:** Rounded whole-rupee formatting (`₹66,78,906`) with auxiliary compact Indian notation (`(₹66.79 L)`) and `min-w-0` grid containment to prevent metric card collisions.
+    *   **Raw Citizen Report Narrative Preservation:** Added seamless `scam_text` fallbacks and backend `@property def scam_description` aliases to ensure the victim's raw incident testimony is permanently accessible in the Investigator Workspace.
+    *   **Responsive Multi-Viewport Dashboard:** Expanded dashboard max-width constraints from `max-w-6xl` to `max-w-[1600px]` and established dynamic viewport-bound map heights (`calc(100vh - 280px)`), eliminating horizontal cramping on wide displays while maintaining full responsiveness on tablets and mobile devices.
 
 ### 16. Enterprise Design System Refresh & Production Codebase Sanitisation
 To elevate the platform to sovereign defense and enterprise SIEM standards:

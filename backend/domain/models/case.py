@@ -88,3 +88,8 @@ class Case(Base):
     
     # Relationships
     evidence = relationship("Evidence", back_populates="case", lazy="selectin")
+
+    @property
+    def scam_description(self) -> str:
+        """Backward-compatible alias for scam_text."""
+        return self.scam_text or ""

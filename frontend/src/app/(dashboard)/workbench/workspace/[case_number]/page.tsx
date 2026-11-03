@@ -41,6 +41,7 @@ interface CaseDetails {
   reported_at: string;
   city?: string;
   scam_description?: string;
+  scam_text?: string;
   ai_decision?: any;
   timeline_events?: any[];
   evidence?: EvidenceItem[];
@@ -430,7 +431,7 @@ export default function InvestigatorWorkspacePage() {
                 <div className="mt-4 pt-3 border-t border-slate-800">
                   <h4 className="text-xs font-mono font-bold text-slate-300 mb-2">Raw Citizen Report Text</h4>
                   <div className="p-3 rounded bg-slate-950 border border-slate-800 font-mono text-xs text-slate-300 max-h-36 overflow-y-auto leading-relaxed">
-                    {caseData.scam_description || "No raw text description provided."}
+                    {caseData.scam_text || caseData.scam_description || "No raw text description provided."}
                   </div>
                 </div>
               </div>
