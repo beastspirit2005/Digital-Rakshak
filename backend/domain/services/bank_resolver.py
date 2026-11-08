@@ -2,7 +2,7 @@ import logging
 from typing import Optional, Dict, Any, Tuple
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
-from domain.models.bank import BankRegistry, TransactionVerificationStatus
+from domain.models.bank import BankRegistry, TransactionVerificationStatus, ResolutionConfidenceType
 from domain.services.bank_registry_service import BankRegistryService
 from domain.services.transaction_extractor import ExtractedTransactionIntelligence
 
@@ -14,8 +14,14 @@ class InstitutionResolution(BaseModel):
     bank_code: Optional[str] = None
     bank_name: Optional[str] = None
     resolution_source: str = Field("UNRESOLVED", description="IFSC | VPA_HANDLE | NAME_HINT | UNRESOLVED")
+    resolution_type: str = Field(
+        ResolutionConfidenceType.CANDIDATE_PSP_ROUTING.value,
+        description="CONFIRMED_ACCOUNT_BANK | CANDIDATE_PSP_ROUTING"
+    )
+    is_account_bank_confirmed: bool = False
     resolution_status: str = Field(TransactionVerificationStatus.UNRESOLVED.value)
     confidence: float = 0.0
+    candidate_psp_notes: Optional[str] = None
 
 
 class DualBankResolutionResult(BaseModel):
@@ -30,6 +36,7 @@ class BankResolverService:
     """
     Resolves financial institutions (both victim remitter bank and suspect beneficiary bank)
     using multi-layered metadata matching (IFSC prefix, UPI VPA handle, bank name hints).
+    Strictly distinguishes candidate PSP routing arrangements from confirmed account-holding banks.
     """
 
     @classmethod
@@ -67,7 +74,11 @@ class BankResolverService:
         if rem_ok and ben_ok:
             routing_status = "BOTH_RESOLVED"
             overall_conf = round((remitter_res.confidence + beneficiary_res.confidence) / 2.0, 2)
-            summary = f"Both institutions resolved: Victim={remitter_res.bank_name}, Beneficiary={beneficiary_res.bank_name}."
+            ben_qualifier = "Confirmed" if beneficiary_res.is_account_bank_confirmed else "Candidate PSP"
+            summary = (
+                f"Both institutions resolved: Victim={remitter_res.bank_name}, "
+                f"Beneficiary={beneficiary_res.bank_name} ({ben_qualifier})."
+            )
         elif rem_ok or ben_ok:
             routing_status = "PARTIALLY_RESOLVED"
             active_conf = remitter_res.confidence if rem_ok else beneficiary_res.confidence
@@ -95,7 +106,7 @@ class BankResolverService:
         vpa: Optional[str] = None,
         name_hint: Optional[str] = None
     ) -> InstitutionResolution:
-        # Step A: Exact IFSC lookup (Highest confidence 0.95)
+        # Step A: Exact IFSC lookup (Highest confidence 0.95 — Confirmed Account Bank)
         if ifsc:
             bank = await BankRegistryService.resolve_bank_from_ifsc(db, ifsc)
             if bank:
@@ -104,11 +115,15 @@ class BankResolverService:
                     bank_code=bank.bank_code,
                     bank_name=bank.bank_name,
                     resolution_source="IFSC",
+                    resolution_type=ResolutionConfidenceType.CONFIRMED_ACCOUNT_BANK.value,
+                    is_account_bank_confirmed=True,
                     resolution_status=TransactionVerificationStatus.VERIFIED.value,
-                    confidence=0.95
+                    confidence=0.95,
+                    candidate_psp_notes="Confirmed via authoritative IFSC code."
                 )
 
-        # Step B: UPI VPA Handle lookup (Confidence 0.80)
+        # Step B: UPI VPA Handle lookup (Candidate PSP Routing Arrangement)
+        # Suffix like @okhdfcbank indicates PSP/acquiring routing, NOT universally confirmed account bank.
         if vpa:
             bank = await BankRegistryService.resolve_bank_from_vpa(db, vpa)
             if bank:
@@ -117,11 +132,14 @@ class BankResolverService:
                     bank_code=bank.bank_code,
                     bank_name=bank.bank_name,
                     resolution_source="VPA_HANDLE",
+                    resolution_type=ResolutionConfidenceType.CANDIDATE_PSP_ROUTING.value,
+                    is_account_bank_confirmed=False,
                     resolution_status=TransactionVerificationStatus.RESOLVED_INFERRED.value,
-                    confidence=0.80
+                    confidence=0.50,
+                    candidate_psp_notes="VPA handle identifies PSP acquiring bank; beneficiary account-holding bank remains candidate until confirmed by statement or NPCI response."
                 )
 
-        # Step C: Bank Name Keyword Hint lookup (Confidence 0.60)
+        # Step C: Bank Name Keyword Hint lookup (Candidate Bank from narrative)
         if name_hint:
             bank = await BankRegistryService.get_bank_by_code(db, name_hint)
             if bank:
@@ -130,8 +148,11 @@ class BankResolverService:
                     bank_code=bank.bank_code,
                     bank_name=bank.bank_name,
                     resolution_source="NAME_HINT",
+                    resolution_type=ResolutionConfidenceType.CANDIDATE_PSP_ROUTING.value,
+                    is_account_bank_confirmed=False,
                     resolution_status=TransactionVerificationStatus.RESOLVED_INFERRED.value,
-                    confidence=0.60
+                    confidence=0.55,
+                    candidate_psp_notes="Resolved from citizen text narrative keywords; unconfirmed."
                 )
 
         return InstitutionResolution(
@@ -139,6 +160,9 @@ class BankResolverService:
             bank_code=None,
             bank_name=None,
             resolution_source="UNRESOLVED",
+            resolution_type=ResolutionConfidenceType.CANDIDATE_PSP_ROUTING.value,
+            is_account_bank_confirmed=False,
             resolution_status=TransactionVerificationStatus.UNRESOLVED.value,
-            confidence=0.0
+            confidence=0.0,
+            candidate_psp_notes=None
         )

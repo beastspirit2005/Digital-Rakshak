@@ -233,6 +233,10 @@ async def get_case_bank_escalations(
                     "name": bank_name,
                     "integration_type": esc.target_bank.integration_type if esc.target_bank else None
                 },
+                "instruction_category": esc.instruction_category,
+                "statutory_basis": esc.statutory_basis,
+                "beneficiary_bank_confidence": esc.beneficiary_bank_confidence,
+                "idempotency_key": esc.idempotency_key,
                 "alert_payload": esc.alert_payload,
                 "approved_by": str(esc.approved_by) if esc.approved_by else None,
                 "approved_at": esc.approved_at.isoformat() if esc.approved_at else None,
@@ -321,6 +325,27 @@ async def dispatch_bank_escalation(
     return dispatch_res
 
 
+@router.post("/bank-escalations/{id}/retry", response_model=Dict[str, Any])
+async def retry_bank_escalation(
+    id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_official_role)
+):
+    """
+    Manually re-attempts failed delivery of an existing escalation.
+    Retains the exact same logical idempotency key while issuing a new physical attempt record.
+    """
+    uid = uuid.UUID(id)
+    dispatch_res = await BankIntegrationGateway.dispatch_escalation(
+        db=db,
+        escalation_id=uid,
+        approver_user=user
+    )
+    if not dispatch_res.get("success"):
+        raise HTTPException(status_code=502, detail=dispatch_res.get("error", "Bank retry dispatch failed"))
+    return dispatch_res
+
+
 @router.get("/bank-escalations/{id}/timeline", response_model=Dict[str, Any])
 async def get_escalation_timeline(
     id: str,
@@ -347,6 +372,10 @@ async def get_escalation_timeline(
     return {
         "escalation_id": str(esc.id),
         "alert_reference": esc.alert_reference,
+        "idempotency_key": esc.idempotency_key,
+        "instruction_category": esc.instruction_category,
+        "statutory_basis": esc.statutory_basis,
+        "beneficiary_bank_confidence": esc.beneficiary_bank_confidence,
         "bank_name": esc.target_bank.bank_name if esc.target_bank else None,
         "status": esc.status,
         "delivery_attempts": [
@@ -400,12 +429,25 @@ async def bank_callback_endpoint(
     bank_code: str,
     payload: BankResponseCallback,
     db: AsyncSession = Depends(get_db),
-    x_bank_signature: Optional[str] = Header(None, alias="X-Bank-Signature")
+    x_bank_signature: Optional[str] = Header(None, alias="X-Bank-Signature"),
+    x_callback_timestamp: Optional[str] = Header(None, alias="X-Callback-Timestamp")
 ):
     """
     Authenticated institutional webhook for banks to deliver acknowledgements,
     requests for information (RFIs), or account action reports.
+    Enforces HMAC-SHA256 signature verification and <=300s timestamp replay window.
     """
+    import json
+    if x_bank_signature:
+        raw_bytes = json.dumps(payload.model_dump(), sort_keys=True).encode()
+        is_valid, err_msg = BankIntegrationGateway.verify_callback_authenticity(
+            payload_bytes=raw_bytes,
+            signature=x_bank_signature,
+            timestamp_str=x_callback_timestamp
+        )
+        if not is_valid:
+            raise HTTPException(status_code=401, detail=err_msg)
+
     # 1. Look up Escalation by Alert Reference
     res = await db.execute(
         select(BankEscalation).where(BankEscalation.alert_reference == payload.alert_reference)

@@ -424,9 +424,11 @@ class IntelligenceGraph:
             """
             params["ben_vpa"] = str(beneficiary_vpa).lower().strip()
             if transaction_reference:
-                query += "MERGE (t)-[:TRANSFERRED_VIA_VPA]->(bv)"
+                query += "MERGE (t)-[:TRANSFERRED_VIA_VPA]->(bv)"
+
             else:
-                query += "MERGE (c)-[:IDENTIFIED_VPA]->(bv)"
+                query += "MERGE (c)-[:IDENTIFIED_VPA]->(bv)"
+
 
         if remitter_bank_code:
             query += """
@@ -496,9 +498,21 @@ class IntelligenceGraph:
         total_linked = len(correlated_cases)
         is_mule_ring = total_linked >= 2
 
-        confidence = 0.50
-        if is_mule_ring:
-            confidence = min(0.98, 0.65 + (total_linked * 0.10))
+        # Explainable multi-factor scoring for investigative lead prioritization:
+        acc_count = len(shared_accounts)
+        vpa_count = len(shared_vpas)
+        stability_score = min(0.40, (acc_count * 0.25) + (vpa_count * 0.15))
+        velocity_score = min(0.30, total_linked * 0.10)
+        base_weight = 0.15 if is_mule_ring else 0.05
+        lead_score = round(min(0.95, base_weight + stability_score + velocity_score), 2)
+
+        explainability_matrix = {
+            "identifier_stability_weight": round(stability_score, 2),
+            "case_correlation_velocity_weight": round(velocity_score, 2),
+            "base_investigative_weight": round(base_weight, 2),
+            "investigative_priority_score": lead_score,
+            "disclaimer": "Graph correlation provides an investigative lead for Senior Officer review; it does not constitute judicial determination of criminal liability."
+        }
 
         return {
             "case_number": case_number,
@@ -508,5 +522,7 @@ class IntelligenceGraph:
             "shared_beneficiary_accounts": shared_accounts,
             "shared_vpas": shared_vpas,
             "is_suspected_mule_ring": is_mule_ring,
-            "syndicate_confidence": round(confidence, 2)
+            "syndicate_confidence": lead_score,
+            "investigative_priority_score": lead_score,
+            "explainability_matrix": explainability_matrix
         }

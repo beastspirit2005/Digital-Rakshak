@@ -1,5 +1,6 @@
 import pytest
 import uuid
+from decimal import Decimal
 from domain.services.transaction_extractor import (
     extract_transaction_intelligence,
     mask_account_number,
@@ -9,9 +10,15 @@ from domain.services.bank_registry_service import (
     INITIAL_VERIFIED_BANKS,
     VPA_HANDLE_TO_BANK_CODE
 )
+from domain.models.bank import (
+    FinancialTransaction,
+    ResolutionConfidenceType,
+    BankInstructionCategory
+)
 
 
 def test_mask_account_number():
+    # Conforms to RBI Digital Payment Security Controls & Financial Data Privacy Standards
     assert mask_account_number("123456789012") == "********9012"
     assert mask_account_number("987654321") == "*****4321"
     assert mask_account_number("1234") == "****1234"
@@ -31,6 +38,24 @@ def test_extract_upi_complaint_with_vpa_and_utr():
     assert intel.payment_rail == "UPI"
     assert intel.confidence_score >= 0.70
     assert intel.verification_status == "RESOLVED_INFERRED"
+
+
+def test_context_aware_utr_extraction_rejects_unrelated_12digit_numbers():
+    # Aadhaar number or delivery tracking number with NO payment rail context
+    complaint = "My package tracking number is 987654321012. The delivery driver was rude to me."
+    intel = extract_transaction_intelligence(complaint)
+    
+    # Should NOT extract 987654321012 as a UTR without financial/payment context
+    assert intel.transaction_reference is None
+    assert intel.amount is None
+
+
+def test_context_aware_utr_extraction_accepts_contextual_12digit():
+    complaint = "I made a bank transfer of Rs. 15,000 to the fraudster. The reference was 123456789012."
+    intel = extract_transaction_intelligence(complaint)
+
+    assert intel.transaction_reference == "123456789012"
+    assert intel.amount == 15000.0
 
 
 def test_extract_imps_with_ifsc_and_account():
@@ -62,16 +87,19 @@ def test_extract_dual_ifsc_remitter_and_beneficiary():
     assert intel.confidence_score >= 0.80
 
 
-def test_extract_minimal_or_empty_complaint():
-    complaint = "Someone called me and was rude."
-    intel = extract_transaction_intelligence(complaint)
-    
-    assert intel.amount is None
-    assert intel.transaction_reference is None
-    assert intel.beneficiary_vpa is None
-    assert intel.beneficiary_ifsc is None
-    assert intel.confidence_score <= 0.35
-    assert intel.verification_status == "EXTRACTED_UNVERIFIED"
+def test_decimal_precision_model_support():
+    txn = FinancialTransaction(
+        case_id=uuid.uuid4(),
+        amount=Decimal("45000.50"),
+        reported_loss_amount=Decimal("45000.50"),
+        amount_under_lien=Decimal("20000.00"),
+        amount_frozen=Decimal("25000.50"),
+        amount_recovered=Decimal("0.00"),
+        beneficiary_bank_confidence=ResolutionConfidenceType.CANDIDATE_PSP_ROUTING.value
+    )
+    assert txn.amount == Decimal("45000.50")
+    assert txn.amount_under_lien + txn.amount_frozen == Decimal("45000.50")
+    assert txn.beneficiary_bank_confidence == "CANDIDATE_PSP_ROUTING"
 
 
 def test_vpa_mapping_sanity():

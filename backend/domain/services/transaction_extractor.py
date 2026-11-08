@@ -31,7 +31,7 @@ class ExtractedTransactionIntelligence(BaseModel):
 IFSC_REGEX = re.compile(r'\b([A-Z]{4}0[A-Z0-9]{6})\b')
 VPA_REGEX = re.compile(r'\b([a-zA-Z0-9.\-_]{2,}@[a-zA-Z0-9.\-_]{2,})\b')
 
-# 12-digit UTR/RRN pattern (often prefixed by UTR, RRN, Ref, Txn ID, or standing alone near payment verbs)
+# Explicit 12-digit UTR/RRN pattern
 UTR_EXPLICIT_REGEX = re.compile(
     r'(?:UTR|RRN|Ref(?:erence)?(?:\s*No\.?)?|Txn(?:\s*ID)?|Transaction(?:\s*ID)?|Reference)\s*[:=\-#]?\s*([0-9]{12})\b',
     re.IGNORECASE
@@ -66,9 +66,18 @@ BANK_NAME_KEYWORDS = {
     "india post": "IPOS",
 }
 
+FINANCIAL_CONTEXT_TOKENS = [
+    "upi", "imps", "neft", "rtgs", "rrn", "utr", "txn", "transaction",
+    "transfer", "transferred", "sent", "paid", "debited", "credited",
+    "payment", "ref", "reference", "bank", "loss", "fraud", "scam"
+]
+
 
 def mask_account_number(acc: str) -> str:
-    """Masks all but the last 4 digits of a bank account number."""
+    """
+    Masks all but the last 4 digits of a bank account number.
+    Conforms to RBI Master Direction on Digital Payment Security Controls & Financial Data Privacy Standards.
+    """
     clean = re.sub(r'[\s\-]', '', acc)
     if len(clean) <= 4:
         return f"****{clean}"
@@ -79,6 +88,7 @@ def extract_transaction_intelligence(text: Optional[str]) -> ExtractedTransactio
     """
     Parses unstructured citizen complaints, bank switch logs, and investigator notes
     to extract, validate, and structure financial transaction metadata.
+    Enforces context-aware validation on standalone 12-digit numbers to reject false positives.
     """
     if not text or not isinstance(text, str):
         return ExtractedTransactionIntelligence()
@@ -93,7 +103,7 @@ def extract_transaction_intelligence(text: Optional[str]) -> ExtractedTransactio
         confidence += 0.2
         notes.append(f"Reported loss identified: ₹{amount:,.2f}")
 
-    # 2. Extract UTR / RRN
+    # 2. Extract UTR / RRN (Context-Aware)
     txn_ref = None
     explicit_utr = UTR_EXPLICIT_REGEX.search(raw)
     if explicit_utr:
@@ -101,15 +111,23 @@ def extract_transaction_intelligence(text: Optional[str]) -> ExtractedTransactio
         confidence += 0.25
         notes.append(f"Explicit UTR/RRN reference: {txn_ref}")
     else:
-        # Check for 12-digit number (excluding 12-digit Aadhaar / phone numbers)
-        candidates = STANDALONE_12DIGIT_REGEX.findall(raw)
-        # Filter candidates that aren't phone numbers (often 10 digits)
-        for cand in candidates:
-            # Typical Indian UTR starts with digit or year, avoid 91xxxxxxxxxx phone numbers
-            if not cand.startswith("91") and not cand.startswith("00"):
+        # Require proximity to payment rail or financial transaction tokens
+        candidates = STANDALONE_12DIGIT_REGEX.finditer(raw)
+        for match in candidates:
+            cand = match.group(1)
+            # Exclude mobile prefixes or repetitive patterns
+            if cand.startswith("91") or cand.startswith("00") or len(set(cand)) <= 2:
+                continue
+
+            # Context check within 60 characters
+            start_pos = max(0, match.start() - 60)
+            end_pos = min(len(raw), match.end() + 60)
+            surrounding = raw[start_pos:end_pos].lower()
+
+            if any(token in surrounding for token in FINANCIAL_CONTEXT_TOKENS):
                 txn_ref = cand
                 confidence += 0.15
-                notes.append(f"Plausible 12-digit UTR/RRN: {txn_ref}")
+                notes.append(f"Context-validated 12-digit UTR/RRN: {txn_ref}")
                 break
 
     # 3. Extract IFSC Codes
@@ -118,7 +136,6 @@ def extract_transaction_intelligence(text: Optional[str]) -> ExtractedTransactio
     beneficiary_ifsc = None
 
     if len(ifsc_matches) == 1:
-        # Check context: is it sender or beneficiary?
         match_pos = raw.find(ifsc_matches[0])
         preceding = raw[max(0, match_pos - 60):match_pos].lower()
         if any(w in preceding for w in ["to", "beneficiary", "credited to", "sent to", "fraudster"]):
@@ -128,7 +145,6 @@ def extract_transaction_intelligence(text: Optional[str]) -> ExtractedTransactio
             remitter_ifsc = ifsc_matches[0]
             notes.append(f"Remitter IFSC identified: {remitter_ifsc}")
         else:
-            # Default single IFSC in a complaint is almost always the beneficiary/fraudster account
             beneficiary_ifsc = ifsc_matches[0]
             notes.append(f"IFSC resolved as suspect beneficiary: {beneficiary_ifsc}")
         confidence += 0.2
@@ -143,7 +159,6 @@ def extract_transaction_intelligence(text: Optional[str]) -> ExtractedTransactio
     remitter_vpa = None
     beneficiary_vpa = None
 
-    # Filter out email addresses that aren't banking handles
     valid_vpas = [
         v for v in vpa_matches 
         if not v.lower().endswith(('.com', '.org', '.net', '.in', '.gov', '.edu')) 
@@ -166,7 +181,6 @@ def extract_transaction_intelligence(text: Optional[str]) -> ExtractedTransactio
     beneficiary_acc = None
 
     if len(account_matches) == 1:
-        # Check context
         beneficiary_acc = mask_account_number(account_matches[0])
         notes.append(f"Beneficiary account identified: {beneficiary_acc}")
         confidence += 0.15
@@ -183,7 +197,6 @@ def extract_transaction_intelligence(text: Optional[str]) -> ExtractedTransactio
 
     for kw, bank_code in BANK_NAME_KEYWORDS.items():
         if kw in raw_lower:
-            # Check if it precedes/succeeds 'my' or 'from'
             pos = raw_lower.find(kw)
             context = raw_lower[max(0, pos - 40):min(len(raw_lower), pos + 40)]
             if any(w in context for w in ["my", "from", "mine", "debited"]):
@@ -212,7 +225,6 @@ def extract_transaction_intelligence(text: Optional[str]) -> ExtractedTransactio
     # Normalize confidence to [0.0, 1.0]
     final_confidence = min(1.0, round(confidence, 2))
     
-    # Set verification state
     verification_status = TransactionVerificationStatus.EXTRACTED_UNVERIFIED.value
     if txn_ref and (beneficiary_ifsc or beneficiary_vpa):
         verification_status = TransactionVerificationStatus.RESOLVED_INFERRED.value

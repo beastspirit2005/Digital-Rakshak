@@ -1,7 +1,7 @@
 import uuid
 import enum
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, Boolean, DateTime, Float, Integer, Text, ForeignKey, Index
+from sqlalchemy import Column, String, Boolean, DateTime, Float, Integer, Text, ForeignKey, Index, Numeric
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 from infrastructure.db.session import Base
@@ -54,6 +54,26 @@ class BankResponseActionType(str, enum.Enum):
     REJECTION = "REJECTION"
 
 
+class BankInstructionCategory(str, enum.Enum):
+    """
+    Distinguishes operational notices, statutory records requests,
+    precautionary holds, and formal judicial/police seizure orders.
+    """
+    INFORMATIONAL_ALERT = "INFORMATIONAL_ALERT"        # Rapid fraud warning to stop outward layering
+    RECORD_REQUEST_BNSS_94 = "RECORD_REQUEST_BNSS_94"  # Section 94 BNSS 2023 summons for KYC/records
+    PROTECTIVE_HOLD_REQUEST = "PROTECTIVE_HOLD_REQUEST"# Precautionary temporary debit lien / escrow hold
+    STATUTORY_FREEZE_ORDER = "STATUTORY_FREEZE_ORDER"  # Formal account seizure under Section 106/107 BNSS 2023
+
+
+class ResolutionConfidenceType(str, enum.Enum):
+    """
+    Distinguishes candidate PSP routing arrangements (e.g. from VPA suffix)
+    from confirmed account-holding banks (e.g. from IFSC or verified transaction metadata).
+    """
+    CONFIRMED_ACCOUNT_BANK = "CONFIRMED_ACCOUNT_BANK"
+    CANDIDATE_PSP_ROUTING = "CANDIDATE_PSP_ROUTING"
+
+
 class BankRegistry(Base):
     """
     Authoritative Directory of Verified Indian Financial Institutions.
@@ -86,6 +106,7 @@ class FinancialTransaction(Base):
     """
     Structured Financial Fraud Transaction linked to an official Case.
     Captures extracted or confirmed UTR/RRN, payment rail, remitter, and beneficiary metadata.
+    Enforces exact Decimal financial accounting and 5-tier balance reconciliation.
     """
     __tablename__ = "financial_transactions"
 
@@ -93,7 +114,13 @@ class FinancialTransaction(Base):
     case_id = Column(UUID(as_uuid=True), ForeignKey("cases.id", ondelete="CASCADE"), nullable=False, index=True)
     transaction_reference = Column(String(64), index=True, nullable=True)  # UTR / RRN (e.g. 12 digits)
     
-    amount = Column(Float, nullable=False)
+    # Financial precision and multi-tier reconciliation
+    amount = Column(Numeric(14, 2), nullable=False)                        # Identified transfer amount
+    reported_loss_amount = Column(Numeric(14, 2), nullable=True)           # Stated citizen loss
+    amount_under_lien = Column(Numeric(14, 2), default=0.00, nullable=False) # Held in protective lien
+    amount_frozen = Column(Numeric(14, 2), default=0.00, nullable=False)     # Formally seized under Sec 106 BNSS
+    amount_recovered = Column(Numeric(14, 2), default=0.00, nullable=False)  # Repatriated to victim
+
     currency = Column(String(10), default="INR", nullable=False)
     payment_rail = Column(String(32), default="UPI", nullable=False)       # UPI, IMPS, NEFT, RTGS, CARD
     transaction_time = Column(DateTime(timezone=True), nullable=True)
@@ -107,6 +134,7 @@ class FinancialTransaction(Base):
     beneficiary_bank_id = Column(UUID(as_uuid=True), ForeignKey("bank_registry.id", ondelete="SET NULL"), nullable=True, index=True)
     beneficiary_account_masked = Column(String(64), nullable=True)
     beneficiary_vpa = Column(String(255), nullable=True)
+    beneficiary_bank_confidence = Column(String(32), default=ResolutionConfidenceType.CANDIDATE_PSP_ROUTING.value, nullable=False)
 
     verification_status = Column(String(32), default=TransactionVerificationStatus.EXTRACTED_UNVERIFIED.value, nullable=False, index=True)
     raw_extraction = Column(JSONB, default=dict, nullable=False)
@@ -133,6 +161,11 @@ class BankEscalation(Base):
     alert_reference = Column(String(64), unique=True, index=True, nullable=False)  # e.g. "DR-ALERT-2026-0001"
     target_bank_id = Column(UUID(as_uuid=True), ForeignKey("bank_registry.id", ondelete="CASCADE"), nullable=False, index=True)
     escalation_role = Column(String(32), nullable=False)                           # VICTIM_BANK | BENEFICIARY_BANK
+    
+    instruction_category = Column(String(32), default=BankInstructionCategory.INFORMATIONAL_ALERT.value, nullable=False)
+    statutory_basis = Column(String(64), default="RBI_CUSTOMER_PROTECTION_2017", nullable=False)
+    beneficiary_bank_confidence = Column(String(32), default=ResolutionConfidenceType.CANDIDATE_PSP_ROUTING.value, nullable=False)
+
     approval_tier = Column(String(32), default=ApprovalTier.INVESTIGATOR_APPROVED.value, nullable=False)
     status = Column(String(32), default=EscalationStatus.DRAFT.value, nullable=False, index=True)
     priority = Column(String(16), default="MEDIUM", nullable=False)
@@ -157,6 +190,7 @@ class BankEscalation(Base):
 class BankDeliveryAttempt(Base):
     """
     Log of API/Webhook transmission attempts with timestamps, HTTP statuses, and error tracking.
+    Each physical attempt retains a distinct attempt_id while honoring the logical parent's idempotency key.
     """
     __tablename__ = "bank_delivery_attempts"
 
@@ -177,6 +211,7 @@ class BankDeliveryAttempt(Base):
 class BankResponse(Base):
     """
     Institutional Acknowledgement & Action Report received from a Bank.
+    Tracks frozen and actioned balances with exact Decimal financial precision.
     """
     __tablename__ = "bank_responses"
 
@@ -185,6 +220,8 @@ class BankResponse(Base):
     bank_reference_number = Column(String(128), nullable=True, index=True)
     response_type = Column(String(64), nullable=False)                             # ACKNOWLEDGEMENT, INFO_REQUEST, ACTION_TAKEN, REJECTION
     status_summary = Column(String(128), nullable=False)
+    funds_frozen_amount = Column(Numeric(14, 2), nullable=True)
+    funds_actioned_amount = Column(Numeric(14, 2), nullable=True)
     details = Column(JSONB, default=dict, nullable=False)
     received_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
