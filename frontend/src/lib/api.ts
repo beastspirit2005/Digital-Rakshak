@@ -69,12 +69,14 @@ export function wsApi(path: string): string {
   const normalizedPath = cleanPath.startsWith("/") ? cleanPath : `/${cleanPath}`;
 
   if (typeof window !== "undefined") {
+    const token = localStorage.getItem("token") || localStorage.getItem("access_token") || "";
+    const tokenParam = token ? `?token=${encodeURIComponent(token)}` : "";
     if (API_BASE_URL.startsWith("http://") || API_BASE_URL.startsWith("https://")) {
       const wsUrl = API_BASE_URL.replace(/^http/, "ws");
-      return `${wsUrl}${normalizedPath}`;
+      return `${wsUrl}${normalizedPath}${tokenParam}`;
     }
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    return `${protocol}//${window.location.host}/api/v1${normalizedPath}`;
+    return `${protocol}//${window.location.host}/api/v1${normalizedPath}${tokenParam}`;
   }
   return `ws://127.0.0.1:8000/v1${normalizedPath}`;
 }
