@@ -104,6 +104,35 @@ async def get_current_user_optional(token: Optional[str] = Depends(OAuth2Passwor
 
 OFFICIAL_INSTITUTIONAL_ROLES = {"admin", "police", "cyber_cell", "banker", "bank_employee"}
 
+async def get_current_user_ws(token: Optional[str], db: AsyncSession) -> User:
+    """Validate token and authenticate user over WebSockets."""
+    if not token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing authentication token")
+    payload = decode_access_token(token)
+    if not payload:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token subject")
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalars().first()
+    if not user or not user.is_active:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found or inactive")
+    return user
+
+async def require_official_role(user: User = Depends(get_current_user)) -> User:
+    """
+    Ensures the caller holds an official / institutional role.
+    Used by bank escalation, investigation, and sensitive intelligence endpoints.
+    Raises HTTP 403 for citizen / consumer accounts.
+    """
+    if user.role not in OFFICIAL_INSTITUTIONAL_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access restricted to authorised institutional accounts.",
+        )
+    return user
+
 async def require_pro_user(user: User = Depends(get_current_user)) -> User:
     """
     Verifies that the user has an active B2C Pro subscription OR is an official / institutional user.

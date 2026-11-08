@@ -48,3 +48,18 @@ from domain.models.chat_safety import (
     SafetyReport,
     PreservedEvidencePackage,
 )
+
+# Bank-Specific Fraud Intelligence & Escalation models
+from domain.models.bank import (
+    BankRegistry,
+    FinancialTransaction,
+    BankEscalation,
+    BankDeliveryAttempt,
+    BankResponse,
+    BankIntegrationType,
+    EscalationRole,
+    ApprovalTier,
+    EscalationStatus,
+    TransactionVerificationStatus,
+    BankResponseActionType,
+)

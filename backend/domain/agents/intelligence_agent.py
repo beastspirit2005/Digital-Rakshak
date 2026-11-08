@@ -18,7 +18,7 @@ class IntelligenceAgent(BaseAgent):
     def initialize(self) -> None:
         pass
 
-    async def inference(self, prompt: str, context: Dict[str, Any], ai_mode: str = "mock") -> Dict[str, Any]:
+    async def inference(self, prompt: str, context: Dict[str, Any], ai_mode: str = "default") -> Dict[str, Any]:
         return {}
 
     def validate_input(self, payload: Dict[str, Any]) -> bool:
@@ -50,7 +50,7 @@ class IntelligenceAgent(BaseAgent):
                 await graph.add_case_entity_link(case_number, "UPI_ID", str(upi))
                 await repo.store_entity(case_number, "UPI", str(upi))
             for ifsc in entities.get("IFSC", []):
-                await graph.add_case_entity_link(case_number, "BankAccount", str(ifsc)) # Basic mock for IFSC
+                await graph.add_case_entity_link(case_number, "BankAccount", str(ifsc)) # Link financial branch identifier
                 await repo.store_entity(case_number, "BANK_ACCOUNT", str(ifsc))
                 
         except Exception as graph_err:

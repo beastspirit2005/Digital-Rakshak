@@ -432,13 +432,11 @@ class RakshakVisionClient:
 
     def detect_counterfeit(self, image_path: str):
         if getattr(self, 'model_loaded', False) is False:
-            import random
-            is_fake = random.choice([True, False])
-            decision = "Counterfeit Currency Detected" if is_fake else "Genuine Currency"
             return {
-                "decision": decision + " (MOCK VISION ENGINE)",
-                "is_fake": is_fake,
-                "confidence": round(random.uniform(0.75, 0.99), 2)
+                "decision": "Engine Offline: Counterfeit detection vision model is not loaded.",
+                "is_fake": False,
+                "confidence": 0.0,
+                "error": "Model weights not found. Please download counterfeit_model.pt."
             }
             
         import torch

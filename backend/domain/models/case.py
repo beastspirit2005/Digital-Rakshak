@@ -88,6 +88,8 @@ class Case(Base):
     
     # Relationships
     evidence = relationship("Evidence", back_populates="case", lazy="selectin")
+    financial_transactions = relationship("FinancialTransaction", back_populates="case", cascade="all, delete-orphan", lazy="selectin")
+    bank_escalations = relationship("BankEscalation", back_populates="case", cascade="all, delete-orphan", lazy="selectin")
 
     @property
     def scam_description(self) -> str:

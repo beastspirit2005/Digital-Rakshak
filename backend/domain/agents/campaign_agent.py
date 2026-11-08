@@ -31,19 +31,18 @@ class CampaignAgent(BaseAgent):
         embeddings = self.embedding_client.embed(prompt)
         entities = self.ner_client.extract(prompt)
         
-        # Here we would run a vector search in Neo4j/pgvector using the embeddings.
-        # For prototype, we mock the similarity search result.
-        similarity_found = True
+        has_entities = any(bool(v) for v in entities.values() if isinstance(v, list))
+        score = 0.85 if has_entities else 0.15
         
         return {
             "engine": "Rakshak-Link + Rakshak-NER",
             "engine_version": "1.0",
             "model_version": self.embedding_client.version,
             "entities": entities,
-            "evidence": ["Generated 384-dimensional vector embedding"],
-            "reasoning": ["Vector similarity check completed."],
-            "recommendation": ["Pass entities and embeddings to IntelligenceAgent for clustering."],
-            "score": 0.95 if similarity_found else 0.20,
+            "evidence": ["Generated 384-dimensional vector embedding"] if has_entities else ["No threat entities extracted from text"],
+            "reasoning": [f"Extracted forensic entities for cross-case matching."] if has_entities else ["No suspicious indicators detected for campaign correlation."],
+            "recommendation": ["Pass entities and embeddings to IntelligenceAgent for clustering."] if has_entities else ["No campaign clustering needed."],
+            "score": score,
             "prompt_version": "n/a"
         }
 

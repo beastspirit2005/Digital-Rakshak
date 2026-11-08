@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Terminal, CheckCircle2, Loader2, AlertCircle, Cpu, ShieldAlert, Activity } from "lucide-react";
+import { API_BASE_URL } from "@/lib/api";
 
 export interface RAICEvent {
   type: string;
@@ -41,9 +42,7 @@ export function RAICExecutionMonitor({
     let reconnectTimeout: NodeJS.Timeout;
 
     const connect = () => {
-      const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-      const apiBase = process.env.NEXT_PUBLIC_API_URL || (isLocal ? "http://127.0.0.1:8000/v1" : "/api/v1");
-      eventSource = new EventSource(`${apiBase}/stream/events`);
+            eventSource = new EventSource(`${API_BASE_URL}/stream/events`);
 
       eventSource.addEventListener("connected", (e) => {
         setConnected(true);

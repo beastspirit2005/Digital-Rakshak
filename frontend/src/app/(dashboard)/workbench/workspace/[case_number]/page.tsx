@@ -30,6 +30,8 @@ import {
 
 import { RAICExecutionMonitor } from "@/components/ui/RAICExecutionMonitor";
 import { CaseStepper } from "@/components/case/CaseStepper";
+import BankEscalationTab from "@/components/case/BankEscalationTab";
+import { API_BASE_URL } from "@/lib/api";
 
 interface CaseDetails {
   id: string;
@@ -74,7 +76,7 @@ export default function InvestigatorWorkspacePage() {
   const { token } = useAuthStore();
   const caseNumber = typeof params?.case_number === "string" ? params.case_number : "";
 
-  const [activeTab, setActiveTab] = useState<"evidence" | "dna" | "raic" | "audit">("evidence");
+  const [activeTab, setActiveTab] = useState<"evidence" | "dna" | "raic" | "audit" | "bank_escalation">("evidence");
   const [caseData, setCaseData] = useState<CaseDetails | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -89,8 +91,7 @@ export default function InvestigatorWorkspacePage() {
   const [correctionNote, setCorrectionNote] = useState<string>("");
   const [actionStatus, setActionStatus] = useState<string | null>(null);
 
-  const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-  const apiBase = process.env.NEXT_PUBLIC_API_URL || (isLocal ? "http://127.0.0.1:8000/v1" : "/api/v1");
+  const apiBase = API_BASE_URL;
 
   const fetchCaseDetails = async () => {
     if (!caseNumber) return;
@@ -247,7 +248,7 @@ export default function InvestigatorWorkspacePage() {
             </span>
           </div>
           <p className="text-sm text-slate-400 mt-1 flex items-center gap-2">
-            <span>Reported via: {caseData.scam_type || "Digital Cyber Fraud"}</span>
+            <span>Reported via: {caseData.scam_type || caseData.scam_type_code || "Digital Cyber Fraud"}</span>
             <span className="text-slate-600">•</span>
             <span>Jurisdiction: {caseData.city || "National Command"}</span>
           </p>
@@ -324,6 +325,16 @@ export default function InvestigatorWorkspacePage() {
           }`}
         >
           <Cpu className="w-4 h-4" /> RAIC Consensus & Explainability
+        </button>
+        <button
+          onClick={() => setActiveTab("bank_escalation")}
+          className={`px-4 py-3 text-xs font-mono font-bold tracking-wider flex items-center gap-2.5 border-b-2 transition-all ${
+            activeTab === "bank_escalation"
+              ? "border-emerald-400 text-emerald-400 bg-slate-900/60"
+              : "border-transparent text-slate-400 hover:text-slate-200"
+          }`}
+        >
+          <Building2 className="w-4 h-4" /> Bank Fraud Escalation
         </button>
         <button
           onClick={() => setActiveTab("audit")}
@@ -431,7 +442,13 @@ export default function InvestigatorWorkspacePage() {
                 <div className="mt-4 pt-3 border-t border-slate-800">
                   <h4 className="text-xs font-mono font-bold text-slate-300 mb-2">Raw Citizen Report Text</h4>
                   <div className="p-3 rounded bg-slate-950 border border-slate-800 font-mono text-xs text-slate-300 max-h-36 overflow-y-auto leading-relaxed">
-                    {caseData.scam_text || caseData.scam_description || "No raw text description provided."}
+                    {(caseData.scam_text && caseData.scam_text.trim()) ||
+                     (caseData.scam_description && caseData.scam_description.trim()) ||
+                     ((caseData as any).description && String((caseData as any).description).trim()) ||
+                     ((caseData as any).triage_notes && String((caseData as any).triage_notes).trim()) ||
+                     caseData.ai_decision?.scam_text ||
+                     caseData.ai_decision?.text ||
+                     "No raw text description provided."}
                   </div>
                 </div>
               </div>
@@ -815,6 +832,15 @@ export default function InvestigatorWorkspacePage() {
                 </div>
               </div>
             </div>
+          )}
+
+          {/* TAB 5: BANK ESCALATION GATEWAY */}
+          {activeTab === "bank_escalation" && (
+            <BankEscalationTab
+              caseNumber={caseData.case_number}
+              token={token}
+              onRefreshCase={fetchCaseDetails}
+            />
           )}
         </motion.div>
       </AnimatePresence>

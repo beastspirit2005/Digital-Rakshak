@@ -362,3 +362,151 @@ class IntelligenceGraph:
 
         return {"nodes": nodes, "edges": edges}
 
+    # -----------------------------------------------------------------------
+    # Cross-Institution Fraud Intelligence & Mule Correlation Layer
+    # -----------------------------------------------------------------------
+    async def record_case_financial_transaction(
+        self,
+        case_number: str,
+        transaction_reference: Optional[str] = None,
+        amount: Optional[float] = None,
+        remitter_bank_code: Optional[str] = None,
+        beneficiary_bank_code: Optional[str] = None,
+        beneficiary_account: Optional[str] = None,
+        beneficiary_vpa: Optional[str] = None
+    ):
+        """
+        Records a financial fraud transaction linked to a legal Case in Neo4j:
+        (:Case)-[:INVOLVES_TXN]->(:FinancialTxn)
+        (:FinancialTxn)-[:CREDITED_TO]->(:BeneficiaryAccount)
+        (:BeneficiaryAccount)-[:HELD_AT]->(:Bank)
+        """
+        if not case_number:
+            return
+
+        query = """
+        MERGE (c:Case {id: $case_number})
+        """
+        params = {"case_number": str(case_number)}
+
+        if transaction_reference:
+            query += """
+            MERGE (t:FinancialTxn {ref: $txn_ref})
+            ON CREATE SET t.amount = $amount, t.created_at = datetime()
+            ON MATCH SET t.amount = $amount
+            MERGE (c)-[:INVOLVES_TXN]->(t)
+            """
+            params["txn_ref"] = str(transaction_reference)
+            params["amount"] = float(amount) if amount else 0.0
+
+        if beneficiary_account:
+            query += """
+            MERGE (ba:BeneficiaryAccount {value: $ben_acc})
+            """
+            params["ben_acc"] = str(beneficiary_account)
+            if transaction_reference:
+                query += "MERGE (t)-[:CREDITED_TO]->(ba)"
+
+            else:
+                query += "MERGE (c)-[:IDENTIFIED_BENEFICIARY]->(ba)"
+
+
+            if beneficiary_bank_code:
+                query += """
+                MERGE (bb:Bank {code: $ben_bank})
+                MERGE (ba)-[:HELD_AT]->(bb)
+                """
+                params["ben_bank"] = str(beneficiary_bank_code).upper()
+
+        if beneficiary_vpa:
+            query += """
+            MERGE (bv:UPI_ID {value: $ben_vpa})
+            """
+            params["ben_vpa"] = str(beneficiary_vpa).lower().strip()
+            if transaction_reference:
+                query += "MERGE (t)-[:TRANSFERRED_VIA_VPA]->(bv)"
+            else:
+                query += "MERGE (c)-[:IDENTIFIED_VPA]->(bv)"
+
+        if remitter_bank_code:
+            query += """
+            MERGE (rb:Bank {code: $rem_bank})
+            MERGE (c)-[:REMITTED_FROM]->(rb)
+            """
+            params["rem_bank"] = str(remitter_bank_code).upper()
+
+        async with self.driver.session() as session:
+            try:
+                await session.run(query, **params)
+                logger.info(f"Graph recorded financial case: {case_number}")
+            except Exception as e:
+                logger.error(f"Neo4j Error recording case financial txn: {e}")
+
+    async def get_cross_case_fraud_correlations(self, case_number: str) -> Dict[str, Any]:
+        """
+        Cross-Institution correlation query:
+        Finds other cases sharing the same beneficiary account, UPI VPA, or UTR.
+        Detects recurring mule accounts and coordinates syndicate leads across complaints.
+        """
+        correlated_cases = set()
+        shared_accounts = []
+        shared_vpas = []
+
+        async with self.driver.session() as session:
+            try:
+                # 1. Correlate by Shared Beneficiary Account
+                acc_query = """
+                MATCH (c:Case {id: $case_number})-[]->(:FinancialTxn)?-[]->(ba:BeneficiaryAccount)<-[]-(:FinancialTxn)?<-[]-(other:Case)
+                WHERE other.id <> $case_number
+                OPTIONAL MATCH (ba)-[:HELD_AT]->(b:Bank)
+                RETURN ba.value as account, b.code as bank_code, collect(distinct other.id) as other_cases, count(distinct other.id) as case_count
+                """
+                res_acc = await session.run(acc_query, case_number=str(case_number))
+                records_acc = await res_acc.data()
+                for rec in records_acc:
+                    shared_accounts.append({
+                        "beneficiary_account": rec["account"],
+                        "bank_code": rec.get("bank_code"),
+                        "linked_cases": rec["other_cases"],
+                        "case_count": rec["case_count"]
+                    })
+                    for oc in rec["other_cases"]:
+                        correlated_cases.add(oc)
+
+                # 2. Correlate by Shared UPI VPA
+                vpa_query = """
+                MATCH (c:Case {id: $case_number})-[]->(:FinancialTxn)?-[]->(bv:UPI_ID)<-[]-(:FinancialTxn)?<-[]-(other:Case)
+                WHERE other.id <> $case_number
+                RETURN bv.value as vpa, collect(distinct other.id) as other_cases, count(distinct other.id) as case_count
+                """
+                res_vpa = await session.run(vpa_query, case_number=str(case_number))
+                records_vpa = await res_vpa.data()
+                for rec in records_vpa:
+                    shared_vpas.append({
+                        "vpa": rec["vpa"],
+                        "linked_cases": rec["other_cases"],
+                        "case_count": rec["case_count"]
+                    })
+                    for oc in rec["other_cases"]:
+                        correlated_cases.add(oc)
+
+            except Exception as e:
+                logger.error(f"Neo4j Error finding cross-case correlations for {case_number}: {e}")
+
+        total_linked = len(correlated_cases)
+        is_mule_ring = total_linked >= 2
+
+        confidence = 0.50
+        if is_mule_ring:
+            confidence = min(0.98, 0.65 + (total_linked * 0.10))
+
+        return {
+            "case_number": case_number,
+            "has_cross_institution_matches": total_linked > 0,
+            "total_correlated_cases_count": total_linked,
+            "correlated_case_numbers": list(correlated_cases),
+            "shared_beneficiary_accounts": shared_accounts,
+            "shared_vpas": shared_vpas,
+            "is_suspected_mule_ring": is_mule_ring,
+            "syndicate_confidence": round(confidence, 2)
+        }

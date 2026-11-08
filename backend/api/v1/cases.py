@@ -7,6 +7,7 @@ from sqlalchemy import select, or_
 import os
 import shutil
 import uuid
+from datetime import datetime, timezone
 
 from infrastructure.db.session import get_db
 from domain.models.takedown import TakedownPolicy
@@ -254,7 +255,6 @@ async def get_my_cases(request: Request, db: AsyncSession = Depends(get_db), ski
     """
     from sqlalchemy import desc
     from domain.models.user import User as UserModel
-    from datetime import datetime, timezone
 
     result = await db.execute(
         select(Case)
@@ -1385,7 +1385,6 @@ async def undertake_case(
         "assignment_source": "map_radar_claim",
         "claimed_at": now_iso
     }
-from datetime import datetime, timezone
 
 @router.post("/{case_number}/resolve")
 async def resolve_case(
@@ -1993,7 +1992,6 @@ async def get_overdue_sla_cases(
     """
     from domain.models.case import Case, CaseStatus
     from domain.models.user import User as UserModel
-    from datetime import datetime, timezone
     from sqlalchemy import or_
 
     query = select(Case).where(
@@ -2085,7 +2083,6 @@ async def evaluate_sla_cron(
     """
     from core.config import settings
     from runtime.sla_monitor_daemon import sla_monitor_daemon
-    from datetime import datetime, timezone
 
     is_valid_secret = bool(x_cron_secret and x_cron_secret == settings.SECRET_KEY)
     is_admin = bool(user and getattr(user, "role", None) == "admin")

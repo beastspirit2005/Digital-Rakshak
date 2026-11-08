@@ -274,6 +274,7 @@ from api.v1.chat_safety import router as chat_safety_router
 from api.v1.admin_disputes import router as admin_disputes_router
 from api.v1.police_proximity import router as police_proximity_router
 from api.v1.notifications import router as notifications_router
+from api.v1.bank_escalation import router as bank_escalation_router
 
 app.include_router(auth_router, prefix=f"{settings.API_V1_STR}/auth", tags=["auth"])
 app.include_router(users_router, prefix=f"{settings.API_V1_STR}/users", tags=["users"])
@@ -304,6 +305,7 @@ app.include_router(chat_safety_router, prefix=f"{settings.API_V1_STR}")
 app.include_router(admin_disputes_router, prefix=f"{settings.API_V1_STR}")
 app.include_router(police_proximity_router, prefix=f"{settings.API_V1_STR}")
 app.include_router(notifications_router, prefix=f"{settings.API_V1_STR}")
+app.include_router(bank_escalation_router, prefix=f"{settings.API_V1_STR}", tags=["bank_escalation"])
 
 
 

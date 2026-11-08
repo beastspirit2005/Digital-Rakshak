@@ -529,6 +529,21 @@ if (!token) return;
                   
                   <CaseStepper status={c.status} />
 
+                  {/* Institutional Bank Escalation Status Banner */}
+                  {c.timeline_events?.some((e: any) => e.event_type === "BANK_ESCALATION_DISPATCHED") && (
+                    <div className="mt-3 p-3 rounded-lg bg-surface-2 border border-line flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2">
+                        <Building className="w-4 h-4 text-emerald-500" />
+                        <span className="font-semibold text-ink">
+                          Institutional Bank Escalations Active &amp; Acknowledged
+                        </span>
+                      </div>
+                      <span className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400 font-bold">
+                        BSA 2023 Sec 63 Active
+                      </span>
+                    </div>
+                  )}
+
                   {/* Official Police Investigation Findings & Action Report Card */}
                   {hasCompletedFindings && (
                     <div className="mt-5 p-4 rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-500/15 via-emerald-500/10 to-transparent shadow-sm space-y-3 animate-in fade-in">

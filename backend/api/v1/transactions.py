@@ -18,7 +18,12 @@ from sqlalchemy.orm import selectinload
 
 from infrastructure.db.session import get_db
 from core.config import settings
-from api.deps import get_current_user, get_current_user_optional
+from api.deps import (
+    get_current_user,
+    get_current_user_optional,
+    get_current_user_ws,
+    OFFICIAL_INSTITUTIONAL_ROLES,
+)
 from domain.models.user import User
 from domain.models.case import Case, CaseStatus, CasePriority
 from domain.models.transaction import (
@@ -57,6 +62,32 @@ def _is_valid_uuid(val: str) -> bool:
         return True
     except (ValueError, AttributeError):
         return False
+
+def _require_institutional_user(user: User) -> User:
+    """Enforce institutional role (admin, police, cyber_cell, banker, bank_employee)."""
+    if not user or user.role not in OFFICIAL_INSTITUTIONAL_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Institutional authorization required to access financial risk intelligence.",
+        )
+    return user
+
+
+def _verify_transaction_access(txn: Transaction, user: User) -> None:
+    """Ensure callers only access their own transaction unless they hold an institutional role."""
+    if user.role in OFFICIAL_INSTITUTIONAL_ROLES:
+        return
+    is_owner = (
+        str(user.id) == str(txn.account_id)
+        or (getattr(user, "phone", None) and user.phone == str(txn.account_id))
+        or (getattr(user, "email", None) and user.email == str(txn.account_id))
+    )
+    if not is_owner:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied: You do not have permission to view this transaction record.",
+        )
+
 
 
 async def _get_txn_by_id_or_code(db: AsyncSession, identifier: str) -> Optional[Transaction]:
@@ -641,9 +672,10 @@ async def analyze_transaction_on_demand(
 async def get_transaction_risk(
     id: str,
     db: AsyncSession = Depends(get_db),
-    user: Optional[User] = Depends(get_current_user_optional)
+    user: User = Depends(get_current_user)
 ):
     """Returns granular risk score, band, confidence, and sub-score metrics."""
+    _require_institutional_user(user)
     txn = await _get_txn_by_id_or_code(db, id)
     if not txn or not txn.score:
         raise HTTPException(status_code=404, detail=f"Risk score for transaction {id} not found")
@@ -665,9 +697,10 @@ async def get_transaction_risk(
 async def get_transaction_explanation(
     id: str,
     db: AsyncSession = Depends(get_db),
-    user: Optional[User] = Depends(get_current_user_optional)
+    user: User = Depends(get_current_user)
 ):
     """Returns deterministic reason codes, narrative brief, Attack DNA and graph signals."""
+    _require_institutional_user(user)
     txn = await _get_txn_by_id_or_code(db, id)
     if not txn or not txn.decision:
         raise HTTPException(status_code=404, detail=f"Explanation for transaction {id} not found")
@@ -1062,8 +1095,9 @@ async def get_attack_campaigns(
 @router.get("/accounts/{account_id}/risk-network", response_model=Dict[str, Any])
 async def get_account_risk_network(
     account_id: str,
-    user: Optional[User] = Depends(get_current_user_optional)
+    user: User = Depends(get_current_user)
 ):
+    _require_institutional_user(user)
     """
     Returns 2-hop graph neighborhood for an account formatted for Cytoscape.js,
     visualizing linked transactions, beneficiaries, and shared device networks.
@@ -1081,7 +1115,19 @@ async def get_account_risk_network(
 # 9a. Server-Sent Events (SSE) Stream — MUST be above /{id} catch-all
 # ----------------------------------------------------------------------
 @router.get("/stream")
-async def sse_transaction_stream(request: Request):
+async def sse_transaction_stream(
+    request: Request,
+    token: Optional[str] = Query(None),
+    db: AsyncSession = Depends(get_db)
+):
+    auth_header = request.headers.get("Authorization")
+    raw_token = token
+    if not raw_token and auth_header and auth_header.startswith("Bearer "):
+        raw_token = auth_header[7:].strip()
+    if not raw_token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication token required for live stream")
+    user = await get_current_user_ws(raw_token, db)
+    _require_institutional_user(user)
     """
     Server-Sent Events (SSE) HTTP endpoint for clients that cannot use WebSockets.
     Streams transaction events as 'text/event-stream'.
@@ -1121,7 +1167,7 @@ async def sse_transaction_stream(request: Request):
 async def get_transaction_detail(
     id: str,
     db: AsyncSession = Depends(get_db),
-    user: Optional[User] = Depends(get_current_user_optional)
+    user: User = Depends(get_current_user)
 ):
     """
     Returns full transaction record joined with risk score, friction decision,
@@ -1130,6 +1176,7 @@ async def get_transaction_detail(
     txn = await _get_txn_by_id_or_code(db, id)
     if not txn:
         raise HTTPException(status_code=404, detail=f"Transaction {id} not found")
+    _verify_transaction_access(txn, user)
 
     features_dict = {f.feature_name: float(f.feature_value) for f in (txn.features or [])}
     feedbacks_list = [
@@ -1183,12 +1230,21 @@ async def get_transaction_detail(
 @router.websocket("/ws")
 async def websocket_transaction_stream(
     websocket: WebSocket,
-    token: Optional[str] = Query(None)
+    token: Optional[str] = Query(None),
+    db: AsyncSession = Depends(get_db)
 ):
     """
     Bi-directional WebSocket streaming endpoint for real-time transaction
     ingestion and human review status updates.
     """
+    try:
+        user = await get_current_user_ws(token, db)
+        if user.role not in OFFICIAL_INSTITUTIONAL_ROLES:
+            await websocket.close(code=4003)
+            return
+    except Exception:
+        await websocket.close(code=4001)
+        return
     await stream_manager.connect_ws(websocket)
     try:
         while True:

@@ -129,6 +129,38 @@ To elevate the platform to sovereign defense and enterprise SIEM standards:
 *   **Serverless SLA Cron Trigger:** Added an authenticated cron webhook (`POST /api/v1/cases/sla/evaluate-cron`) protected by bearer secret tokens for serverless execution.
 *   **Operational Script Consolidation:** Reorganized 30+ loose root scripts into categorized directories (`backend/scripts/` and `backend/scripts/manual_tests/`), supported by 8 technical engineering audit reports in `docs/engineering/`.
 
+### 17. Bank-Specific Financial Fraud Intelligence & Escalation V2
+An end-to-end institutional fraud escalation pipeline connecting victims, beneficiary banks, and law enforcement agencies:
+*   **Verified Indian Bank Directory (`BankRegistry`):** Authoritative database of major Indian Scheduled Commercial Banks, Payment Banks, and Small Finance Banks (SBI, HDFC, ICICI, Axis, PNB, Kotak, Bank of Baroda, etc.) with RBI codes, IFSC prefixes, and payment rail metadata (`UPI`, `IMPS`, `NEFT`, `RTGS`).
+*   **Multi-Entity Transaction Extractor (`transaction_extractor.py`):** Deterministically parses unstructured complaints to extract 12-digit UTR/RRN references, IFSC codes, UPI VPAs, masked account numbers, and contextually classifies remitter vs beneficiary entities.
+*   **Dual-Bank Routing Matrix (`bank_routing_engine.py`):** Simultaneously generates coordinated, structured alerts for both the victim's remitter bank (payment recall, credential audit) and the suspect's beneficiary bank (immediate lien check, debit hold under Section 91 CrPC / BSA 2023 Sec 63).
+*   **Hybrid Approval Policy Engine (`approval_policy.py`):** Enforces 3-tier approval governance:
+    1.  `AUTOMATED`: Low exposure (< ₹25,000) with verified UTR and IFSC.
+    2.  `INVESTIGATOR_APPROVED`: Moderate exposure (₹25,000–₹2,00,000) requiring 1-click authorization in the Police Workbench.
+    3.  `SENIOR_OFFICER`: Critical exposure (> ₹2,00,000) or ongoing syndicate attacks.
+*   **API-First Gateway with Sandbox Adapter (`bank_integration_gateway.py`):** Standardized adapter pattern supporting simulated banking endpoints, HMAC-SHA256 signature verification, idempotency keys, delivery attempt logging, and institutional acknowledgement tracking.
+*   **Cross-Institution Neo4j Fraud Correlation:** Traverses graph relationships to detect recurring mule beneficiary accounts and shared VPAs across independent cases, surfacing coordinated syndicate rings in the Investigator Workspace.
+*   **Investigator Workspace Tab (`BankEscalationTab.tsx`):** Dedicated 5th tab inside `/workbench/workspace/[case_number]` providing complete visibility, 1-click dispatch, and audit trail ledger.
+
+### 18. Comprehensive Security Hardening & Zero-Slop Architecture
+To ensure enterprise robustness, audit compliance, and zero synthetic shortcuts across all operational layers:
+*   **Zero-Trust Object Authorization (BOLA/BFLA Prevention):**
+    *   *Transaction Intelligence Gating:* Strictly restricted transaction risk profiling (`GET /v1/transactions/{id}/risk`), reasoning explainability (`GET /v1/transactions/{id}/explanation`), and graph ego-networks (`GET /v1/transactions/accounts/{id}/risk-network`) to verified institutional roles (`admin`, `police`, `cyber_cell`, `banker`, `bank_employee`).
+    *   *Live Stream & WebSocket Security:* Implemented authenticated WebSocket Handshake (`get_current_user_ws`) and Server-Sent Events authorization with automatic closure codes `4001` (missing credentials) and `4003` (unauthorized citizen account).
+*   **Unbounded Resource Exhaustion & DoS Protection:**
+    *   *Chunk-Bounded File Streaming:* Replaced unbounded in-memory `await file.read()` calls in malware APK and image scanners with `_read_upload_file_bounded` streaming in 64 KB chunks, rejecting oversized payloads (> 10MB images, > 50MB APKs) immediately with `HTTP 413 Payload Too Large`.
+    *   *In-Memory Leak Elimination:* Added strict `MAX_MEM_USERS = 500` LRU eviction bounds on background scanner dictionaries to prevent server memory bloat.
+*   **Sandbox Payment Integrity Gate:**
+    *   Guarded billing mock routes: In `production` / `prod` environments, test payment tokens are strictly rejected with `HTTP 400 Bad Request`, and unconfigured payment gateways fail closed with `HTTP 503 Service Unavailable`.
+*   **Zero AI Slop & Synthetic Mock Removal:**
+    *   *Honest Counterfeit Note Detection:* Removed synthetic random coin-flips (`random.choice([True, False])`) and fabricated confidence scores (`random.uniform(0.75, 0.99)`); returns deterministic, transparent `"Engine Offline: Model weights not found"` responses when PyTorch vision models are offline.
+    *   *Dynamic Campaign Correlation:* Replaced hardcoded `similarity_found = True` (0.95) with actual forensic entity extraction (phones, UPIs, IFSCs, URLs), producing realistic, data-driven similarity scoring.
+    *   *Forensic Takedown Entity Extraction:* Replaced hardcoded mock target `"mule_syndicate@okhdfcbank"` and static `"DOM-123"` receipts with automated regex entity extraction across complaint text, evidence, AI decisions, and financial transactions, generating unique tracking IDs.
+*   **Autonomous EventBus Decoupling:**
+    *   Wired Redis Stream publishing directly into `BaseAgent.execute()`, guaranteeing that all agent reasoning cycles emit structured telemetry to `digital_rakshak:stream:events` regardless of subclass overrides.
+*   **Frontend Type Safety & API URL Standardization:**
+    *   Standardized all API requests to use `API_BASE_URL` with Next.js URL rewrites, eliminating hardcoded `127.0.0.1:8000` URLs and achieving **0 errors** across the complete TypeScript build.
+
 ---
 
 ## System Architecture

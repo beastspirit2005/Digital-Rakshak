@@ -73,8 +73,27 @@ class BaseAgent(ABC):
 
     @abstractmethod
     async def publish_event(self, event_name: str, decision_object: Dict[str, Any]) -> None:
-        """Step 7: Push the outcome to the Redis Stream Event Bus."""
+        """Step 7: Push the outcome to the Redis Stream Event Bus.
+
+        Subclasses may override for agent-specific routing or filtering.
+        The default wiring goes through BaseAgent._publish_to_event_bus.
+        """
         pass
+
+    async def _publish_to_event_bus(self, event_name: str, decision_object: Dict[str, Any]) -> None:
+        """Internal: publishes to Redis Stream Event Bus with silent fallback."""
+        import logging as _logging
+        _log = _logging.getLogger(self.__class__.__name__)
+        try:
+            from infrastructure.event_bus.redis_streams import event_bus, STREAM_EVENTS
+            await event_bus.publish(STREAM_EVENTS, {
+                "event": event_name,
+                "agent": self.agent_name,
+                **decision_object,
+            })
+        except Exception as exc:
+            _log.debug("EventBus publish skipped for %s: %s", self.agent_name, exc)
+
 
     async def execute(self, payload: Dict[str, Any], case_id: str) -> Dict[str, Any]:
         """
@@ -153,6 +172,7 @@ class BaseAgent(ABC):
         # Preserve the raw score for spatial heatmap weighting
         decision_obj["score"] = raw_score
         
+        await self._publish_to_event_bus(f"threat.analyzed.{self.agent_name.lower()}", decision_obj)
         await self.publish_event(f"threat.analyzed.{self.agent_name.lower()}", decision_obj)
         
         return decision_obj

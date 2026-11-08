@@ -1,3 +1,4 @@
+import uuid
 import httpx
 import logging
 from domain.models.takedown import TakedownPolicy
@@ -39,7 +40,8 @@ class TakedownAgent:
             elif policy.action in ["block_domain", "block_url"]:
                 # Mock registry
                 logger.info(f"Mocking domain block for {policy.target}")
-                return {"status": "success", "action_taken": "DOMAIN_BLOCKED", "receipt": "DOM-123"}
+                receipt_id = f"DOM-{uuid.uuid4().hex[:8].upper()}"
+                return {"status": "success", "action_taken": "DOMAIN_BLOCKED", "receipt": receipt_id}
             else:
                 logger.warning(f"Unknown takedown action: {policy.action}")
                 return {"error": "Unsupported action"}

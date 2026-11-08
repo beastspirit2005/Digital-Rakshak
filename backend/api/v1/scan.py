@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional, List
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, Request, status
 from infrastructure.osint.scanner import OSINTScanner
 from infrastructure.graph.neo4j_client import IntelligenceGraph
 from pydantic import BaseModel
@@ -78,6 +78,29 @@ async def _check_guest_rate_limit(request: Request) -> None:
         logger.debug("Redis guest rate limit check failed (fail-open): %s", exc)
 
 
+
+MAX_IMAGE_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB limit for images / QR / counterfeit
+MAX_APK_UPLOAD_BYTES   = 50 * 1024 * 1024  # 50 MB limit for APK packages
+MAX_MEM_USERS          = 500               # Bound global in-memory user scan cache
+
+async def _read_upload_file_bounded(file: UploadFile, max_bytes: int) -> bytes:
+    """Reads file bytes up to max_bytes with early abort to prevent memory exhaustion."""
+    chunk_size = 64 * 1024
+    total = 0
+    chunks = []
+    while True:
+        chunk = await file.read(chunk_size)
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > max_bytes:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=f"File exceeds maximum allowed upload size ({max_bytes // (1024 * 1024)} MB).",
+            )
+        chunks.append(chunk)
+    return b"".join(chunks)
+
 _mem_user_scans: dict[str, list[dict]] = {}
 
 
@@ -110,6 +133,9 @@ async def _record_user_scan(
     # In-memory store (active in all environments, ensuring zero data loss if Redis is down)
     uid = str(user_id)
     if uid not in _mem_user_scans:
+        if len(_mem_user_scans) >= MAX_MEM_USERS:
+            oldest_key = next(iter(_mem_user_scans))
+            _mem_user_scans.pop(oldest_key, None)
         _mem_user_scans[uid] = []
     _mem_user_scans[uid].insert(0, scan_item)
     _mem_user_scans[uid] = _mem_user_scans[uid][:30]
@@ -448,7 +474,7 @@ async def live_prevention_scan(
             else:
                 attack_dna_match = "Social Engineering Urgent Lure & Authority Coercion (MITRE T1204)"
         if related_cases is None:
-            related_cases = 3
+            related_cases = 0
         
     scan_reasons = reasons if reasons else (
         ["Verified official entity."] if indicator_status == "VERIFIED_LEGITIMATE" 
@@ -549,7 +575,7 @@ async def live_prevention_scan_qr(
     import filetype
     decoder = QRDecoder()
     
-    contents = await file.read()
+    contents = await _read_upload_file_bounded(file, MAX_IMAGE_UPLOAD_BYTES)
     
     kind = filetype.guess(contents)
     if kind is None or kind.mime not in ["image/jpeg", "image/png"]:
@@ -582,7 +608,7 @@ async def live_prevention_scan_apk(
     if not file.filename.endswith(".apk"):
         raise HTTPException(status_code=400, detail="Invalid file type. Please upload an APK.")
         
-    contents = await file.read()
+    contents = await _read_upload_file_bounded(file, MAX_APK_UPLOAD_BYTES)
     import filetype
     kind = filetype.guess(contents)
     if kind is None or kind.mime not in ["application/vnd.android.package-archive", "application/zip", "application/java-archive"]:
@@ -653,7 +679,7 @@ async def scan_counterfeit_currency(
     import tempfile
     from domain.agents.vision_agent import VisionAgent
     
-    contents = await file.read()
+    contents = await _read_upload_file_bounded(file, MAX_IMAGE_UPLOAD_BYTES)
     import filetype
     kind = filetype.guess(contents)
     if kind is None or not kind.mime.startswith("image/"):

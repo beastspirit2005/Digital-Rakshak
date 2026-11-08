@@ -401,6 +401,21 @@ async def verify_payment(
         or (body.razorpay_order_id and body.razorpay_order_id.startswith("order_sandbox"))
     )
 
+    env = (getattr(settings, "ENVIRONMENT", "") or "").lower()
+    is_prod = env in ("production", "prod")
+
+    if is_prod and not gateway_configured:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Payment gateway is unconfigured on production environment.",
+        )
+
+    if is_prod and is_sandbox_token:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Sandbox payments are not allowed in production.",
+        )
+
     if gateway_configured and is_sandbox_token:
         raise HTTPException(
             status_code=400,
