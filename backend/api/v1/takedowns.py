@@ -141,8 +141,11 @@ async def trigger_automated_takedown(
         raise HTTPException(status_code=403, detail="Unauthorized. Authorized official role required to draft takedown policies.")
 
     from domain.models.case import Case
-    from domain.models.transaction import Transaction
+    from domain.models.bank import FinancialTransaction
     import uuid
+    import logging
+
+    logger = logging.getLogger(__name__)
 
     # 1. Fetch the case
     result = await db.execute(select(Case).where(Case.case_number == case_number))
@@ -151,8 +154,8 @@ async def trigger_automated_takedown(
         raise HTTPException(status_code=404, detail="Case not found")
 
     # 2. Extract real hostile entities from case evidence and AI decision object
-    upi_pattern = re.compile(r'[a-zA-Z0-9.\-_]+@[a-zA-Z0-9]+')
-    phone_pattern = re.compile(r'(?:\+91|91|0)?[6-9]\d{9}')
+    upi_pattern = re.compile(r"[a-zA-Z0-9.\-_]+@[a-zA-Z0-9]+")
+    phone_pattern = re.compile(r"(?:\+91|91|0)?[6-9]\d{9}")
     url_pattern = re.compile(r'https?://[^\s\'\"<>]+')
 
     candidate_upis: set = set()
@@ -171,27 +174,45 @@ async def trigger_automated_takedown(
 
     ai_dec = case.ai_decision or {}
     if isinstance(ai_dec, dict):
-        for entity in ai_dec.get("entities", []):
-            _extract_from_text(str(entity))
+        entities_data = ai_dec.get("entities", {})
+        if isinstance(entities_data, dict):
+            for k, val_list in entities_data.items():
+                if isinstance(val_list, list):
+                    for v in val_list:
+                        v_str = str(v).strip()
+                        if not v_str:
+                            continue
+                        if k.upper() == "UPI" and "@" in v_str:
+                            candidate_upis.add(v_str)
+                        elif k.upper() == "PHONE":
+                            candidate_phones.add(v_str)
+                        elif k.upper() in ["URLS", "URL"]:
+                            candidate_urls.add(v_str)
+                        else:
+                            _extract_from_text(v_str)
+                elif isinstance(val_list, str):
+                    _extract_from_text(val_list)
+        elif isinstance(entities_data, list):
+            for entity in entities_data:
+                _extract_from_text(str(entity))
+
         for ev in ai_dec.get("evidence", []):
             _extract_from_text(str(ev))
 
     # Scan linked financial transactions
-    txn_result = await db.execute(
-        select(Transaction).where(Transaction.case_id == case.id).limit(20)
-    )
-    for txn in txn_result.scalars().all():
-        if txn.beneficiary_id:
-            if "@" in txn.beneficiary_id:
-                candidate_upis.add(txn.beneficiary_id)
-            elif re.match(r"^[6-9]\d{9}$", txn.beneficiary_id):
-                candidate_phones.add(txn.beneficiary_id)
+    try:
+        txn_result = await db.execute(
+            select(FinancialTransaction).where(FinancialTransaction.case_id == case.id).limit(20)
+        )
+        for txn in txn_result.scalars().all():
+            if txn.beneficiary_vpa:
+                candidate_upis.add(txn.beneficiary_vpa.strip())
+    except Exception as txn_err:
+        logger.warning(f"Note on financial transactions scan for takedown: {txn_err}")
 
-    _legit_domains = {"sbi", "icici", "hdfc", "axis", "pnb", "kotak", "upi", "razorpay", "paytm", "googlepay", "phonep"}
-    filtered_upis = [u for u in candidate_upis if u.split("@")[-1].lower() not in _legit_domains][:5]
+    filtered_upis = [u for u in candidate_upis if "@" in u][:5]
     filtered_phones = list(candidate_phones)[:5]
     filtered_urls = [u for u in candidate_urls if "digitalrakshak" not in u.lower()][:3]
-
     if not filtered_upis and not filtered_phones and not filtered_urls:
         return {
             "status": "no_entities_found",
