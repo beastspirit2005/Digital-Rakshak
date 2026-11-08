@@ -872,6 +872,16 @@ async def escalate_transaction_to_case(
         f"Reason: {txn.decision.explanation_text if txn.decision else 'Automated AI switch fraud quarantine'}."
     )
 
+    # Extract structured entities for the case Attack DNA graph
+    txn_entities = {
+        "PHONE": [],
+        "IFSC": [],
+        "UPI": [str(txn.beneficiary_id)] if txn.beneficiary_id and "@" in str(txn.beneficiary_id) else [],
+        "URLS": [],
+        "ACCOUNT": [str(x) for x in [txn.account_id, txn.beneficiary_id] if x and "@" not in str(x)],
+        "UTR": [str(txn.transaction_id)] if txn.transaction_id else []
+    }
+
     new_case = Case(
         case_number=case_num,
         submitted_by=user.id if user else None,
@@ -894,7 +904,8 @@ async def escalate_transaction_to_case(
             "confidence": float(txn.score.confidence) if txn.score else 0.9,
             "reason_codes": txn.decision.reason_codes if txn.decision else [],
             "explanation": txn.decision.explanation_text if txn.decision else "Escalated by Bank Fraud Desk.",
-            "escalated_at": datetime.now(timezone.utc).isoformat()
+            "escalated_at": datetime.now(timezone.utc).isoformat(),
+            "entities": txn_entities
         },
         attack_dna=(txn.raw_metadata or {}).get("attack_dna")
     )

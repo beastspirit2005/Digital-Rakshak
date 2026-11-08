@@ -648,6 +648,20 @@ export default function InvestigatorWorkspacePage() {
                           <span className="text-[10px] text-blue-400 block">Phishing URL</span>
                         </div>
                       ))}
+                      {caseData.ai_decision?.entities?.ACCOUNT?.map((acc: string, i: number) => (
+                        <div key={`acc-${i}`} className="p-3 rounded-lg bg-slate-900 border border-cyan-500/40 font-mono text-xs space-y-1 shadow-lg hover:border-cyan-400 cursor-pointer transition-all">
+                          <Building2 className="w-4 h-4 text-cyan-400 mx-auto" />
+                          <span className="block font-bold text-slate-200">{acc}</span>
+                          <span className="text-[10px] text-cyan-400 block">Bank Account</span>
+                        </div>
+                      ))}
+                      {caseData.ai_decision?.entities?.UTR?.map((utr: string, i: number) => (
+                        <div key={`utr-${i}`} className="p-3 rounded-lg bg-slate-900 border border-emerald-500/40 font-mono text-xs space-y-1 shadow-lg hover:border-emerald-400 cursor-pointer transition-all">
+                          <FileText className="w-4 h-4 text-emerald-400 mx-auto" />
+                          <span className="block font-bold text-slate-200">{utr}</span>
+                          <span className="text-[10px] text-emerald-400 block">Txn UTR / RRN</span>
+                        </div>
+                      ))}
                       {(!caseData.ai_decision?.entities || Object.values(caseData.ai_decision.entities).every(arr => Array.isArray(arr) && arr.length === 0)) && (
                          <div className="col-span-full p-3 rounded-lg bg-slate-900 border border-slate-700 font-mono text-xs space-y-1 shadow-lg text-slate-400">
                            No entities detected in this case.

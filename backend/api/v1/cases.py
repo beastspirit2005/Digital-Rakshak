@@ -973,7 +973,42 @@ async def get_case(
             raise HTTPException(status_code=403, detail="Not authorized to view this case")
     elif role not in ["admin", "police", "cyber_cell"]:
         raise HTTPException(status_code=403, detail="Not authorized to view case details")
-        
+
+    # If case.ai_decision lacks entities, dynamically extract entities from scam_text / transaction details
+    if not case.ai_decision or not isinstance(case.ai_decision, dict):
+        case.ai_decision = {}
+
+    existing_entities = case.ai_decision.get("entities")
+    has_valid_entities = existing_entities and any(isinstance(v, list) and len(v) > 0 for v in existing_entities.values())
+
+    if not has_valid_entities and case.scam_text:
+        import re
+        text = case.scam_text
+        phones = list(set(re.findall(r'(?:\+91[\-\s]?)?[6789]\d{9}\b', text)))
+        ifscs = list(set(re.findall(r'\b[A-Z]{4}0[A-Z0-9]{6}\b', text)))
+        upis = list(set(re.findall(r'\b[a-zA-Z0-9.\-_]{2,}@[a-zA-Z0-9.\-_]{2,}\b', text)))
+        urls = list(set(re.findall(r'https?://[^\s]+', text)))
+        utrs = list(set(re.findall(r'(?:UTR|RRN|Txn|Transaction|Reference)\s*[:=\-#]?\s*([0-9]{12})\b', text, re.IGNORECASE)))
+        accounts = list(set(re.findall(r'(?:Account|A/C|acct|beneficiary)\s*[:=\-#]?\s*([0-9]{9,18})\b', text, re.IGNORECASE)))
+
+        if case.ai_decision.get("transaction_id"):
+            txn_id = str(case.ai_decision.get("transaction_id"))
+            if txn_id not in utrs and (len(txn_id) == 12 or txn_id.startswith("TXN")):
+                utrs.append(txn_id)
+
+        extracted_entities = {
+            "PHONE": phones,
+            "IFSC": ifscs,
+            "UPI": upis,
+            "URLS": urls,
+            "ACCOUNT": accounts,
+            "UTR": utrs
+        }
+
+        ai_dec = dict(case.ai_decision)
+        ai_dec["entities"] = extracted_entities
+        case.ai_decision = ai_dec
+
     return case
 
 from fastapi.responses import StreamingResponse
