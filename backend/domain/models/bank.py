@@ -37,6 +37,8 @@ class EscalationStatus(str, enum.Enum):
     RESOLVED = "RESOLVED"
     REJECTED = "REJECTED"
     FAILED = "FAILED"
+    DEAD_LETTER = "DEAD_LETTER"
+    RECONCILED = "RECONCILED"
 
 
 class TransactionVerificationStatus(str, enum.Enum):
@@ -227,3 +229,81 @@ class BankResponse(Base):
 
     # Relationships
     escalation = relationship("BankEscalation", back_populates="responses")
+
+
+class FraudResponseStage(str, enum.Enum):
+    """
+    Formal 8-stage state machine governing every fraud incident
+    from citizen report to multi-bank financial reconciliation.
+    """
+    FRAUD_REPORTED = "FRAUD_REPORTED"
+    TRANSACTION_IDENTIFIED = "TRANSACTION_IDENTIFIED"
+    BANKS_RESOLVED = "BANKS_RESOLVED"
+    ESCALATION_CREATED = "ESCALATION_CREATED"
+    APPROVAL_EVALUATED = "APPROVAL_EVALUATED"
+    NOTICE_DISPATCHED = "NOTICE_DISPATCHED"
+    BANK_RESPONSE_RECEIVED = "BANK_RESPONSE_RECEIVED"
+    FINANCIAL_STATUS_RECONCILED = "FINANCIAL_STATUS_RECONCILED"
+
+
+class FraudResponseLifecycleEvent(Base):
+    """
+    Immutable, append-only event ledger tracking the end-to-end lifecycle
+    of a fraud response from citizen report to bank reconciliation.
+    Maintains a cryptographic SHA-256 Merkle hash chain for Section 63 BSA 2023 admissibility.
+    """
+    __tablename__ = "fraud_response_lifecycle_events"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    correlation_id = Column(String(128), index=True, nullable=False) # Global trace ID connecting all actions
+    case_id = Column(UUID(as_uuid=True), ForeignKey("cases.id", ondelete="CASCADE"), nullable=False, index=True)
+    transaction_id = Column(UUID(as_uuid=True), ForeignKey("financial_transactions.id", ondelete="SET NULL"), nullable=True, index=True)
+    escalation_id = Column(UUID(as_uuid=True), ForeignKey("bank_escalations.id", ondelete="SET NULL"), nullable=True, index=True)
+
+    stage = Column(String(64), nullable=False, index=True)
+    previous_stage = Column(String(64), nullable=True)
+    actor_or_service = Column(String(128), nullable=False)
+    actor_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+    transition_reason = Column(Text, nullable=False)
+    evidence_reference = Column(String(128), nullable=True)
+    
+    financial_snapshot = Column(JSONB, nullable=True)
+    metadata_payload = Column(JSONB, default=dict, nullable=False)
+
+    event_hash = Column(String(64), nullable=False, index=True) # SHA-256 hash of this event + previous_event_hash
+    previous_event_hash = Column(String(64), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+
+
+class WebhookNonceReplayCache(Base):
+    """
+    Persistent replay-prevention cache tracking bank callback signatures and nonces.
+    Prevents replay attacks and duplicate webhook processing within 24-hour window.
+    """
+    __tablename__ = "webhook_nonce_replay_cache"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    bank_code = Column(String(32), index=True, nullable=False)
+    nonce = Column(String(128), unique=True, index=True, nullable=False)
+    signature = Column(String(128), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    expires_at = Column(DateTime(timezone=True), index=True, nullable=False)
+
+
+class InvestigatorDecisionAudit(Base):
+    """
+    Audit trail recording human clearances: who approved, evidence reviewed,
+    statutory powers invoked under BNSS 2023, and digital authorization tokens.
+    """
+    __tablename__ = "investigator_decision_audits"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    escalation_id = Column(UUID(as_uuid=True), ForeignKey("bank_escalations.id", ondelete="CASCADE"), nullable=False, index=True)
+    investigator_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    decision = Column(String(32), nullable=False) # APPROVED, REJECTED, MODIFIED
+    reviewed_evidence_ids = Column(JSONB, default=list, nullable=False)
+    statutory_powers_invoked = Column(String(64), nullable=False) # SECTION_94_BNSS, SECTION_106_BNSS
+    decision_rationale = Column(Text, nullable=False)
+    authorization_token = Column(String(128), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)

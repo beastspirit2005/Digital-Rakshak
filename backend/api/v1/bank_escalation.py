@@ -1,3 +1,7 @@
+from domain.services.fraud_lifecycle_engine import FraudLifecycleEngine
+from domain.services.financial_reconciliation_service import FinancialReconciliationService, FinancialInvariantViolationError
+from domain.models.bank import InvestigatorDecisionAudit, FraudResponseLifecycleEvent, FraudResponseStage
+from decimal import Decimal
 import uuid
 import logging
 from typing import List, Dict, Any, Optional
@@ -45,6 +49,14 @@ class BankResolveRequest(BaseModel):
     text_hint: Optional[str] = None
     narrative: Optional[str] = None
 
+
+
+class InvestigatorAuditClearanceRequest(BaseModel):
+    decision: str = Field(..., description="APPROVED | REJECTED | MODIFIED")
+    reviewed_evidence_ids: List[str] = Field(default_factory=list)
+    statutory_powers_invoked: str = Field("SECTION_94_BNSS", description="SECTION_94_BNSS | SECTION_106_BNSS")
+    decision_rationale: str
+    authorization_token: Optional[str] = None
 
 class BankResponseCallback(BaseModel):
     alert_reference: str
@@ -430,7 +442,8 @@ async def bank_callback_endpoint(
     payload: BankResponseCallback,
     db: AsyncSession = Depends(get_db),
     x_bank_signature: Optional[str] = Header(None, alias="X-Bank-Signature"),
-    x_callback_timestamp: Optional[str] = Header(None, alias="X-Callback-Timestamp")
+    x_callback_timestamp: Optional[str] = Header(None, alias="X-Callback-Timestamp"),
+    x_callback_nonce: Optional[str] = Header(None, alias="X-Callback-Nonce")
 ):
     """
     Authenticated institutional webhook for banks to deliver acknowledgements,
@@ -447,6 +460,16 @@ async def bank_callback_endpoint(
         )
         if not is_valid:
             raise HTTPException(status_code=401, detail=err_msg)
+
+    if x_callback_nonce:
+        is_fresh_nonce, replay_err = await BankIntegrationGateway.validate_and_record_nonce(
+            db=db,
+            bank_code=bank_code,
+            nonce=x_callback_nonce,
+            signature=x_bank_signature or "SIG-SANDBOX"
+        )
+        if not is_fresh_nonce:
+            raise HTTPException(status_code=409, detail=replay_err)
 
     # 1. Look up Escalation by Alert Reference
     res = await db.execute(
@@ -477,6 +500,26 @@ async def bank_callback_endpoint(
         esc.status = EscalationStatus.ACKNOWLEDGED.value
     esc.updated_at = datetime.now(timezone.utc)
 
+    # 4. If action reported funds frozen or lien marked, trigger strict mathematical reconciliation
+    if payload.details and esc.transaction_id:
+        frozen_str = payload.details.get("funds_frozen_amount") or payload.details.get("amount_frozen")
+        lien_str = payload.details.get("funds_lien_amount") or payload.details.get("amount_under_lien")
+        try:
+            frozen_delta = Decimal(str(frozen_str)) if frozen_str else Decimal("0.00")
+            lien_delta = Decimal(str(lien_str)) if lien_str else Decimal("0.00")
+            if frozen_delta > 0 or lien_delta > 0:
+                await FinancialReconciliationService.reconcile_transaction(
+                    db=db,
+                    transaction_id=esc.transaction_id,
+                    new_lien_delta=lien_delta,
+                    new_frozen_delta=frozen_delta,
+                    correlation_id=f"CORR-{esc.alert_reference}",
+                    actor=f"BANK_CALLBACK:{bank_code}",
+                    reason=f"Action callback from {bank_code}: {payload.status_summary}"
+                )
+        except FinancialInvariantViolationError as inv_err:
+            logger.error(f"Financial invariant error on callback for {esc.alert_reference}: {inv_err}")
+
     await db.commit()
     logger.info(f"Received verified bank callback for {payload.alert_reference} from {bank_code}")
 
@@ -484,4 +527,117 @@ async def bank_callback_endpoint(
         "status": "PROCESSED",
         "alert_reference": payload.alert_reference,
         "escalation_status": esc.status
+    }
+
+# ── 5. Lifecycle Engine & BSA 2023 Evidentiary Certificate Endpoints ───────
+
+@router.get("/cases/{case_number}/lifecycle-events", response_model=Dict[str, Any])
+async def get_case_lifecycle_events(
+    case_number: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_official_role)
+):
+    """
+    Retrieves full chronological 8-stage lifecycle history with cryptographic SHA-256 Merkle chain.
+    """
+    res_case = await db.execute(select(Case).where(Case.case_number == case_number))
+    case = res_case.scalar_one_or_none()
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+
+    is_valid, count, err = await FraudLifecycleEngine.verify_hash_chain(db, case.id)
+
+    stmt = (
+        select(FraudResponseLifecycleEvent)
+        .where(FraudResponseLifecycleEvent.case_id == case.id)
+        .order_by(FraudResponseLifecycleEvent.created_at.asc())
+    )
+    res_events = await db.execute(stmt)
+    events = res_events.scalars().all()
+
+    return {
+        "case_number": case.case_number,
+        "is_hash_chain_valid": is_valid,
+        "verified_events_count": count,
+        "hash_chain_status": "CRYPTO_VERIFIED_UNBROKEN" if is_valid else f"TAMPER_DETECTED: {err}",
+        "events": [
+            {
+                "id": str(e.id),
+                "correlation_id": e.correlation_id,
+                "stage": e.stage,
+                "previous_stage": e.previous_stage,
+                "actor_or_service": e.actor_or_service,
+                "transition_reason": e.transition_reason,
+                "evidence_reference": e.evidence_reference,
+                "financial_snapshot": e.financial_snapshot,
+                "event_hash": e.event_hash,
+                "previous_event_hash": e.previous_event_hash,
+                "created_at": e.created_at.isoformat()
+            }
+            for e in events
+        ]
+    }
+
+
+@router.get("/cases/{case_number}/bsa-evidentiary-certificate", response_model=Dict[str, Any])
+async def export_bsa_evidentiary_certificate(
+    case_number: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_official_role)
+):
+    """
+    Generates statutory Section 63(4) Bharatiya Sakshya Adhiniyam (BSA) 2023
+    Certificate of Admissibility for electronic banking records.
+    """
+    res_case = await db.execute(select(Case).where(Case.case_number == case_number))
+    case = res_case.scalar_one_or_none()
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+
+    officer_name = f"{user.full_name or user.email} (Badge: {user.role.upper()})"
+    cert = await FraudLifecycleEngine.generate_bsa_evidentiary_certificate(
+        db=db,
+        case=case,
+        officer_name=officer_name
+    )
+    return cert
+
+
+@router.post("/bank-escalations/{id}/audit-clearance", response_model=Dict[str, Any])
+async def record_investigator_audit_clearance(
+    id: str,
+    payload: InvestigatorAuditClearanceRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_official_role)
+):
+    """
+    Records granular investigator decision audit: evidence IDs reviewed,
+    statutory powers invoked under BNSS 2023, rationale, and digital authorization token.
+    """
+    uid = uuid.UUID(id)
+    res_esc = await db.execute(select(BankEscalation).where(BankEscalation.id == uid))
+    esc = res_esc.scalar_one_or_none()
+    if not esc:
+        raise HTTPException(status_code=404, detail="Bank escalation not found")
+
+    token = payload.authorization_token or f"AUTH-{uuid.uuid4().hex[:12].upper()}"
+    audit_record = InvestigatorDecisionAudit(
+        escalation_id=esc.id,
+        investigator_id=user.id,
+        decision=payload.decision,
+        reviewed_evidence_ids=payload.reviewed_evidence_ids,
+        statutory_powers_invoked=payload.statutory_powers_invoked,
+        decision_rationale=payload.decision_rationale,
+        authorization_token=token
+    )
+    db.add(audit_record)
+    await db.commit()
+
+    return {
+        "success": True,
+        "escalation_id": str(esc.id),
+        "decision": payload.decision,
+        "authorization_token": token,
+        "investigator": user.full_name or user.email,
+        "statutory_powers_invoked": payload.statutory_powers_invoked
     }

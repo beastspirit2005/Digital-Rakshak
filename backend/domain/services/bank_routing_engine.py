@@ -8,7 +8,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from domain.models.case import Case
+from domain.services.fraud_lifecycle_engine import FraudLifecycleEngine
 from domain.models.bank import (
+    FraudResponseStage,
     BankRegistry,
     FinancialTransaction,
     BankEscalation,
@@ -100,6 +102,35 @@ class BankRoutingEngine:
             fin_txn.beneficiary_bank_id = uuid.UUID(resolution.beneficiary_institution.bank_id)
             fin_txn.beneficiary_bank_confidence = resolution.beneficiary_institution.resolution_type
         await db.flush()
+
+        corr_id = f"CORR-{case.case_number}"
+        # Record Stage 2 & 3 in Fraud Response Lifecycle
+        await FraudLifecycleEngine.record_transition(
+            db=db,
+            correlation_id=corr_id,
+            case_id=case.id,
+            stage=FraudResponseStage.TRANSACTION_IDENTIFIED,
+            actor_or_service="SERVICE:TransactionExtractor",
+            transition_reason="Financial transaction entities parsed and validated from complaint.",
+            transaction_id=fin_txn.id,
+            evidence_reference=fin_txn.transaction_reference,
+            financial_snapshot={"identified_amount": str(fin_txn.amount), "currency": fin_txn.currency}
+        )
+
+        await FraudLifecycleEngine.record_transition(
+            db=db,
+            correlation_id=corr_id,
+            case_id=case.id,
+            stage=FraudResponseStage.BANKS_RESOLVED,
+            actor_or_service="SERVICE:BankResolverService",
+            transition_reason=resolution.resolution_summary,
+            transaction_id=fin_txn.id,
+            metadata={
+                "remitter_bank": resolution.remitter_institution.bank_code,
+                "beneficiary_bank": resolution.beneficiary_institution.bank_code,
+                "routing_status": resolution.routing_status
+            }
+        )
 
         # Step 4: Record into Neo4j Fraud Graph
         try:
@@ -295,6 +326,32 @@ class BankRoutingEngine:
         )
         db.add(escalation)
         await db.flush()
+
+        corr_id = f"CORR-{case.case_number}"
+        # Record Stage 4: ESCALATION_CREATED & Stage 5: APPROVAL_EVALUATED
+        await FraudLifecycleEngine.record_transition(
+            db=db,
+            correlation_id=corr_id,
+            case_id=case.id,
+            stage=FraudResponseStage.ESCALATION_CREATED,
+            actor_or_service="SERVICE:BankRoutingEngine",
+            transition_reason=f"Generated {role} escalation alert {alert_ref} for {target_bank.bank_name}.",
+            transaction_id=transaction.id,
+            escalation_id=escalation.id,
+            metadata={"instruction_category": instruction_category, "statutory_basis": statutory_basis}
+        )
+
+        await FraudLifecycleEngine.record_transition(
+            db=db,
+            correlation_id=corr_id,
+            case_id=case.id,
+            stage=FraudResponseStage.APPROVAL_EVALUATED,
+            actor_or_service="SERVICE:ApprovalPolicyEngine",
+            transition_reason=f"Assigned tier {tier.value}: {reasons[0] if reasons else 'Standard review'}",
+            transaction_id=transaction.id,
+            escalation_id=escalation.id,
+            metadata={"tier": tier.value, "can_auto_dispatch": can_auto}
+        )
 
         # If eligible for automated dispatch, fire immediately (STRICTLY constrained to Informational Alerts)
         dispatch_res = None

@@ -5,7 +5,7 @@ import hashlib
 import json
 import logging
 import asyncio
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, Optional, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -21,6 +21,8 @@ from domain.models.bank import (
 )
 from domain.models.case import Case
 from domain.models.user import User
+from domain.models.bank import FraudResponseStage, WebhookNonceReplayCache
+from domain.services.fraud_lifecycle_engine import FraudLifecycleEngine
 
 logger = logging.getLogger(__name__)
 
@@ -167,6 +169,32 @@ class BankIntegrationGateway:
             escalation.status = EscalationStatus.ACKNOWLEDGED.value
             escalation.updated_at = datetime.now(timezone.utc)
 
+            # Record Lifecycle Stage 6 & 7 (NOTICE_DISPATCHED & BANK_RESPONSE_RECEIVED)
+            corr_id = f"CORR-{escalation.alert_reference}"
+            await FraudLifecycleEngine.record_transition(
+                db=db,
+                correlation_id=corr_id,
+                case_id=escalation.case_id,
+                stage=FraudResponseStage.NOTICE_DISPATCHED,
+                actor_or_service=f"GATEWAY:{target_bank.bank_code}",
+                transition_reason=f"Fraud alert transmitted to {target_bank.bank_name} (Attempt #{attempt_number}).",
+                transaction_id=escalation.transaction_id,
+                escalation_id=escalation.id,
+                metadata={"idempotency_key": escalation.idempotency_key, "attempt_number": attempt_number}
+            )
+
+            await FraudLifecycleEngine.record_transition(
+                db=db,
+                correlation_id=corr_id,
+                case_id=escalation.case_id,
+                stage=FraudResponseStage.BANK_RESPONSE_RECEIVED,
+                actor_or_service=f"BANK_NODAL:{target_bank.bank_code}",
+                transition_reason=f"Bank acknowledged alert: {dispatch_result.get('bank_reference')}.",
+                transaction_id=escalation.transaction_id,
+                escalation_id=escalation.id,
+                metadata={"response_type": dispatch_result.get("response_type"), "bank_reference": dispatch_result.get("bank_reference")}
+            )
+
             # Update Case Timeline
             res_case = await db.execute(
                 select(Case).where(Case.id == escalation.case_id)
@@ -223,12 +251,19 @@ class BankIntegrationGateway:
                 error_message=str(e)
             )
             db.add(attempt)
-            escalation.status = EscalationStatus.FAILED.value
+            # Institutional DLQ: route to DEAD_LETTER after 5 failed attempts
+            if attempt_number >= 5:
+                escalation.status = EscalationStatus.DEAD_LETTER.value
+                logger.critical(f"Bank escalation {escalation.id} routed to DEAD_LETTER after {attempt_number} failures.")
+            else:
+                escalation.status = EscalationStatus.FAILED.value
+
             await db.commit()
             return {
                 "success": False,
                 "escalation_id": str(escalation.id),
                 "attempt_number": attempt_number,
+                "is_dead_letter": attempt_number >= 5,
                 "error": str(e)
             }
 
@@ -265,3 +300,35 @@ class BankIntegrationGateway:
             return True, None
 
         return False, "Callback rejected: Cryptographic HMAC-SHA256 signature mismatch."
+
+    @classmethod
+    async def validate_and_record_nonce(
+        cls,
+        db: AsyncSession,
+        bank_code: str,
+        nonce: str,
+        signature: str,
+        ttl_hours: int = 24
+    ) -> Tuple[bool, Optional[str]]:
+        """
+        Validates persistent database-backed replay cache for bank webhooks.
+        Rejects duplicate nonces to prevent replay attacks and duplicate processing.
+        """
+        stmt = select(WebhookNonceReplayCache).where(WebhookNonceReplayCache.nonce == nonce)
+        res = await db.execute(stmt)
+        existing = res.scalar_one_or_none()
+        if existing:
+            return False, f"Replay rejected: Webhook callback nonce {nonce} has already been processed."
+
+        now = datetime.now(timezone.utc)
+        expires = now + timedelta(hours=ttl_hours)
+        cached = WebhookNonceReplayCache(
+            bank_code=bank_code,
+            nonce=nonce,
+            signature=signature,
+            created_at=now,
+            expires_at=expires
+        )
+        db.add(cached)
+        await db.flush()
+        return True, None
