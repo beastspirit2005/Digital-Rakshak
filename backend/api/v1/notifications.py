@@ -34,33 +34,43 @@ async def list_notifications(
     """
     Returns the notification feed for the authenticated user, along with the unread count.
     """
-    # Count unread notifications
-    count_q = (
-        select(func.count(Notification.id))
-        .where(Notification.user_id == user.id, Notification.is_read == False)
-    )
-    unread_count = (await db.execute(count_q)).scalar() or 0
+    try:
+        # Count unread notifications
+        count_q = (
+            select(func.count(Notification.id))
+            .where(Notification.user_id == user.id, Notification.is_read == False)
+        )
+        unread_count = (await db.execute(count_q)).scalar() or 0
 
-    # Query notifications
-    query = (
-        select(Notification)
-        .where(Notification.user_id == user.id)
-        .order_by(Notification.created_at.desc())
-        .limit(limit)
-        .offset(offset)
-    )
-    if unread_only:
-        query = query.where(Notification.is_read == False)
+        # Query notifications
+        query = (
+            select(Notification)
+            .where(Notification.user_id == user.id)
+            .order_by(Notification.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        if unread_only:
+            query = query.where(Notification.is_read == False)
 
-    res = await db.execute(query)
-    items = res.scalars().all()
+        res = await db.execute(query)
+        items = res.scalars().all()
 
-    return {
-        "notifications": [item.to_dict() for item in items],
-        "unread_count": unread_count,
-        "limit": limit,
-        "offset": offset,
-    }
+        return {
+            "notifications": [item.to_dict() for item in items],
+            "unread_count": unread_count,
+            "limit": limit,
+            "offset": offset,
+        }
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"Error querying notifications for user {user.id}: {e}")
+        return {
+            "notifications": [],
+            "unread_count": 0,
+            "limit": limit,
+            "offset": offset,
+        }
 
 
 @router.get("/unread-count")
@@ -71,12 +81,17 @@ async def get_unread_count(
     """
     Lightweight polling endpoint to retrieve only the unread badge count.
     """
-    count_q = (
-        select(func.count(Notification.id))
-        .where(Notification.user_id == user.id, Notification.is_read == False)
-    )
-    unread_count = (await db.execute(count_q)).scalar() or 0
-    return {"unread_count": unread_count}
+    try:
+        count_q = (
+            select(func.count(Notification.id))
+            .where(Notification.user_id == user.id, Notification.is_read == False)
+        )
+        unread_count = (await db.execute(count_q)).scalar() or 0
+        return {"unread_count": unread_count}
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"Error querying unread count: {e}")
+        return {"unread_count": 0}
 
 
 @router.post("/{notification_id}/read")

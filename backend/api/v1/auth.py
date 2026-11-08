@@ -619,7 +619,7 @@ async def login_password(request: Request, data: LoginPasswordRequest, db: Async
         raise HTTPException(status_code=403, detail="Account is disabled.")
         
     if not verify_password(data.password, user.hashed_password):
-        user.otp_failed_attempts += 1
+        user.otp_failed_attempts = (user.otp_failed_attempts or 0) + 1
         if user.otp_failed_attempts >= 5:
             user.otp_locked_until = datetime.now(timezone.utc) + timedelta(minutes=15)
             user.otp_failed_attempts = 0

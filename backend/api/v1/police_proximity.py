@@ -145,12 +145,14 @@ async def get_nearby_victims(
             try:
                 u_res = await db.execute(select(User).where(User.id.in_(parsed_assignee_ids)))
                 for u in u_res.scalars().all():
-            assignee_map[u.id] = {
-                "name": u.full_name or u.email,
-                "role": u.role,
-                "station": getattr(u, "station_name", None) or "Cyber Crime Unit",
-                "phone": u.station_phone_number
-            }
+                    assignee_map[u.id] = {
+                        "name": u.full_name or u.email,
+                        "role": u.role,
+                        "station": getattr(u, "station_name", None) or "Cyber Crime Unit",
+                        "phone": u.station_phone_number
+                    }
+            except Exception as e:
+                logger.warning(f"Error fetching assignees: {e}")
 
     features: List[Dict[str, Any]] = []
 
@@ -311,101 +313,115 @@ async def get_officers_and_stations(
     if user.role not in OFFICER_ROLES:
         raise HTTPException(status_code=403, detail="Unauthorized")
 
-    # 1. Active Case Workload Count per Officer
-    workload_res = await db.execute(
-        select(Case.assigned_to, func.count(Case.id))
-        .where(Case.assigned_to.isnot(None), Case.status != CaseStatus.closed)
-        .group_by(Case.assigned_to)
-    )
-    workload_map = {row[0]: row[1] for row in workload_res.all()}
+    try:
+        # 1. Active Case Workload Count per Officer
+        workload_res = await db.execute(
+            select(Case.assigned_to, func.count(Case.id))
+            .where(Case.assigned_to.isnot(None), Case.status != CaseStatus.closed)
+            .group_by(Case.assigned_to)
+        )
+        workload_map = {row[0]: row[1] for row in workload_res.all()}
 
-    # 2. Query Approved Officers
-    u_query = select(User).where(
-        User.role.in_(["police", "cyber_cell", "admin"]),
-        User.is_active == True,
-        User.is_approved == True
-    )
-    if state and state.lower() not in ["all", "all india"]:
-        u_query = u_query.where(User.state.ilike(f"%{state.strip()}%"))
+        # 2. Query Approved Officers
+        u_query = select(User).where(
+            User.role.in_(["police", "cyber_cell", "admin"]),
+            User.is_active == True,
+            User.is_approved == True
+        )
+        if state and state.lower() not in ["all", "all india"]:
+            u_query = u_query.where(User.state.ilike(f"%{state.strip()}%"))
 
-    u_res = await db.execute(u_query)
-    officers = u_res.scalars().all()
+        u_res = await db.execute(u_query)
+        officers = u_res.scalars().all()
 
-    # 3. Query Official Cyber Cell Stations
-    s_query = select(OfficialLocation).where(OfficialLocation.is_active == True)
-    if state and state.lower() not in ["all", "all india"]:
-        s_query = s_query.where(OfficialLocation.state.ilike(f"%{state.strip()}%"))
+        # 3. Query Official Cyber Cell Stations
+        s_query = select(OfficialLocation).where(OfficialLocation.is_active == True)
+        if state and state.lower() not in ["all", "all india"]:
+            s_query = s_query.where(OfficialLocation.state.ilike(f"%{state.strip()}%"))
 
-    s_res = await db.execute(s_query)
-    stations = s_res.scalars().all()
+        s_res = await db.execute(s_query)
+        stations = s_res.scalars().all()
 
-    officer_items: List[Dict[str, Any]] = []
-    unanchored_officers_count = 0
+        officer_items: List[Dict[str, Any]] = []
+        unanchored_officers_count = 0
 
-    for o in officers:
-        o_lat = getattr(o, "latitude", None)
-        o_lng = getattr(o, "longitude", None)
+        for o in officers:
+            o_lat = getattr(o, "latitude", None)
+            o_lng = getattr(o, "longitude", None)
 
-        # Do not place unanchored officers at arbitrary fake locations
-        if o_lat is None or o_lng is None:
-            unanchored_officers_count += 1
-            continue
+            # Do not place unanchored officers at arbitrary fake locations
+            if o_lat is None or o_lng is None:
+                unanchored_officers_count += 1
+                continue
 
-        dist = haversine_km(lat, lng, o_lat, o_lng)
-        if not all_india and dist > radius_km:
-            continue
+            dist = haversine_km(lat, lng, o_lat, o_lng)
+            if not all_india and dist > radius_km:
+                continue
 
-        officer_items.append({
-            "id": str(o.id),
-            "type": "officer",
-            "name": o.full_name or o.email,
-            "email": o.email,
-            "role": o.role,
-            "designation": getattr(o, "designation", None) or ("Cyber Cell Inspector" if o.role == "cyber_cell" else "Police Officer"),
-            "station_name": getattr(o, "station_name", None) or "Cyber Crime Police Station",
-            "station_phone": o.station_phone_number or "1930",
-            "city": getattr(o, "city", None) or "Regional Jurisdiction",
-            "state": getattr(o, "state", None) or "India",
-            "active_cases_count": workload_map.get(o.id, 0),
-            "coordinates": [o_lng, o_lat],
-            "distance_km": dist
-        })
+            officer_items.append({
+                "id": str(o.id),
+                "type": "officer",
+                "name": o.full_name or o.email,
+                "email": o.email,
+                "role": o.role,
+                "designation": getattr(o, "designation", None) or ("Cyber Cell Inspector" if o.role == "cyber_cell" else "Police Officer"),
+                "station_name": getattr(o, "station_name", None) or "Cyber Crime Police Station",
+                "station_phone": o.station_phone_number or "1930",
+                "city": getattr(o, "city", None) or "Regional Jurisdiction",
+                "state": getattr(o, "state", None) or "India",
+                "active_cases_count": workload_map.get(o.id, 0),
+                "coordinates": [o_lng, o_lat],
+                "distance_km": dist
+            })
 
-    # Sort officers by nearest distance
-    officer_items.sort(key=lambda x: x["distance_km"])
+        # Sort officers by nearest distance
+        officer_items.sort(key=lambda x: x["distance_km"])
 
-    station_items: List[Dict[str, Any]] = []
-    for s in stations:
-        dist = haversine_km(lat, lng, s.latitude, s.longitude)
-        if not all_india and dist > radius_km:
-            continue
+        station_items: List[Dict[str, Any]] = []
+        for s in stations:
+            dist = haversine_km(lat, lng, s.latitude, s.longitude)
+            if not all_india and dist > radius_km:
+                continue
 
-        station_items.append({
-            "id": str(s.id),
-            "type": "station",
-            "name": s.name,
-            "jurisdiction_level": s.jurisdiction_level,
-            "state": s.state,
-            "district": s.district,
-            "city": s.city or s.district,
-            "address": s.address,
-            "helpline": s.helpline_number or "1930",
-            "landline": s.landline_number,
-            "official_email": s.official_email,
-            "nodal_officer": s.nodal_officer_designation,
-            "coordinates": [s.longitude, s.latitude],
-            "distance_km": dist
-        })
+            station_items.append({
+                "id": str(s.id),
+                "type": "station",
+                "name": s.name,
+                "jurisdiction_level": s.jurisdiction_level,
+                "state": s.state,
+                "district": s.district,
+                "city": s.city or s.district,
+                "address": s.address,
+                "helpline": s.helpline_number or "1930",
+                "landline": s.landline_number,
+                "official_email": s.official_email,
+                "nodal_officer": s.nodal_officer_designation,
+                "coordinates": [s.longitude, s.latitude],
+                "distance_km": dist
+            })
 
-    station_items.sort(key=lambda x: x["distance_km"])
+        station_items.sort(key=lambda x: x["distance_km"])
 
-    return {
-        "anchor": {"latitude": lat, "longitude": lng},
-        "radius_km": radius_km,
-        "all_india": all_india,
-        "total_officers": len(officer_items),
-        "unanchored_officers_count": unanchored_officers_count,
-        "total_stations": len(station_items),
-        "officers": officer_items,
-        "stations": station_items
-    }
+        return {
+            "anchor": {"latitude": lat, "longitude": lng},
+            "radius_km": radius_km,
+            "all_india": all_india,
+            "total_officers": len(officer_items),
+            "unanchored_officers_count": unanchored_officers_count,
+            "total_stations": len(station_items),
+            "officers": officer_items,
+            "stations": station_items
+        }
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).error(f"Error querying officers and stations: {exc}", exc_info=True)
+        return {
+            "anchor": {"latitude": lat, "longitude": lng},
+            "radius_km": radius_km,
+            "all_india": all_india,
+            "total_officers": 0,
+            "unanchored_officers_count": 0,
+            "total_stations": 0,
+            "officers": [],
+            "stations": []
+        }

@@ -45,42 +45,48 @@ def _run_migrations_sync():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    loop = asyncio.get_event_loop()
-    await loop.run_in_executor(None, _run_migrations_sync)
-
-    try:
-        from domain.models.notification import Notification
-        from infrastructure.db.session import engine, Base
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-        logger.info("Database models verified and synchronized.")
-    except Exception as e:
-        logger.warning(f"Model sync note: {e}")
+    is_serverless = bool(os.getenv("VERCEL") or os.getenv("AWS_LAMBDA_FUNCTION_NAME"))
     
-    if getattr(settings, "STREAM_CONSUMER_ENABLED", False):
-        from runtime.stream_consumer import StreamConsumer
-        consumer = StreamConsumer()
-        asyncio.create_task(consumer.run())
-        logger.info("StreamConsumer background worker started.")
+    if not is_serverless:
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, _run_migrations_sync)
 
-    # Start Supabase anti-pause keepalive daemon (every 12 hours)
-    if getattr(settings, "SUPABASE_URL", None):
-        from runtime.supabase_keepalive import supabase_keepalive
-        asyncio.create_task(supabase_keepalive.start_daemon(interval_seconds=43200))
-        logger.info("Supabase keep-alive anti-pause daemon registered.")
+        try:
+            from domain.models.notification import Notification
+            from infrastructure.db.session import engine, Base
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+            logger.info("Database models verified and synchronized.")
+        except Exception as e:
+            logger.warning(f"Model sync note: {e}")
+        
+        if getattr(settings, "STREAM_CONSUMER_ENABLED", False):
+            from runtime.stream_consumer import StreamConsumer
+            consumer = StreamConsumer()
+            asyncio.create_task(consumer.run())
+            logger.info("StreamConsumer background worker started.")
 
-    # Start Proactive SLA Overdue Monitor Daemon (runs every hour)
-    from runtime.sla_monitor_daemon import sla_monitor_daemon
-    asyncio.create_task(sla_monitor_daemon.start_daemon(interval_seconds=3600))
-    logger.info("Proactive SLA Overdue Monitor Daemon registered.")
+        # Start Supabase anti-pause keepalive daemon (every 12 hours)
+        if getattr(settings, "SUPABASE_URL", None):
+            from runtime.supabase_keepalive import supabase_keepalive
+            asyncio.create_task(supabase_keepalive.start_daemon(interval_seconds=43200))
+            logger.info("Supabase keep-alive anti-pause daemon registered.")
+
+        # Start Proactive SLA Overdue Monitor Daemon (runs every hour)
+        from runtime.sla_monitor_daemon import sla_monitor_daemon
+        asyncio.create_task(sla_monitor_daemon.start_daemon(interval_seconds=3600))
+        logger.info("Proactive SLA Overdue Monitor Daemon registered.")
+    else:
+        logger.info("Running in serverless environment; skipping background worker daemons and startup migrations.")
 
     yield
 
-    try:
-        from infrastructure.event_bus.redis_streams import event_bus
-        await event_bus.close()
-    except Exception as exc:
-        logger.warning(f"Error during shutdown event bus cleanup: {exc}")
+    if not is_serverless:
+        try:
+            from infrastructure.event_bus.redis_streams import event_bus
+            await event_bus.close()
+        except Exception as exc:
+            logger.warning(f"Error during shutdown event bus cleanup: {exc}")
 
 
 app = FastAPI(

@@ -123,110 +123,113 @@ async def get_cases(request: Request, db: AsyncSession = Depends(get_db), skip: 
     now_utc = datetime.now(timezone.utc)
     enriched_cases = []
     for c in cases:
-        dna = c.attack_dna or {}
-        assignment_source = dna.get("assignment_source")
-        claimed_at = dna.get("claimed_at")
-        is_nudged = bool(dna.get("nudge_pending", False))
-        last_nudged_at = dna.get("last_nudged_at")
-        
-        if not assignment_source and c.timeline_events:
-            for ev in c.timeline_events:
-                if ev.get("method") == "map_radar_claim":
-                    assignment_source = "map_radar_claim"
-                    claimed_at = ev.get("timestamp")
-                    break
-                elif ev.get("method") == "admin_dispatch":
-                    assignment_source = "admin_dispatch"
-                    break
-
-        is_claimed_recently = False
-        if claimed_at:
-            try:
-                cl_dt = datetime.fromisoformat(claimed_at.replace("Z", "+00:00"))
-                if (now_utc - cl_dt).total_seconds() / 3600 <= 48:
-                    is_claimed_recently = True
-            except Exception:
-                pass
-
-        # Extract findings / conclusions if available from attack_dna or timeline
-        investigation_findings = dna.get("investigation_findings")
-        investigation_attachment = dna.get("investigation_attachment")
-        investigated_by = dna.get("investigated_by")
-        investigation_completed_at = dna.get("investigation_completed_at")
-
-        if not investigation_findings and c.timeline_events:
-            for ev in reversed(c.timeline_events):
-                if ev.get("action") == "Investigation Completed":
-                    investigation_findings = ev.get("remark")
-                    investigation_attachment = ev.get("attachment")
-                    investigated_by = ev.get("actor_name") or ev.get("author")
-                    investigation_completed_at = ev.get("timestamp")
-                    break
-
-        status_str = c.status.value if hasattr(c.status, "value") else str(c.status)
-        if "CaseStatus." in status_str:
-            status_str = status_str.replace("CaseStatus.", "")
-
-        c_dict = {
-            "id": str(c.id),
-            "case_number": c.case_number,
-            "created_at": c.created_at.isoformat() if c.created_at else None,
-            "status": status_str,
-            "priority": c.priority.value if hasattr(c.priority, "value") else str(c.priority),
-            "scam_type_code": c.scam_type_code,
-            "scam_text": c.scam_text,
-            "assigned_phone": c.assigned_phone,
-            "city": c.city,
-            "state": c.state,
-            "victim_phone": c.victim_phone,
-            "victim_address": c.victim_address,
-            "ai_decision": c.ai_decision,
-            "threat_confidence_score": c.threat_confidence_score,
-            "assigned_to": str(c.assigned_to) if c.assigned_to else None,
-            "timeline_events": c.timeline_events,
-            "assignment_source": assignment_source,
-            "claimed_at": claimed_at,
-            "is_claimed_recently": is_claimed_recently,
-            "is_nudged": is_nudged,
-            "last_nudged_at": last_nudged_at,
-            "investigation_findings": investigation_findings,
-            "investigation_attachment": investigation_attachment,
-            "investigated_by": investigated_by,
-            "investigation_completed_at": investigation_completed_at
-        }
-        
-        submitter = users_map.get(c.submitted_by)
-        if submitter:
-            c_dict["submitter_name"] = submitter.full_name
-            c_dict["submitter_email"] = submitter.email
-            c_dict["submitter_phone"] = submitter.station_phone_number
-
-        assignee = users_map.get(c.assigned_to)
-        if assignee:
-            c_dict["investigator"] = {
-                "id": str(assignee.id),
-                "name": assignee.full_name or "Official Investigator",
-                "email": assignee.email,
-                "phone": assignee.station_phone_number or c.assigned_phone,
-                "station": assignee.station_name or "Cyber Crime Police Station",
-                "badge_number": assignee.badge_number or "N/A",
-                "designation": assignee.designation or "Investigating Officer",
-                "city": assignee.city,
-                "state": assignee.state,
-            }
-            c_dict["assignee_name"] = assignee.full_name or "Official Investigator"
-            c_dict["assignee_station"] = assignee.station_name or "Cyber Crime Police Station"
-            c_dict["assignee_badge"] = assignee.badge_number
-            c_dict["is_assigned"] = True
-        else:
-            c_dict["investigator"] = None
-            c_dict["assignee_name"] = None
-            c_dict["assignee_station"] = None
-            c_dict["assignee_badge"] = None
-            c_dict["is_assigned"] = False
+        try:
+            dna = c.attack_dna or {}
+            assignment_source = dna.get("assignment_source")
+            claimed_at = dna.get("claimed_at")
+            is_nudged = bool(dna.get("nudge_pending", False))
+            last_nudged_at = dna.get("last_nudged_at")
             
-        enriched_cases.append(c_dict)
-        
+            if not assignment_source and c.timeline_events:
+                for ev in c.timeline_events:
+                    if ev.get("method") == "map_radar_claim":
+                        assignment_source = "map_radar_claim"
+                        claimed_at = ev.get("timestamp")
+                        break
+                    elif ev.get("method") == "admin_dispatch":
+                        assignment_source = "admin_dispatch"
+                        break
+
+            is_claimed_recently = False
+            if claimed_at:
+                try:
+                    cl_dt = datetime.fromisoformat(claimed_at.replace("Z", "+00:00"))
+                    if (now_utc - cl_dt).total_seconds() / 3600 <= 48:
+                        is_claimed_recently = True
+                except Exception:
+                    pass
+
+            # Extract findings / conclusions if available from attack_dna or timeline
+            investigation_findings = dna.get("investigation_findings")
+            investigation_attachment = dna.get("investigation_attachment")
+            investigated_by = dna.get("investigated_by")
+            investigation_completed_at = dna.get("investigation_completed_at")
+
+            if not investigation_findings and c.timeline_events:
+                for ev in reversed(c.timeline_events):
+                    if ev.get("action") == "Investigation Completed":
+                        investigation_findings = ev.get("remark")
+                        investigation_attachment = ev.get("attachment")
+                        investigated_by = ev.get("actor_name") or ev.get("author")
+                        investigation_completed_at = ev.get("timestamp")
+                        break
+
+            status_str = c.status.value if hasattr(c.status, "value") else str(c.status)
+            if "CaseStatus." in status_str:
+                status_str = status_str.replace("CaseStatus.", "")
+
+            c_dict = {
+                "id": str(c.id),
+                "case_number": c.case_number,
+                "created_at": c.created_at.isoformat() if c.created_at else None,
+                "status": status_str,
+                "priority": c.priority.value if hasattr(c.priority, "value") else str(c.priority),
+                "scam_type_code": c.scam_type_code,
+                "scam_text": c.scam_text,
+                "assigned_phone": c.assigned_phone,
+                "city": c.city,
+                "state": c.state,
+                "victim_phone": c.victim_phone,
+                "victim_address": c.victim_address,
+                "ai_decision": c.ai_decision,
+                "threat_confidence_score": c.threat_confidence_score,
+                "assigned_to": str(c.assigned_to) if c.assigned_to else None,
+                "timeline_events": c.timeline_events,
+                "assignment_source": assignment_source,
+                "claimed_at": claimed_at,
+                "is_claimed_recently": is_claimed_recently,
+                "is_nudged": is_nudged,
+                "last_nudged_at": last_nudged_at,
+                "investigation_findings": investigation_findings,
+                "investigation_attachment": investigation_attachment,
+                "investigated_by": investigated_by,
+                "investigation_completed_at": investigation_completed_at
+            }
+            
+            submitter = users_map.get(c.submitted_by)
+            if submitter:
+                c_dict["submitter_name"] = submitter.full_name
+                c_dict["submitter_email"] = submitter.email
+                c_dict["submitter_phone"] = submitter.station_phone_number
+
+            assignee = users_map.get(c.assigned_to)
+            if assignee:
+                c_dict["investigator"] = {
+                    "id": str(assignee.id),
+                    "name": assignee.full_name or "Official Investigator",
+                    "email": assignee.email,
+                    "phone": assignee.station_phone_number or c.assigned_phone,
+                    "station": assignee.station_name or "Cyber Crime Police Station",
+                    "badge_number": assignee.badge_number or "N/A",
+                    "designation": assignee.designation or "Investigating Officer",
+                    "city": assignee.city,
+                    "state": assignee.state,
+                }
+                c_dict["assignee_name"] = assignee.full_name or "Official Investigator"
+                c_dict["assignee_station"] = assignee.station_name or "Cyber Crime Police Station"
+                c_dict["assignee_badge"] = assignee.badge_number
+                c_dict["is_assigned"] = True
+            else:
+                c_dict["investigator"] = None
+                c_dict["assignee_name"] = None
+                c_dict["assignee_station"] = None
+                c_dict["assignee_badge"] = None
+                c_dict["is_assigned"] = False
+                
+            enriched_cases.append(c_dict)
+        except Exception as case_err:
+            logger.warning(f"Error enriching case {getattr(c, 'id', 'unknown')}: {case_err}")
+            
     return {"cases": enriched_cases}
 
 @router.get("/pending")

@@ -12,19 +12,28 @@ Exclusive Digital Rakshak Pro feature.
 from __future__ import annotations
 
 import io
+import logging
 from typing import Optional, List, Dict, Any
-from reportlab.lib.pagesizes import A4
-from reportlab.lib import colors
-from reportlab.platypus import (
-    SimpleDocTemplate,
-    Paragraph,
-    Spacer,
-    Table,
-    TableStyle,
-    HRFlowable,
-    KeepTogether,
-)
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+
+logger = logging.getLogger(__name__)
+
+try:
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors
+    from reportlab.platypus import (
+        SimpleDocTemplate,
+        Paragraph,
+        Spacer,
+        Table,
+        TableStyle,
+        HRFlowable,
+        KeepTogether,
+    )
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    REPORTLAB_AVAILABLE = True
+except ImportError:
+    REPORTLAB_AVAILABLE = False
+    logger.warning("ReportLab is not installed; PDF generation will be unavailable.")
 
 
 def generate_fir_dossier_pdf(
@@ -46,6 +55,9 @@ def generate_fir_dossier_pdf(
     """
     Renders an authoritative, print-ready Cyber Incident Dossier into in-memory PDF bytes.
     """
+    if not REPORTLAB_AVAILABLE:
+        return f"%PDF-1.4\n% Incident Dossier: {reference}\n% Victim: {victim_name}\n% Loss INR: {estimated_loss_inr}\n%%EOF".encode("utf-8")
+
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
         buffer,

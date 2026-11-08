@@ -46,14 +46,16 @@ async def get_current_user(
     except (ValueError, TypeError):
         pass
 
+    user = None
     if user_uuid:
-        result = await db.execute(select(User).where(or_(User.id == user_uuid, User.email == str(user_id))))
-    else:
-        result = await db.execute(select(User).where(User.email == str(user_id)))
-    user = result.scalars().first()
+        result = await db.execute(select(User).where(User.id == user_uuid))
+        user = result.scalars().first()
+    if not user:
+        result = await db.execute(select(User).where(User.email == str(user_id).lower()))
+        user = result.scalars().first()
     
     if not user:
-        print(f"User {user_id} not found"); raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
         
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User account is disabled")
@@ -87,11 +89,13 @@ async def get_current_user_allow_unapproved(
     except (ValueError, TypeError):
         pass
 
+    user = None
     if user_uuid:
-        result = await db.execute(select(User).where(or_(User.id == user_uuid, User.email == str(user_id))))
-    else:
-        result = await db.execute(select(User).where(User.email == str(user_id)))
-    user = result.scalars().first()
+        result = await db.execute(select(User).where(User.id == user_uuid))
+        user = result.scalars().first()
+    if not user:
+        result = await db.execute(select(User).where(User.email == str(user_id).lower()))
+        user = result.scalars().first()
     
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
@@ -121,11 +125,13 @@ async def get_current_user_optional(token: Optional[str] = Depends(OAuth2Passwor
     except (ValueError, TypeError):
         pass
 
+    user = None
     if user_uuid:
-        result = await db.execute(select(User).where(or_(User.id == user_uuid, User.email == str(user_id))))
-    else:
-        result = await db.execute(select(User).where(User.email == str(user_id)))
-    user = result.scalars().first()
+        result = await db.execute(select(User).where(User.id == user_uuid))
+        user = result.scalars().first()
+    if not user:
+        result = await db.execute(select(User).where(User.email == str(user_id).lower()))
+        user = result.scalars().first()
     if not user or not user.is_active:
         return None
     return user
