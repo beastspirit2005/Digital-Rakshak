@@ -98,6 +98,8 @@ export default function InvestigatorWorkspacePage() {
   // Correction state for NTIR training
   const [correctionNote, setCorrectionNote] = useState<string>("");
   const [actionStatus, setActionStatus] = useState<string | null>(null);
+  const [actionStatusType, setActionStatusType] = useState<"success" | "error" | "info">("info");
+  const [isTriggeringTakedown, setIsTriggeringTakedown] = useState<boolean>(false);
   const [showRawEntities, setShowRawEntities] = useState<boolean>(false);
   const [copiedEntity, setCopiedEntity] = useState<string | null>(null);
 
@@ -175,7 +177,9 @@ export default function InvestigatorWorkspacePage() {
 
   const handleInvestigatorAction = async (actionType: "approve" | "reject" | "takedown") => {
     if (!caseData) return;
+    if (actionType === "takedown") setIsTriggeringTakedown(true);
     setActionStatus("Processing action...");
+    setActionStatusType("info");
     try {
       const endpoint =
         actionType === "approve"
@@ -193,18 +197,27 @@ export default function InvestigatorWorkspacePage() {
 
       const res = await fetch(endpoint, {
         method: "POST",
-        headers: actionType === "takedown" ? { Authorization: `Bearer ${token}` } : { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${token}` },
         body: actionType !== "takedown" ? formData : undefined,
       });
 
+      const data = await res.json().catch(() => null);
+
       if (res.ok) {
-        setActionStatus(`Case #${caseData.case_number} successfully updated (${actionType.toUpperCase()})!`);
+        const msg = data?.message || `Case #${caseData.case_number} successfully updated (${actionType.toUpperCase()})!`;
+        setActionStatus(msg);
+        setActionStatusType("success");
         fetchCaseDetails();
       } else {
-        setActionStatus(`Error executing action (HTTP ${res.status})`);
+        const errMsg = data?.detail || data?.message || `Error executing action (HTTP ${res.status})`;
+        setActionStatus(errMsg);
+        setActionStatusType("error");
       }
     } catch (err: any) {
-      setActionStatus(`Error: ${err.message}`);
+      setActionStatus(`Network Error: ${err.message}`);
+      setActionStatusType("error");
+    } finally {
+      if (actionType === "takedown") setIsTriggeringTakedown(false);
     }
   };
 
@@ -301,9 +314,28 @@ export default function InvestigatorWorkspacePage() {
       </div>
 
       {actionStatus && (
-        <div className="p-3 rounded-lg bg-emerald-950/40 border border-emerald-500/40 text-emerald-300 text-xs font-mono flex items-center justify-between">
-          <span>{actionStatus}</span>
-          <button onClick={() => setActionStatus(null)} className="text-slate-400 hover:text-white"><X className="w-4 h-4" /></button>
+        <div
+          className={`p-3 rounded-lg border text-xs font-mono flex items-center justify-between transition-all ${
+            actionStatusType === "error"
+              ? "bg-rose-950/60 border-rose-500/50 text-rose-300 shadow-lg shadow-rose-950/40"
+              : actionStatusType === "success"
+              ? "bg-emerald-950/60 border-emerald-500/50 text-emerald-300 shadow-lg shadow-emerald-950/40"
+              : "bg-sky-950/60 border-sky-500/50 text-sky-300"
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            {actionStatusType === "error" ? (
+              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+            ) : actionStatusType === "success" ? (
+              <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+            ) : (
+              <RefreshCw className="w-4 h-4 text-sky-400 shrink-0 animate-spin" />
+            )}
+            <span className="font-medium">{actionStatus}</span>
+          </div>
+          <button onClick={() => setActionStatus(null)} className="text-slate-400 hover:text-white ml-2">
+            <X className="w-4 h-4" />
+          </button>
         </div>
       )}
 
@@ -819,9 +851,18 @@ export default function InvestigatorWorkspacePage() {
                     </div>
                     <button
                       onClick={() => handleInvestigatorAction("takedown")}
-                      className="w-full py-2 rounded-lg bg-gradient-to-r from-amber-600 to-rose-600 hover:from-amber-500 hover:to-rose-500 text-white font-bold transition-all shadow-lg flex items-center justify-center gap-2"
+                      disabled={isTriggeringTakedown}
+                      className="w-full py-2.5 rounded-lg bg-gradient-to-r from-amber-600 to-rose-600 hover:from-amber-500 hover:to-rose-500 disabled:opacity-50 text-white font-bold transition-all shadow-lg flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
                     >
-                      <Zap className="w-4 h-4" /> Trigger Network Takedown
+                      {isTriggeringTakedown ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin" /> Triggering Automated Takedown...
+                        </>
+                      ) : (
+                        <>
+                          <Zap className="w-4 h-4" /> Trigger Network Takedown
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>
