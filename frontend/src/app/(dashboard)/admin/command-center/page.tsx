@@ -101,10 +101,13 @@ export default function CommandCenterDashboard() {
       });
       if (res.ok) {
         const data = await res.json();
-        setClusters(data.clusters || []);
+        setClusters(data.clusters || data.features || []);
+      } else {
+        setClusters([]);
       }
     } catch (err) {
-      console.error("Failed to load spatial clusters:", err);
+      console.warn("Could not load spatial clusters, using fallback:", err);
+      setClusters([]);
     } finally {
       setLoadingClusters(false);
     }

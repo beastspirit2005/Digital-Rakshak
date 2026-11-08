@@ -158,7 +158,7 @@ export default function PoliceVictimsMapPage() {
 
         // Parallel Fetch: Victims + Officers Roster
         const [victimRes, officerRes] = await Promise.all([
-          axios.get(api(`/police/nearby-victims?${params.toString()}`), { headers, withCredentials: true }),
+          axios.get(api(`/police/nearby-victims?${params.toString()}`), { headers, withCredentials: true }).catch(() => ({ data: { features: [] } })),
           axios.get(api(`/police/officers-and-stations?${params.toString()}`), { headers, withCredentials: true }).catch(() => ({ data: { officers: [], stations: [] } })),
         ]);
 

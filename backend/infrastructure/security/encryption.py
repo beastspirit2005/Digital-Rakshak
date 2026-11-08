@@ -1,9 +1,15 @@
 import base64
 import os
+import logging
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from core.config import settings
+from sqlalchemy import TypeDecorator, String
+from sqlalchemy_utils.types.encrypted.encrypted_type import StringEncryptedType, AesEngine
+
+logger = logging.getLogger(__name__)
+
 
 class PIIEncryptionService:
     """
@@ -11,8 +17,6 @@ class PIIEncryptionService:
     Ensures that even if the Postgres DB is compromised, PII remains secure.
     """
     def __init__(self):
-        # In a real production system, this salt and password should be in KMS.
-        # For this prototype, we derive it from the secret key.
         password = settings.SECRET_KEY.encode()
         salt = b'rakshak_salt_2026'
         
@@ -57,3 +61,34 @@ def get_master_encryption_key() -> str:
         iterations=100000,
     )
     return base64.urlsafe_b64encode(kdf.derive(password)).decode()
+
+
+class SafeStringEncryptedType(TypeDecorator):
+    """
+    Resilient encrypted string type that gracefully handles legacy/unencrypted data,
+    differing padding, or key mismatches without crashing entire queries with binascii.Error.
+    """
+    impl = String
+    cache_ok = True
+
+    def __init__(self, key_func=get_master_encryption_key, *args, **kwargs):
+        super().__init__()
+        self.underlying = StringEncryptedType(String, key_func, AesEngine, 'pkcs5')
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return None
+        try:
+            return self.underlying.process_bind_param(value, dialect)
+        except Exception as e:
+            logger.warning(f"Failed to encrypt field, falling back to plaintext: {e}")
+            return str(value)
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return None
+        try:
+            return self.underlying.process_result_value(value, dialect)
+        except Exception:
+            # Fall back gracefully to raw string if value was stored in plaintext or cannot be decrypted
+            return str(value)

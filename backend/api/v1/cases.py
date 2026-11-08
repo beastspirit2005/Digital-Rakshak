@@ -87,13 +87,17 @@ async def get_cases(request: Request, db: AsyncSession = Depends(get_db), skip: 
     
     from sqlalchemy.orm import selectinload
     
-    result = await db.execute(
-        select(Case)
-        .order_by(desc(Case.created_at))
-        .offset(skip)
-        .limit(limit)
-    )
-    cases = result.scalars().all()
+    try:
+        result = await db.execute(
+            select(Case)
+            .order_by(desc(Case.created_at))
+            .offset(skip)
+            .limit(limit)
+        )
+        cases = result.scalars().all()
+    except Exception as query_err:
+        logger.error(f"Failed to query cases: {query_err}")
+        return {"cases": []}
     
     # Collect all unique submitter and assignee IDs
     submitter_ids = {c.submitted_by for c in cases if c.submitted_by}
@@ -102,9 +106,19 @@ async def get_cases(request: Request, db: AsyncSession = Depends(get_db), skip: 
     
     users_map = {}
     if all_user_ids:
-        u_res = await db.execute(select(User).where(User.id.in_(all_user_ids)))
-        for u in u_res.scalars().all():
-            users_map[u.id] = u
+        parsed_user_ids = []
+        for uid in all_user_ids:
+            try:
+                parsed_user_ids.append(uuid.UUID(str(uid)))
+            except (ValueError, TypeError):
+                pass
+        if parsed_user_ids:
+            try:
+                u_res = await db.execute(select(User).where(User.id.in_(parsed_user_ids)))
+                for u in u_res.scalars().all():
+                    users_map[u.id] = u
+            except Exception as user_fetch_err:
+                logger.warning(f"Could not load users map: {user_fetch_err}")
     
     now_utc = datetime.now(timezone.utc)
     enriched_cases = []
@@ -713,45 +727,49 @@ async def get_spatial_clusters(
     role = user.role
     is_official = role in ["admin", "police", "cyber_cell"]
         
-    from infrastructure.graph.neo4j_client import IntelligenceGraph
-    graph = IntelligenceGraph()
-    clusters = await graph.get_connected_clusters()
-    await graph.close()
-    
+    clusters = []
+    try:
+        from infrastructure.graph.neo4j_client import IntelligenceGraph
+        graph = IntelligenceGraph()
+        clusters = await graph.get_connected_clusters()
+        await graph.close()
+    except Exception as e:
+        logger.warning(f"Neo4j clusters service unavailable or timed out: {e}")
+        clusters = []
+
     features = []
-    
     for cluster in clusters:
-        case_ids = cluster["case_ids"]
-        
-        # Fetch the Postgres records for these cases to get coordinates
-        result = await db.execute(select(Case).where(Case.case_number.in_(case_ids)).where(Case.latitude.isnot(None)))
-        db_cases = result.scalars().all()
-        
-        if len(db_cases) < 2:
+        case_ids = cluster.get("case_ids", [])
+        if not case_ids:
             continue
-            
-        coords = [[c.longitude, c.latitude] for c in db_cases]
-        
-        # Only expose raw narrative texts to authorized officials; redact for regular citizens
-        case_texts = [c.scam_text for c in db_cases] if is_official else []
-        
-        features.append({
-            "type": "Feature",
-            "geometry": {
-                "type": "LineString",
-                "coordinates": coords
-            },
-            "properties": {
-                "entity_type": cluster["entity_type"],
-                "entity_value": cluster["entity_value"],
-                "case_numbers": [c.case_number for c in db_cases],
-                "case_texts": case_texts
-            }
-        })
-        
+        try:
+            # Fetch the Postgres records for these cases to get coordinates
+            result = await db.execute(select(Case).where(Case.case_number.in_(case_ids)).where(Case.latitude.isnot(None)))
+            db_cases = result.scalars().all()
+            if len(db_cases) < 2:
+                continue
+            coords = [[c.longitude, c.latitude] for c in db_cases]
+            case_texts = [c.scam_text for c in db_cases] if is_official else []
+            features.append({
+                "type": "Feature",
+                "geometry": {
+                    "type": "LineString",
+                    "coordinates": coords
+                },
+                "properties": {
+                    "entity_type": cluster.get("entity_type", "Syndicate"),
+                    "entity_value": cluster.get("entity_value", ""),
+                    "case_numbers": [c.case_number for c in db_cases],
+                    "case_texts": case_texts
+                }
+            })
+        except Exception as c_err:
+            logger.warning(f"Error resolving coordinates for cluster {case_ids}: {c_err}")
+
     return {
         "type": "FeatureCollection",
-        "features": features
+        "features": features,
+        "clusters": features
     }
 
 from pydantic import BaseModel

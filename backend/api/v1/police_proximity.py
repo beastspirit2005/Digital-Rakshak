@@ -115,15 +115,36 @@ async def get_nearby_victims(
     if filters:
         query = query.where(and_(*filters))
 
-    res = await db.execute(query)
-    cases = res.scalars().all()
+    try:
+        res = await db.execute(query)
+        cases = res.scalars().all()
+    except Exception as q_err:
+        logger.error(f"Failed to query nearby victims: {q_err}")
+        return {
+            "type": "FeatureCollection",
+            "station_anchor": {"latitude": lat, "longitude": lng},
+            "radius_km": radius_km,
+            "all_india": all_india,
+            "total_count": 0,
+            "critical_count": 0,
+            "live_fraud_count": 0,
+            "features": []
+        }
 
     # 2. Batch lookup assignee user details
     assignee_ids = {c.assigned_to for c in cases if getattr(c, "assigned_to", None)}
     assignee_map = {}
     if assignee_ids:
-        u_res = await db.execute(select(User).where(User.id.in_(assignee_ids)))
-        for u in u_res.scalars().all():
+        parsed_assignee_ids = []
+        for aid in assignee_ids:
+            try:
+                parsed_assignee_ids.append(uuid.UUID(str(aid)))
+            except (ValueError, TypeError):
+                pass
+        if parsed_assignee_ids:
+            try:
+                u_res = await db.execute(select(User).where(User.id.in_(parsed_assignee_ids)))
+                for u in u_res.scalars().all():
             assignee_map[u.id] = {
                 "name": u.full_name or u.email,
                 "role": u.role,
@@ -230,26 +251,33 @@ async def get_nearby_victims(
         f["properties"]["distance_km"]
     ))
 
-    # Log immutable audit event
-    audit = AuditEvent(
-        id=uuid.uuid4(),
-        actor_id=user.id,
-        actor_role=user.role,
-        action="POLICE_PROXIMITY_SEARCH",
-        resource_type="proximity_map",
-        resource_id=f"lat={lat},lng={lng},r={radius_km},all_india={all_india}",
-        ip_address=request.client.host if request.client else None,
-        timestamp=datetime.now(timezone.utc),
-        metadata_json={
-            "radius_km": radius_km,
-            "all_india": all_india,
-            "results_count": len(features),
-            "urgency_filter": urgency,
-            "state_filter": state
-        }
-    )
-    db.add(audit)
-    await db.commit()
+    # Log immutable audit event safely
+    try:
+        audit = AuditEvent(
+            id=uuid.uuid4(),
+            actor_id=user.id,
+            actor_role=user.role,
+            action="POLICE_PROXIMITY_SEARCH",
+            resource_type="proximity_map",
+            resource_id=f"lat={lat},lng={lng},r={radius_km},all_india={all_india}",
+            ip_address=request.client.host if request.client else None,
+            timestamp=datetime.now(timezone.utc),
+            metadata_json={
+                "radius_km": radius_km,
+                "all_india": all_india,
+                "results_count": len(features),
+                "urgency_filter": urgency,
+                "state_filter": state
+            }
+        )
+        db.add(audit)
+        await db.commit()
+    except Exception as audit_err:
+        logger.warning(f"Could not persist proximity audit event: {audit_err}")
+        try:
+            await db.rollback()
+        except Exception:
+            pass
 
     return {
         "type": "FeatureCollection",

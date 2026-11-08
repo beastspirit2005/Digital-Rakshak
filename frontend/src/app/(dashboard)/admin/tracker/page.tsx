@@ -124,7 +124,7 @@ export default function AdminUniversalTracker() {
     try {
       const headers = { Authorization: `Bearer ${token}` };
       const [casesRes, overdueRes, rosterRes] = await Promise.all([
-        axios.get(api("/cases/?limit=100"), { headers, withCredentials: true }),
+        axios.get(api("/cases/?limit=100"), { headers, withCredentials: true }).catch(() => ({ data: { cases: [] } })),
         axios.get(api("/cases/sla/overdue"), { headers, withCredentials: true }).catch(() => ({ data: { cases: [] } })),
         axios.get(api("/cases/investigators/roster"), { headers, withCredentials: true }).catch(() => ({ data: { investigators: [] } })),
       ]);

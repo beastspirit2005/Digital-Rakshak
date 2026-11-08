@@ -3,6 +3,8 @@ from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy import or_
+import uuid
 
 from infrastructure.db.session import get_db
 from core.security import decode_access_token
@@ -38,7 +40,16 @@ async def get_current_user(
     if not user_id:
         print("Token Payload Invalid"); raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload")
         
-    result = await db.execute(select(User).where(User.id == user_id))
+    user_uuid = None
+    try:
+        user_uuid = uuid.UUID(str(user_id))
+    except (ValueError, TypeError):
+        pass
+
+    if user_uuid:
+        result = await db.execute(select(User).where(or_(User.id == user_uuid, User.email == str(user_id))))
+    else:
+        result = await db.execute(select(User).where(User.email == str(user_id)))
     user = result.scalars().first()
     
     if not user:
@@ -70,7 +81,16 @@ async def get_current_user_allow_unapproved(
     if not user_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload")
         
-    result = await db.execute(select(User).where(User.id == user_id))
+    user_uuid = None
+    try:
+        user_uuid = uuid.UUID(str(user_id))
+    except (ValueError, TypeError):
+        pass
+
+    if user_uuid:
+        result = await db.execute(select(User).where(or_(User.id == user_uuid, User.email == str(user_id))))
+    else:
+        result = await db.execute(select(User).where(User.email == str(user_id)))
     user = result.scalars().first()
     
     if not user:
@@ -95,7 +115,16 @@ async def get_current_user_optional(token: Optional[str] = Depends(OAuth2Passwor
     user_id = payload.get("sub")
     if not user_id:
         return None
-    result = await db.execute(select(User).where(User.id == user_id))
+    user_uuid = None
+    try:
+        user_uuid = uuid.UUID(str(user_id))
+    except (ValueError, TypeError):
+        pass
+
+    if user_uuid:
+        result = await db.execute(select(User).where(or_(User.id == user_uuid, User.email == str(user_id))))
+    else:
+        result = await db.execute(select(User).where(User.email == str(user_id)))
     user = result.scalars().first()
     if not user or not user.is_active:
         return None
@@ -114,7 +143,16 @@ async def get_current_user_ws(token: Optional[str], db: AsyncSession) -> User:
     user_id = payload.get("sub")
     if not user_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token subject")
-    result = await db.execute(select(User).where(User.id == user_id))
+    user_uuid = None
+    try:
+        user_uuid = uuid.UUID(str(user_id))
+    except (ValueError, TypeError):
+        pass
+
+    if user_uuid:
+        result = await db.execute(select(User).where(or_(User.id == user_uuid, User.email == str(user_id))))
+    else:
+        result = await db.execute(select(User).where(User.email == str(user_id)))
     user = result.scalars().first()
     if not user or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found or inactive")
