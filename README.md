@@ -119,9 +119,8 @@ To eliminate blind spots in financial exposure reporting and ensure real financi
     *   **Raw Citizen Report Narrative Preservation:** Added seamless `scam_text` fallbacks and backend `@property def scam_description` aliases to ensure the victim's raw incident testimony is permanently accessible in the Investigator Workspace.
     *   **Responsive Multi-Viewport Dashboard:** Expanded dashboard max-width constraints from `max-w-6xl` to `max-w-[1600px]` and established dynamic viewport-bound map heights (`calc(100vh - 280px)`), eliminating horizontal cramping on wide displays while maintaining full responsiveness on tablets and mobile devices.
 
-### 16. Enterprise Design System Refresh & Production Codebase Sanitisation
+### 16. Enterprise Architecture Hardening & Codebase Sanitisation
 To elevate the platform to sovereign defense and enterprise SIEM standards:
-*   **Zero-Emoji Enterprise Standard:** Replaced raw emojis across 20+ frontend pages and backend notification services with custom, accessible UI components (`PageHeader`, `SectionHeader`, `Callout`), featuring subtle ambient glows, semantic status badges, and Lucide vector icons.
 *   **BOLA & BFLA Security Hardening:**
     *   *Broken Object-Level Authorization (BOLA):* Evidence Vault access (`/api/v1/evidence`) strictly enforces role-based financial case scoping, preventing unauthorized banking personnel from viewing non-financial evidence.
     *   *Broken Function-Level Authorization (BFLA):* AI Copilot chat endpoints (`/api/v1/chat`) restrict multi-agent reasoning to assigned investigators and administrators.
