@@ -534,7 +534,7 @@ function ReportsRegisterContent() {
   const [chatHistory, setChatHistory] = useState<{ role: string; text: string }[]>([]);
   const [chatLoading, setChatLoading] = useState(false);
   const [investigators, setInvestigators] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<"unassigned" | "assigned">("unassigned");
+  const [activeTab, setActiveTab] = useState<"all" | "unassigned" | "assigned">("all");
   const { token, user } = useAuthStore();
   const pushToast = useToast();
   const reduced = useReducedMotion();
@@ -666,10 +666,29 @@ useEffect(() => {
 
   const visibleCases = useMemo(() => {
     let result = [...cases];
-    if (activeTab === "assigned") {
-      result = result.filter((c) => c.assigned_to === user?.id || c.assigned_phone === user?.station_phone_number);
-    } else if (activeTab === "unassigned") {
-      result = result.filter((c) => !c.assigned_to && !c.assigned_phone);
+    const isAdmin = user?.role === "admin";
+
+    if (isAdmin) {
+      if (activeTab === "assigned") {
+        result = result.filter((c) => Boolean(c.assigned_to || c.assigned_phone));
+      } else if (activeTab === "unassigned") {
+        result = result.filter((c) => !c.assigned_to && !c.assigned_phone);
+      }
+      // "all" shows all cases across the platform
+    } else {
+      if (activeTab === "assigned") {
+        result = result.filter((c) => c.assigned_to === user?.id || c.assigned_phone === user?.station_phone_number);
+      } else if (activeTab === "unassigned") {
+        result = result.filter((c) => !c.assigned_to && !c.assigned_phone);
+      }
+    }
+
+    // Always ensure the targeted case from deep link is present in the visible list
+    if (targetCaseNum && !result.some((c) => c.case_number === targetCaseNum || c.id === targetCaseNum)) {
+      const targeted = cases.find((c) => c.case_number === targetCaseNum || c.id === targetCaseNum);
+      if (targeted) {
+        result.unshift(targeted);
+      }
     }
 
     // Automatically shift urgent nudged cases and recently claimed map radar cases to the very top!
@@ -707,10 +726,20 @@ useEffect(() => {
       (c) => c.case_number === targetCaseNum || c.id === targetCaseNum
     );
     if (matched) {
-      if (matched.assigned_to) {
-        setActiveTab("assigned");
+      if (user?.role === "admin") {
+        if (matched.assigned_to || matched.assigned_phone) {
+          setActiveTab("assigned");
+        } else {
+          setActiveTab("unassigned");
+        }
       } else {
-        setActiveTab("unassigned");
+        if (matched.assigned_to === user?.id || matched.assigned_phone === user?.station_phone_number) {
+          setActiveTab("assigned");
+        } else if (!matched.assigned_to && !matched.assigned_phone) {
+          setActiveTab("unassigned");
+        } else {
+          setActiveTab("all");
+        }
       }
       setExpandedId(matched.id);
 
@@ -721,7 +750,7 @@ useEffect(() => {
         }
       }, 350);
     }
-  }, [targetCaseNum, cases]);
+  }, [targetCaseNum, cases, user]);
 
   const toggleExpanded = (id: string) => {
     setExpandedId(expandedId === id ? null : id);
@@ -763,28 +792,63 @@ useEffect(() => {
         sub={user?.role === "admin" ? "Browse, review, and assign cases to investigators." : "Review and manage cases in your jurisdiction."}
         actions={
           <div className="flex flex-col sm:flex-row items-center gap-4">
-            {(user?.role === "police" || user?.role === "cyber_cell") && (
-              <div className="flex bg-surface-2 p-1 rounded-control">
+            {user?.role === "admin" ? (
+              <div className="flex bg-surface-2 p-1 rounded-control gap-1">
                 <button
+                  type="button"
+                  onClick={() => setActiveTab("all")}
+                  className={cn(
+                    "px-3 py-1.5 text-xs font-semibold rounded-control transition-all",
+                    activeTab === "all" ? "bg-surface shadow-xs text-ink font-bold" : "text-ink-3 hover:text-ink"
+                  )}
+                >
+                  All Cases ({cases.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("unassigned")}
+                  className={cn(
+                    "px-3 py-1.5 text-xs font-semibold rounded-control transition-all",
+                    activeTab === "unassigned" ? "bg-surface shadow-xs text-ink font-bold" : "text-ink-3 hover:text-ink"
+                  )}
+                >
+                  Unassigned ({cases.filter((c) => !c.assigned_to && !c.assigned_phone).length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("assigned")}
+                  className={cn(
+                    "px-3 py-1.5 text-xs font-semibold rounded-control transition-all",
+                    activeTab === "assigned" ? "bg-surface shadow-xs text-ink font-bold" : "text-ink-3 hover:text-ink"
+                  )}
+                >
+                  Assigned ({cases.filter((c) => Boolean(c.assigned_to || c.assigned_phone)).length})
+                </button>
+              </div>
+            ) : (user?.role === "police" || user?.role === "cyber_cell") ? (
+              <div className="flex bg-surface-2 p-1 rounded-control gap-1">
+                <button
+                  type="button"
                   onClick={() => setActiveTab("unassigned")}
                   className={cn(
                     "px-4 py-1.5 text-sm font-medium rounded-control transition-all",
-                    activeTab === "unassigned" ? "bg-surface shadow-sm text-ink" : "text-ink-3 hover:text-ink"
+                    activeTab === "unassigned" ? "bg-surface shadow-xs text-ink font-bold" : "text-ink-3 hover:text-ink"
                   )}
                 >
                   Unassigned Cases
                 </button>
                 <button
+                  type="button"
                   onClick={() => setActiveTab("assigned")}
                   className={cn(
                     "px-4 py-1.5 text-sm font-medium rounded-control transition-all",
-                    activeTab === "assigned" ? "bg-surface shadow-sm text-ink" : "text-ink-3 hover:text-ink"
+                    activeTab === "assigned" ? "bg-surface shadow-xs text-ink font-bold" : "text-ink-3 hover:text-ink"
                   )}
                 >
                   Assigned to Me
                 </button>
               </div>
-            )}
+            ) : null}
             <div className="relative">
               <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-3" />
               <input
