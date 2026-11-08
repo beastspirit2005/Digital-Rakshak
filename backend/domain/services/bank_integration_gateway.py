@@ -17,89 +17,79 @@ from domain.models.bank import (
     BankResponse,
     BankRegistry,
     EscalationStatus,
-    BankResponseActionType
+    BankResponseActionType,
+    InstitutionalOutboxEvent,
+    FraudResponseStage,
+    WebhookNonceReplayCache
 )
 from domain.models.case import Case
 from domain.models.user import User
-from domain.models.bank import FraudResponseStage, WebhookNonceReplayCache
 from domain.services.fraud_lifecycle_engine import FraudLifecycleEngine
+from domain.services.bank_integrations import (
+    BaseBankAdapter,
+    SandboxBankAdapter,
+    BankCircuitBreaker,
+    DeliveryManager
+)
 
 logger = logging.getLogger(__name__)
 
 
-class BaseBankAdapter(abc.ABC):
-    """Abstract interface for external banking institution gateways."""
-
-    @abc.abstractmethod
-    async def submit_alert(self, escalation: BankEscalation, target_bank: BankRegistry) -> Dict[str, Any]:
-        """Submits structured fraud alert to target bank."""
-        pass
-
-    @abc.abstractmethod
-    def sign_payload(self, payload: Dict[str, Any], secret_key: str) -> str:
-        """Signs alert payload using HMAC-SHA256."""
-        pass
-
-
-class SandboxBankAdapter(BaseBankAdapter):
-    """
-    Simulated Sandbox Adapter representing partner banks (SBI, HDFC, ICICI, Axis, etc.).
-    Simulates wire latency, cryptographic verification, and bank nodal acknowledgements.
-    Enforces strict idempotency semantics: retries retain the parent's idempotency key.
-    """
-
-    def sign_payload(self, payload: Dict[str, Any], secret_key: str = "dr_sandbox_secret") -> str:
-        canonical_str = json.dumps(payload, sort_keys=True)
-        return hmac.new(secret_key.encode(), canonical_str.encode(), hashlib.sha256).hexdigest()
-
-    async def submit_alert(self, escalation: BankEscalation, target_bank: BankRegistry) -> Dict[str, Any]:
-        sig = self.sign_payload(escalation.alert_payload)
-        ack_ref = f"ACK-{target_bank.bank_code}-{uuid.uuid4().hex[:8].upper()}"
-
-        # Distinct acknowledgement notes per instruction category
-        if escalation.instruction_category == "STATUTORY_FREEZE_ORDER":
-            initial_action = "Beneficiary account placed under immediate statutory debit freeze pursuant to Section 106 BNSS."
-        elif escalation.instruction_category == "PROTECTIVE_HOLD_REQUEST":
-            initial_action = "Precautionary debit lien / escrow hold placed on beneficiary account pending investigator confirmation."
-        elif escalation.instruction_category == "RECORD_REQUEST_BNSS_94":
-            initial_action = "Section 94 BNSS summons logged; nodal officer initiating KYC and IP transaction audit extraction."
-        else:
-            initial_action = (
-                "Informational fraud alert acknowledged; remitter advised for credential reset."
-                if escalation.escalation_role == "VICTIM_BANK"
-                else "Informational alert acknowledged; beneficiary account flagged for rapid monitoring."
-            )
-
-        return {
-            "success": True,
-            "http_status_code": 202,
-            "bank_reference": ack_ref,
-            "response_type": BankResponseActionType.ACKNOWLEDGEMENT.value,
-            "status_summary": f"Accepted by {target_bank.bank_name} Nodal Fraud Desk",
-            "details": {
-                "received_at": datetime.now(timezone.utc).isoformat(),
-                "signature_verified": True,
-                "hmac_digest": sig[:16] + "...",
-                "idempotency_key": escalation.idempotency_key,
-                "statutory_basis": escalation.statutory_basis,
-                "instruction_category": escalation.instruction_category,
-                "initial_action": initial_action
-            }
-        }
-
-
 class BankIntegrationGateway:
     """
-    Central Gateway coordinating dispatch, retries, delivery tracking,
-    and institutional response logging.
+    Central Institutional Integration Gateway coordinating dispatch, retries,
+    circuit breaking, delivery tracking, and bank response verification.
     Guarantees that retries reuse the exact logical idempotency key while
     logging each physical transmission attempt with a new attempt ID and attempt number.
     """
 
-    _adapters: Dict[str, BaseBankAdapter] = {
-        "SANDBOX_API": SandboxBankAdapter(),
-        "DIRECT_API": SandboxBankAdapter(),
-    }
+    delivery_manager: DeliveryManager = DeliveryManager()
+
+    @classmethod
+    async def queue_escalation_in_outbox(
+        cls,
+        db: AsyncSession,
+        escalation: BankEscalation,
+        correlation_id: str
+    ) -> InstitutionalOutboxEvent:
+        """
+        Transactional Outbox Writer:
+        Persists an InstitutionalOutboxEvent within the caller's active database transaction.
+        Guarantees crash-safe delivery without dual-write hazards.
+        """
+        # Check if an outbox event already exists for this escalation
+        stmt = (
+            select(InstitutionalOutboxEvent)
+            .where(
+                InstitutionalOutboxEvent.aggregate_id == escalation.id,
+                InstitutionalOutboxEvent.event_type == "BANK_ESCALATION_DISPATCH"
+            )
+        )
+        res = await db.execute(stmt)
+        existing = res.scalar_one_or_none()
+        if existing:
+            return existing
+
+        outbox_event = InstitutionalOutboxEvent(
+            event_type="BANK_ESCALATION_DISPATCH",
+            aggregate_id=escalation.id,
+            correlation_id=correlation_id,
+            payload={
+                "escalation_id": str(escalation.id),
+                "case_id": str(escalation.case_id),
+                "alert_reference": escalation.alert_reference,
+                "idempotency_key": escalation.idempotency_key,
+                "target_bank_id": str(escalation.target_bank_id),
+                "instruction_category": escalation.instruction_category
+            },
+            status="PENDING",
+            attempt_count=0,
+            available_at=datetime.now(timezone.utc)
+        )
+        db.add(outbox_event)
+        await db.flush()
+        logger.info(f"Queued outbox event {outbox_event.id} for escalation {escalation.alert_reference}")
+        return outbox_event
 
     @classmethod
     async def dispatch_escalation(
@@ -109,8 +99,8 @@ class BankIntegrationGateway:
         approver_user: Optional[User] = None
     ) -> Dict[str, Any]:
         """
-        Executes alert dispatch to the target financial institution.
-        Preserves escalation.idempotency_key across all attempts.
+        Executes alert dispatch to the target financial institution through the delivery manager.
+        Preserves escalation.idempotency_key across all physical attempts.
         """
         res = await db.execute(
             select(BankEscalation).where(BankEscalation.id == escalation_id)
@@ -132,8 +122,6 @@ class BankIntegrationGateway:
             escalation.approved_by = approver_user.id
             escalation.approved_at = datetime.now(timezone.utc)
 
-        adapter = cls._adapters.get(target_bank.integration_type, SandboxBankAdapter())
-
         # Determine next physical attempt number while retaining logical idempotency key
         res_prev = await db.execute(
             select(BankDeliveryAttempt).where(BankDeliveryAttempt.escalation_id == escalation.id)
@@ -141,7 +129,8 @@ class BankIntegrationGateway:
         attempt_number = len(res_prev.scalars().all()) + 1
 
         try:
-            dispatch_result = await adapter.submit_alert(escalation, target_bank)
+            # Deliver under circuit breaker supervision
+            dispatch_result = await cls.delivery_manager.execute_delivery(escalation, target_bank)
 
             # Record Physical Delivery Attempt
             attempt = BankDeliveryAttempt(
@@ -332,3 +321,8 @@ class BankIntegrationGateway:
         db.add(cached)
         await db.flush()
         return True, None
+
+    @classmethod
+    def get_health_metrics(cls) -> Dict[str, Any]:
+        """Returns gateway circuit breaker health snapshot."""
+        return cls.delivery_manager.circuit_breaker.get_health_metrics()

@@ -147,6 +147,7 @@ class FinancialTransaction(Base):
     remitter_bank = relationship("BankRegistry", foreign_keys=[remitter_bank_id], back_populates="remitted_transactions")
     beneficiary_bank = relationship("BankRegistry", foreign_keys=[beneficiary_bank_id], back_populates="beneficiary_transactions")
     escalations = relationship("BankEscalation", back_populates="transaction", cascade="all, delete-orphan")
+    fund_positions = relationship("FinancialFundPosition", back_populates="transaction", cascade="all, delete-orphan")
 
 
 class BankEscalation(Base):
@@ -177,6 +178,7 @@ class BankEscalation(Base):
     approved_at = Column(DateTime(timezone=True), nullable=True)
     
     idempotency_key = Column(String(128), unique=True, index=True, nullable=False)
+    version = Column(Integer, default=1, nullable=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
@@ -307,3 +309,88 @@ class InvestigatorDecisionAudit(Base):
     decision_rationale = Column(Text, nullable=False)
     authorization_token = Column(String(128), nullable=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+
+
+class InstitutionalOutboxEvent(Base):
+    """
+    Transactional Outbox for reliable, crash-safe institutional delivery.
+    Guarantees at-least-once dispatch without dual-write hazards.
+    """
+    __tablename__ = "institutional_outbox_events"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    event_type = Column(String(64), nullable=False, index=True)
+    aggregate_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    correlation_id = Column(String(128), nullable=False, index=True)
+    payload = Column(JSONB, default=dict, nullable=False)
+    status = Column(String(32), default="PENDING", nullable=False, index=True) # PENDING, PROCESSING, COMPLETED, FAILED, DEAD_LETTER
+    attempt_count = Column(Integer, default=0, nullable=False)
+    available_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    locked_at = Column(DateTime(timezone=True), nullable=True)
+    locked_by = Column(String(128), nullable=True)
+    last_error = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    processed_at = Column(DateTime(timezone=True), nullable=True)
+
+
+class FinancialFundPosition(Base):
+    """
+    Account-level or transaction-leg fund position ledger.
+    Resolves the secured-funds overlap problem by tracking distinct unique fund positions.
+    0 <= recovered_amount <= max(lien_amount, frozen_amount) <= original_amount
+    """
+    __tablename__ = "financial_fund_positions"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    transaction_id = Column(UUID(as_uuid=True), ForeignKey("financial_transactions.id", ondelete="CASCADE"), nullable=False, index=True)
+    account_reference_masked = Column(String(64), nullable=False)
+    bank_id = Column(UUID(as_uuid=True), ForeignKey("bank_registry.id", ondelete="SET NULL"), nullable=True, index=True)
+    original_amount = Column(Numeric(14, 2), nullable=False)
+    lien_amount = Column(Numeric(14, 2), default=0.00, nullable=False)
+    frozen_amount = Column(Numeric(14, 2), default=0.00, nullable=False)
+    recovered_amount = Column(Numeric(14, 2), default=0.00, nullable=False)
+    status = Column(String(32), default="ACTIVE", nullable=False, index=True)
+    source_reference = Column(String(128), nullable=True)
+    version = Column(Integer, default=1, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+
+    transaction = relationship("FinancialTransaction", back_populates="fund_positions")
+    bank = relationship("BankRegistry")
+
+
+class EvidenceCheckpoint(Base):
+    """
+    Cryptographic checkpoint anchoring a sequential range of lifecycle events with an external digital signature.
+    """
+    __tablename__ = "evidence_checkpoints"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    case_id = Column(UUID(as_uuid=True), ForeignKey("cases.id", ondelete="CASCADE"), nullable=False, index=True)
+    sequence_start = Column(Integer, nullable=False)
+    sequence_end = Column(Integer, nullable=False)
+    merkle_root_hash = Column(String(64), nullable=False, index=True)
+    signature = Column(String(256), nullable=False)
+    signing_key_id = Column(String(64), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+
+    case = relationship("Case")
+
+
+class EvidenceAccessEvent(Base):
+    """
+    Immutable access log tracking chain of custody for evidentiary records without storing confidential contents.
+    """
+    __tablename__ = "evidence_access_events"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    case_id = Column(UUID(as_uuid=True), ForeignKey("cases.id", ondelete="CASCADE"), nullable=False, index=True)
+    actor_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    actor_role = Column(String(64), nullable=False)
+    action = Column(String(64), nullable=False, index=True) # UPLOADED, VIEWED, DOWNLOADED, EXPORTED, SHARED, ACCESS_DENIED, INTEGRITY_VERIFIED
+    evidence_reference = Column(String(128), nullable=True)
+    ip_address = Column(String(64), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+
+    case = relationship("Case")
+    actor = relationship("User")

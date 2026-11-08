@@ -1,6 +1,16 @@
 from domain.services.fraud_lifecycle_engine import FraudLifecycleEngine
 from domain.services.financial_reconciliation_service import FinancialReconciliationService, FinancialInvariantViolationError
-from domain.models.bank import InvestigatorDecisionAudit, FraudResponseLifecycleEvent, FraudResponseStage
+from domain.services.evidence_integrity_service import EvidenceIntegrityService
+from domain.services.outbox_worker import OutboxWorker
+from domain.models.bank import (
+    InvestigatorDecisionAudit,
+    FraudResponseLifecycleEvent,
+    FraudResponseStage,
+    FinancialFundPosition,
+    EvidenceCheckpoint,
+    EvidenceAccessEvent,
+    InstitutionalOutboxEvent
+)
 from decimal import Decimal
 import uuid
 import logging
@@ -42,6 +52,22 @@ router = APIRouter()
 
 
 # ── Schemas ─────────────────────────────────────────────────────────────
+
+class FundPositionCreateRequest(BaseModel):
+    transaction_id: str
+    account_reference_masked: str
+    original_amount: Decimal
+    bank_id: Optional[str] = None
+    lien_delta: Decimal = Decimal("0.00")
+    frozen_delta: Decimal = Decimal("0.00")
+    recovered_delta: Decimal = Decimal("0.00")
+    source_reference: Optional[str] = None
+
+class FundPositionRecoveryConfirmationRequest(BaseModel):
+    recovered_amount: Decimal
+    verification_reference: str
+    repatriation_account: Optional[str] = None
+
 
 class BankResolveRequest(BaseModel):
     ifsc: Optional[str] = None
@@ -283,7 +309,8 @@ async def approve_bank_escalation(
 ):
     """
     Authorized Investigator Review Gate:
-    Approves a PENDING_APPROVAL bank escalation and optionally dispatches it immediately.
+    Approves a PENDING_APPROVAL bank escalation, writes to the Transactional Outbox within
+    the same database transaction, and optionally dispatches immediately via the Outbox Worker.
     """
     if user.role not in ["police", "cyber_cell", "admin"]:
         raise HTTPException(status_code=403, detail="Investigator clearance required to approve bank escalations.")
@@ -294,23 +321,44 @@ async def approve_bank_escalation(
     if not escalation:
         raise HTTPException(status_code=404, detail="Bank escalation not found")
 
+    corr_id = f"CORR-{escalation.alert_reference}"
     escalation.approved_by = user.id
     escalation.approved_at = datetime.now(timezone.utc)
     escalation.status = EscalationStatus.READY.value
+    escalation.version += 1
+
+    # Record Stage 5: APPROVAL_EVALUATED
+    await FraudLifecycleEngine.record_transition(
+        db=db,
+        correlation_id=corr_id,
+        case_id=escalation.case_id,
+        stage=FraudResponseStage.APPROVAL_EVALUATED,
+        actor_or_service=f"INVESTIGATOR:{user.full_name or user.email}",
+        transition_reason=f"Investigator {user.email} approved alert dispatch under {escalation.statutory_basis}.",
+        transaction_id=escalation.transaction_id,
+        escalation_id=escalation.id,
+        actor_id=user.id
+    )
+
+    # Transactional Outbox: persist outbox event in same ACID transaction
+    outbox_event = await BankIntegrationGateway.queue_escalation_in_outbox(
+        db=db,
+        escalation=escalation,
+        correlation_id=corr_id
+    )
     await db.commit()
 
     dispatch_res = None
     if dispatch_now:
-        dispatch_res = await BankIntegrationGateway.dispatch_escalation(
-            db=db,
-            escalation_id=escalation.id,
-            approver_user=user
-        )
+        worker = OutboxWorker(worker_id=f"ON_DEMAND_{user.id.hex[:6]}")
+        process_res = await worker.process_event(db, outbox_event)
+        dispatch_res = process_res.get("dispatch_result")
 
     return {
         "success": True,
         "escalation_id": str(escalation.id),
         "status": escalation.status,
+        "outbox_event_id": str(outbox_event.id),
         "approved_by": user.full_name or user.email,
         "dispatch_result": dispatch_res
     }
@@ -640,4 +688,244 @@ async def record_investigator_audit_clearance(
         "authorization_token": token,
         "investigator": user.full_name or user.email,
         "statutory_powers_invoked": payload.statutory_powers_invoked
+    }
+
+
+# ── 6. Evidence Integrity & Checkpoint Endpoints ─────────────────────────
+
+@router.get("/cases/{case_number}/integrity-verification", response_model=Dict[str, Any])
+async def verify_case_integrity(
+    case_number: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_official_role)
+):
+    """
+    Independently verifies the cryptographic SHA-256 Merkle chain, checks for
+    sequence gaps, payload tampering, or reordering, and verifies signed checkpoints.
+    Logs an immutable access event for Section 63 BSA 2023 compliance.
+    """
+    res_case = await db.execute(select(Case).where(Case.case_number == case_number))
+    case = res_case.scalar_one_or_none()
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+
+    report = await EvidenceIntegrityService.verify_chain_integrity(db, case.id)
+    await EvidenceIntegrityService.record_access_event(
+        db=db,
+        case_id=case.id,
+        action="INTEGRITY_VERIFIED",
+        actor=user
+    )
+    return report
+
+
+@router.post("/cases/{case_number}/checkpoints/sign", response_model=Dict[str, Any])
+async def create_case_signed_checkpoint(
+    case_number: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_official_role)
+):
+    """
+    Creates and digitally signs an evidentiary checkpoint anchoring the current Merkle root hash.
+    """
+    res_case = await db.execute(select(Case).where(Case.case_number == case_number))
+    case = res_case.scalar_one_or_none()
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+
+    cp = await EvidenceIntegrityService.create_signed_checkpoint(db, case.id)
+    await EvidenceIntegrityService.record_access_event(
+        db=db,
+        case_id=case.id,
+        action="CHECKPOINT_SIGNED",
+        actor=user,
+        evidence_reference=f"CHECKPOINT:{cp.id}"
+    )
+
+    return {
+        "checkpoint_id": str(cp.id),
+        "case_number": case.case_number,
+        "sequence_range": f"{cp.sequence_start} - {cp.sequence_end}",
+        "merkle_root_hash": cp.merkle_root_hash,
+        "signature": cp.signature,
+        "signing_key_id": cp.signing_key_id,
+        "created_at": cp.created_at.isoformat()
+    }
+
+
+@router.get("/cases/{case_number}/evidence-access-log", response_model=Dict[str, Any])
+async def get_evidence_access_log(
+    case_number: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_official_role)
+):
+    """
+    Retrieves the chain-of-custody access history for all evidence associated with a case.
+    """
+    res_case = await db.execute(select(Case).where(Case.case_number == case_number))
+    case = res_case.scalar_one_or_none()
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+
+    stmt = (
+        select(EvidenceAccessEvent)
+        .where(EvidenceAccessEvent.case_id == case.id)
+        .order_by(EvidenceAccessEvent.created_at.desc())
+    )
+    res = await db.execute(stmt)
+    records = res.scalars().all()
+
+    return {
+        "case_number": case.case_number,
+        "total_access_events": len(records),
+        "access_logs": [
+            {
+                "id": str(r.id),
+                "actor_id": str(r.actor_id) if r.actor_id else None,
+                "actor_role": r.actor_role,
+                "action": r.action,
+                "evidence_reference": r.evidence_reference,
+                "ip_address": r.ip_address,
+                "created_at": r.created_at.isoformat()
+            }
+            for r in records
+        ]
+    }
+
+
+# ── 7. Fund Positions & Financial Reconciliation Endpoints ───────────────
+
+@router.post("/cases/{case_id}/fund-positions", response_model=Dict[str, Any])
+async def create_or_update_fund_position_endpoint(
+    case_id: str,
+    payload: FundPositionCreateRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_official_role)
+):
+    """
+    Creates or updates a unique beneficiary fund position, resolving the lien-to-freeze overlap.
+    """
+    txn_id = uuid.UUID(payload.transaction_id)
+    bank_id = uuid.UUID(payload.bank_id) if payload.bank_id else None
+
+    try:
+        pos = await FinancialReconciliationService.record_or_update_fund_position(
+            db=db,
+            transaction_id=txn_id,
+            account_reference_masked=payload.account_reference_masked,
+            original_amount=payload.original_amount,
+            bank_id=bank_id,
+            lien_delta=payload.lien_delta,
+            frozen_delta=payload.frozen_delta,
+            recovered_delta=payload.recovered_delta,
+            source_reference=payload.source_reference
+        )
+        await db.commit()
+        return {
+            "position_id": str(pos.id),
+            "account_reference_masked": pos.account_reference_masked,
+            "original_amount": str(pos.original_amount),
+            "lien_amount": str(pos.lien_amount),
+            "frozen_amount": str(pos.frozen_amount),
+            "recovered_amount": str(pos.recovered_amount),
+            "status": pos.status
+        }
+    except FinancialInvariantViolationError as inv_err:
+        raise HTTPException(status_code=422, detail=str(inv_err))
+
+
+@router.get("/cases/{case_id}/financial-reconciliation", response_model=Dict[str, Any])
+async def get_financial_reconciliation_summary(
+    case_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_official_role)
+):
+    """
+    Returns multi-tier balances with unique secured funds calculation resolving overlaps.
+    """
+    c_uid = uuid.UUID(case_id)
+    res_txns = await db.execute(
+        select(FinancialTransaction).where(FinancialTransaction.case_id == c_uid)
+    )
+    txns = res_txns.scalars().all()
+
+    summary_list = []
+    for t in txns:
+        pos_summary = await FinancialReconciliationService.get_fund_positions_summary(db, t.id)
+        summary_list.append({
+            "transaction_id": str(t.id),
+            "reference": t.transaction_reference,
+            "amount": str(t.amount),
+            "reported_loss": str(t.reported_loss_amount or t.amount),
+            "amount_under_lien": str(t.amount_under_lien),
+            "amount_frozen": str(t.amount_frozen),
+            "amount_secured_unique": str(pos_summary["total_secured_unique"]),
+            "amount_recovered": str(t.amount_recovered),
+            "fund_positions": pos_summary["positions"]
+        })
+
+    return {
+        "case_id": case_id,
+        "transactions_count": len(txns),
+        "reconciliation_summary": summary_list
+    }
+
+
+@router.post("/fund-positions/{id}/recovery-confirmation", response_model=Dict[str, Any])
+async def confirm_fund_position_recovery(
+    id: str,
+    payload: FundPositionRecoveryConfirmationRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_official_role)
+):
+    """
+    Confirms verified fund repatriation from a secured fund position.
+    """
+    p_uid = uuid.UUID(id)
+    res = await db.execute(select(FinancialFundPosition).where(FinancialFundPosition.id == p_uid))
+    pos = res.scalar_one_or_none()
+    if not pos:
+        raise HTTPException(status_code=404, detail="Fund position not found")
+
+    try:
+        updated_pos = await FinancialReconciliationService.record_or_update_fund_position(
+            db=db,
+            transaction_id=pos.transaction_id,
+            account_reference_masked=pos.account_reference_masked,
+            original_amount=Decimal(str(pos.original_amount)),
+            recovered_delta=payload.recovered_amount,
+            source_reference=f"RECOVERY_CONFIRMATION:{payload.verification_reference}"
+        )
+        await db.commit()
+        return {
+            "success": True,
+            "position_id": str(updated_pos.id),
+            "total_recovered": str(updated_pos.recovered_amount),
+            "status": updated_pos.status,
+            "verification_reference": payload.verification_reference
+        }
+    except FinancialInvariantViolationError as inv_err:
+        raise HTTPException(status_code=422, detail=str(inv_err))
+
+
+# ── 8. Institutional Health & Circuit Breaker Metrics Endpoint ────────────
+
+@router.get("/institutional/health", response_model=Dict[str, Any])
+async def get_institutional_health_metrics(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_official_role)
+):
+    """
+    Returns real-time gateway health: per-bank circuit breaker status,
+    transactional outbox queue depths, and worker heartbeat.
+    """
+    outbox_metrics = await OutboxWorker.get_queue_metrics(db)
+    cb_metrics = BankIntegrationGateway.get_health_metrics()
+
+    return {
+        "status": "OPERATIONAL",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "outbox_metrics": outbox_metrics,
+        "circuit_breakers": cb_metrics,
+        "sla_disclaimer": "Metrics reflect internal adapter dispatch and queue health. Institutional bank processing times are subject to partner rail availability."
     }
