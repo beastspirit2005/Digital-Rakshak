@@ -141,8 +141,13 @@ export function useTransactionStream({
   const connect = useCallback(() => {
     if (!enabled || typeof window === "undefined") return;
 
-    // If environment is known to fail WebSockets (e.g. Vercel Serverless), go straight to SSE
-    if (useSSEFallbackRef.current) {
+    // Vercel Serverless Functions do not terminate raw WebSocket connections.
+    // If running against Vercel, proactively route directly to SSE to avoid network-level 400/502 DevTools errors.
+    const isVercelServerless =
+      typeof window !== 'undefined' &&
+      (window.location.hostname.includes('vercel.app') || API_BASE_URL.includes('vercel.app'));
+
+    if (useSSEFallbackRef.current || isVercelServerless) {
       startSSEFallback();
       return;
     }
