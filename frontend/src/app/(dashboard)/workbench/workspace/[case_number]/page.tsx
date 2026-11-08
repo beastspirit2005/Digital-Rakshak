@@ -26,7 +26,15 @@ import {
   Building2,
   PhoneCall,
   Mail,
-  AlertCircle, X } from "lucide-react";
+  AlertCircle,
+  X,
+  Copy,
+  Check,
+  Code,
+  CreditCard,
+  Hash,
+  Globe
+} from "lucide-react";
 
 import { RAICExecutionMonitor } from "@/components/ui/RAICExecutionMonitor";
 import { CaseStepper } from "@/components/case/CaseStepper";
@@ -90,6 +98,16 @@ export default function InvestigatorWorkspacePage() {
   // Correction state for NTIR training
   const [correctionNote, setCorrectionNote] = useState<string>("");
   const [actionStatus, setActionStatus] = useState<string | null>(null);
+  const [showRawEntities, setShowRawEntities] = useState<boolean>(false);
+  const [copiedEntity, setCopiedEntity] = useState<string | null>(null);
+
+  const copyEntityToClipboard = (val: string) => {
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(val);
+      setCopiedEntity(val);
+      setTimeout(() => setCopiedEntity(null), 2000);
+    }
+  };
 
   const apiBase = API_BASE_URL;
 
@@ -673,15 +691,125 @@ export default function InvestigatorWorkspacePage() {
 
                 {/* Entity Intelligence Breakdown Panel */}
                 <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-4 font-mono text-xs">
-                  <h4 className="font-bold text-slate-200 text-sm border-b border-slate-800 pb-2 flex items-center gap-2">
-                    <Zap className="w-4 h-4 text-amber-400" /> Attack DNA Profile
-                  </h4>
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                    <h4 className="font-bold text-slate-200 text-sm flex items-center gap-2">
+                      <Zap className="w-4 h-4 text-amber-400" /> Attack DNA Profile
+                    </h4>
+                    <button
+                      type="button"
+                      onClick={() => setShowRawEntities(!showRawEntities)}
+                      className="text-[10px] flex items-center gap-1.5 px-2 py-0.5 rounded border border-slate-700 bg-slate-900 text-slate-300 hover:text-white hover:border-slate-500 transition-colors"
+                    >
+                      <Code className="w-3 h-3 text-amber-400" />
+                      {showRawEntities ? "Visual Chips" : "Raw JSON"}
+                    </button>
+                  </div>
+
                   <div className="space-y-3 text-slate-300">
                     <div>
-                      <span className="text-slate-500 text-[10px] block uppercase">Extracted Entities:</span>
-                      <pre className="mt-1 font-semibold text-emerald-300 text-[10px] whitespace-pre-wrap">
-                        {JSON.stringify(caseData.ai_decision?.entities || {}, null, 2)}
-                      </pre>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-slate-400 text-[10px] font-bold uppercase tracking-wider">
+                          Extracted Threat Vectors
+                        </span>
+                        {showRawEntities && (
+                          <button
+                            type="button"
+                            onClick={() => copyEntityToClipboard(JSON.stringify(caseData.ai_decision?.entities || {}, null, 2))}
+                            className="text-[10px] text-amber-400 hover:text-amber-300 flex items-center gap-1"
+                          >
+                            {copiedEntity === JSON.stringify(caseData.ai_decision?.entities || {}, null, 2) ? (
+                              <>
+                                <Check className="w-3 h-3 text-emerald-400" /> Copied JSON
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="w-3 h-3" /> Copy JSON
+                              </>
+                            )}
+                          </button>
+                        )}
+                      </div>
+
+                      {showRawEntities ? (
+                        <pre className="mt-1 p-3 rounded-lg bg-slate-900 border border-slate-800 font-mono font-medium text-emerald-300 text-[11px] whitespace-pre-wrap overflow-x-auto">
+                          {JSON.stringify(caseData.ai_decision?.entities || {}, null, 2)}
+                        </pre>
+                      ) : (
+                        (() => {
+                          const rawEntities = caseData.ai_decision?.entities || {};
+                          const entityConfig: Record<string, { label: string; icon: any; color: string; bg: string }> = {
+                            PHONE: { label: "Phone Number", icon: PhoneCall, color: "text-sky-300 border-sky-800/60", bg: "bg-sky-950/40" },
+                            UPI: { label: "UPI VPA Handle", icon: CreditCard, color: "text-purple-300 border-purple-800/60", bg: "bg-purple-950/40" },
+                            ACCOUNT: { label: "Beneficiary Account", icon: Building2, color: "text-emerald-300 border-emerald-800/60", bg: "bg-emerald-950/40" },
+                            IFSC: { label: "Bank IFSC Code", icon: Database, color: "text-amber-300 border-amber-800/60", bg: "bg-amber-950/40" },
+                            UTR: { label: "Payment UTR Ref", icon: Hash, color: "text-indigo-300 border-indigo-800/60", bg: "bg-indigo-950/40" },
+                            URLS: { label: "Phishing Infrastructure", icon: Globe, color: "text-rose-300 border-rose-800/60", bg: "bg-rose-950/40" },
+                          };
+
+                          const activeEntries = Object.entries(rawEntities).filter(([_, val]) =>
+                            Array.isArray(val) ? val.length > 0 : Boolean(val)
+                          );
+
+                          if (activeEntries.length === 0) {
+                            return (
+                              <div className="p-3 rounded-lg border border-slate-800 bg-slate-900/60 text-slate-400 text-[11px] text-center">
+                                No specific financial identifiers or phone numbers extracted from this incident narrative.
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <div className="space-y-2">
+                              {activeEntries.map(([key, rawVal]) => {
+                                const config = entityConfig[key.toUpperCase()] || {
+                                  label: key,
+                                  icon: AlertCircle,
+                                  color: "text-slate-300 border-slate-700",
+                                  bg: "bg-slate-900/60",
+                                };
+                                const IconComp = config.icon;
+                                const items: string[] = Array.isArray(rawVal) ? rawVal : [String(rawVal)];
+
+                                return (
+                                  <div key={key} className={`p-2.5 rounded-lg border ${config.bg} ${config.color} space-y-1.5`}>
+                                    <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                      <span className="flex items-center gap-1.5">
+                                        <IconComp className="w-3.5 h-3.5" />
+                                        {config.label}
+                                      </span>
+                                      <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-800/80 text-slate-300 font-mono">
+                                        {items.length}
+                                      </span>
+                                    </div>
+                                    <div className="flex flex-wrap gap-1.5">
+                                      {items.map((item, idx) => (
+                                        <div
+                                          key={idx}
+                                          className="group inline-flex items-center gap-1.5 px-2 py-1 rounded bg-slate-900/90 border border-slate-700/80 text-slate-200 font-mono text-[11px]"
+                                        >
+                                          <span>{item}</span>
+                                          <button
+                                            type="button"
+                                            onClick={() => copyEntityToClipboard(item)}
+                                            title="Copy to clipboard"
+                                            className="text-slate-500 hover:text-amber-400 transition-colors ml-0.5"
+                                          >
+                                            {copiedEntity === item ? (
+                                              <Check className="w-3 h-3 text-emerald-400" />
+                                            ) : (
+                                              <Copy className="w-3 h-3 opacity-60 group-hover:opacity-100" />
+                                            )}
+                                          </button>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        })()
+                      )}
                     </div>
                     <div className="p-3 rounded bg-slate-900/80 border border-slate-800 space-y-1">
                       <span className="text-amber-400 font-bold">Syndicate Risk Assessment:</span>
