@@ -208,6 +208,7 @@ async def trigger_automated_takedown(
             if txn.beneficiary_vpa:
                 candidate_upis.add(txn.beneficiary_vpa.strip())
     except Exception as txn_err:
+        await db.rollback()
         logger.warning(f"Note on financial transactions scan for takedown: {txn_err}")
 
     filtered_upis = [u for u in candidate_upis if "@" in u][:5]
@@ -223,42 +224,64 @@ async def trigger_automated_takedown(
             "policies_drafted": [],
         }
 
+    # Deduplicate against existing policies
+    existing_targets = set()
+    try:
+        existing_res = await db.execute(
+            select(TakedownPolicy.target).where(TakedownPolicy.case_number == case_number)
+        )
+        existing_targets = set(existing_res.scalars().all())
+    except Exception as ex_err:
+        await db.rollback()
+        logger.warning(f"Note querying existing takedown targets: {ex_err}")
+
     policies_drafted = []
 
     for upi in filtered_upis:
-        p = TakedownPolicy(
-            case_number=case_number,
-            target=upi,
-            target_type="upi",
-            action="freeze_account",
-            reason=f"AI Entity Extraction: UPI ID {upi} linked to fraud incident {case_number}.",
-        )
-        db.add(p)
+        if upi not in existing_targets:
+            p = TakedownPolicy(
+                case_number=case_number,
+                target=upi,
+                target_type="upi",
+                action="freeze_account",
+                reason=f"AI Entity Extraction: UPI ID {upi} linked to fraud incident {case_number}.",
+            )
+            db.add(p)
+            existing_targets.add(upi)
         policies_drafted.append(upi)
 
     for phone in filtered_phones:
-        p = TakedownPolicy(
-            case_number=case_number,
-            target=phone,
-            target_type="phone",
-            action="block_sim",
-            reason=f"AI Entity Extraction: Phone number {phone} extracted from {case_number} evidence.",
-        )
-        db.add(p)
+        if phone not in existing_targets:
+            p = TakedownPolicy(
+                case_number=case_number,
+                target=phone,
+                target_type="phone",
+                action="block_sim",
+                reason=f"AI Entity Extraction: Phone number {phone} extracted from {case_number} evidence.",
+            )
+            db.add(p)
+            existing_targets.add(phone)
         policies_drafted.append(phone)
 
     for url in filtered_urls:
-        p = TakedownPolicy(
-            case_number=case_number,
-            target=url,
-            target_type="url",
-            action="block_domain",
-            reason=f"AI Entity Extraction: Phishing/fraud URL {url} found in {case_number} evidence.",
-        )
-        db.add(p)
+        if url not in existing_targets:
+            p = TakedownPolicy(
+                case_number=case_number,
+                target=url,
+                target_type="url",
+                action="block_domain",
+                reason=f"AI Entity Extraction: Phishing/fraud URL {url} found in {case_number} evidence.",
+            )
+            db.add(p)
+            existing_targets.add(url)
         policies_drafted.append(url)
 
-    await db.commit()
+    try:
+        await db.commit()
+    except Exception as commit_err:
+        await db.rollback()
+        logger.error(f"Error persisting takedown policies: {commit_err}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to persist drafted takedown policies")
 
     return {
         "status": "success",
