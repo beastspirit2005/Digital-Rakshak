@@ -2,6 +2,8 @@ backend/venv/
 backend/.venv/
 backend/venv_clean/
 backend/models/
+backend/wheels/
+*.whl
 backend/data/
 backend/uploads/
 backend/__pycache__/
@@ -12,6 +14,8 @@ redis_data/
 node_modules/
 frontend/node_modules/
 .next/
+frontend/.next/
+.vercel/
 out/
 *.csv
 .env*
