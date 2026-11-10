@@ -128,8 +128,11 @@ class BankIntegrationGateway:
         )
         attempt_number = len(res_prev.scalars().all()) + 1
 
+        # Commit read transaction before external network call to avoid holding DB connection during HTTP I/O
+        await db.commit()
+
         try:
-            # Deliver under circuit breaker supervision
+            # Deliver under circuit breaker supervision (outside open database transaction)
             dispatch_result = await cls.delivery_manager.execute_delivery(escalation, target_bank)
 
             # Record Physical Delivery Attempt

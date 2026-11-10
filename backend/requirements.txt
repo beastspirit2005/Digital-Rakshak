@@ -36,4 +36,5 @@ razorpay>=1.4.1
 
 # PDF Generation & Invoicing
 reportlab>=4.0.0
-Pillow>=10.0.0
+Pillow>=10.0.0
+sentry-sdk[fastapi]>=2.0.0

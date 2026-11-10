@@ -160,6 +160,31 @@ To ensure enterprise robustness, audit compliance, and zero synthetic shortcuts 
 *   **Frontend Type Safety & API URL Standardization:**
     *   Standardized all API requests to use `API_BASE_URL` with Next.js URL rewrites, eliminating hardcoded `127.0.0.1:8000` URLs and achieving **0 errors** across the complete TypeScript build.
 
+### 19. Managed Outbox Execution, Observability & Institutional Sandbox Assurance (V2.4)
+To ensure reliable, crash-safe inter-bank escalation and statutory evidentiary admissibility:
+*   **Dual-Mode Transactional Outbox:**
+    *   *Serverless Scheduled Sweeper:* Automated cron execution (`POST /api/v1/internal/outbox/sweep`) running every minute via Vercel Cron, protected by dedicated `CRON_SECRET` token authentication and bounded by a 25-second timeout budget to guarantee clean termination within hosting limits.
+    *   *Persistent Container Daemon (`backend/runtime/outbox_worker_daemon.py`):* Standalone worker daemon for containerized/Docker environments with configurable polling cadences and graceful signal handling (`SIGINT`/`SIGTERM`).
+*   **Crash Recovery & Lease Governance:**
+    *   *Atomic Claims via SKIP LOCKED:* Concurrent workers claim non-overlapping outbox batches using PostgreSQL `FOR UPDATE SKIP LOCKED`.
+    *   *Automatic Expired Lease Recycling:* Abandoned or zombie locks from crashed workers are detected via `lease_expires_at` and automatically recycled to `RETRY_SCHEDULED`.
+    *   *Two-Phase Transaction Decoupling:* Database transactions are committed before initiating external HTTP calls, preventing prolonged PostgreSQL locks during network I/O.
+    *   *Execution History Ledger (`OutboxWorkerRun`):* Full audit tracking of sweeper runs, durations, claimed batches, and failure reasons.
+*   **Production Observability & Privacy Protection:**
+    *   *Distributed Correlation Tracing (`CorrelationIdMiddleware`):* Propagates `X-Correlation-ID` across all REST calls, agent execution, outbox events, and external banking requests.
+    *   *Structured JSON Logging (`StructuredJsonFormatter`):* Emits machine-readable JSON logs with automated regex scrubbing for Indian Aadhaar cards, bank account numbers, 10-digit mobile numbers, and authorization tokens.
+    *   *Hardened Sentry APM Integration:* Recursive request/breadcrumb sanitizer strips auth headers, bearer tokens, and victim narrative details before external dispatch.
+    *   *Enhanced Institutional Health Diagnostics (`/institutional/health`):* Live monitoring of database latency ping, queue depths, active leases, oldest pending age, circuit breaker status, and degraded alert thresholds.
+*   **Institutional Sandbox Testing Environment (`/api/v1/sandbox/bank`):**
+    *   *Receiver-Side Idempotency Store (`MockBankReceiverStore`):* Simulates receiving core-banking switches, caching responses by `idempotency_key` and returning exact cached actions on network retries without duplicate debits or freezes.
+    *   *10 Configurable Fault-Injection Scenarios:* Simulates HTTP 429 rate limiting, 500 core errors, 504 timeouts, connection resets, invalid credentials, malformed schemas, partial debit holds ($F < P$), and conflicting financial reports.
+    *   *Cryptographic Callback Webhook Verification:* Enforces HMAC-SHA256 signature verification over canonical `timestamp.payload` bytes, rejects callbacks with >300s clock skew, and rejects duplicate nonces.
+*   **Statutory Evidentiary Governance (BSA 2023 Sec 63 & BNSS 2023):**
+    *   *Section 63(4) BSA 2023 Certificate Generation:* Generates court-admissible electronic record certificates declaring ordinary course of duty, computing integrity, and accurate representation.
+    *   *Continuous SHA-256 Merkle Hash Chain:* Cryptographically links every lifecycle transition ($H_n = \text{SHA256}(H_{n-1} \parallel \dots)$), immediately flagging payload mutations, sequence gaps, or event reordering with `TAMPER_DETECTED`.
+    *   *Statutory Powers Invocation:* Explicitly documents invocation of Section 94 BNSS (summons for bank data) and Section 106 BNSS (police seizure of financial property/debit freezes).
+*   **Comprehensive 54/54 Verification Test Battery:** All 6 specialized test suites (`test_outbox_sweeper.py`, `test_observability.py`, `test_institutional_sandbox.py`, `test_v2_4_security_audit.py`, `test_audit_chain_tamper_detection.py`, `test_v2_4_e2e_resilience.py`) verified with 100% pass rate.
+
 ---
 
 ## System Architecture
@@ -283,10 +308,29 @@ graph TD
     FrictionEng -->|"Live Stream Broadcast"| WSManager
     WSManager --> TxCockpit
 
-    %% 1-Click Police Escalation
+    %% 1-Click Police Escalation & Outbox Lifecycle (V2.4)
     TxCockpit -->|"1-Click Escalate to Case"| Escalator
     Escalator -->|"Create Official Case Record"| PIIShield
     Escalator -.->|"Auto-Reflected in Police Dossier"| PoliceWorkbench
+    PoliceWorkbench -->|"Bank Escalation Approval"| OutboxWorker
+
+    %% Transactional Outbox & Statutory Admissibility (V2.4)
+    subgraph OutboxSubsystem ["Transactional Outbox & Institutional Dispatch Core (V2.4)"]
+        SweeperCron["Vercel Cron Sweeper /internal/outbox/sweep"]
+        DaemonWorker["Standalone Worker Daemon outbox_worker_daemon.py"]
+        OutboxWorker["OutboxWorker: SKIP LOCKED & Lease Recovery"]
+        BankGateway["BankIntegrationGateway & CircuitBreaker"]
+        MockBank["Institutional Sandbox: MockBankReceiverStore"]
+        BSAEngine["FraudLifecycleEngine: BSA 2023 Sec 63 Merkle Chain"]
+    end
+
+    SweeperCron -->|"Bearer CRON_SECRET"| OutboxWorker
+    DaemonWorker -->|"Continuous 10s Poll"| OutboxWorker
+    OutboxWorker -->|"Atomic Claim & 2-Phase Commit"| PG
+    OutboxWorker -->|"Idempotent Dispatch"| BankGateway
+    BankGateway -->|"Simulated Delivery & Scenarios"| MockBank
+    BankGateway -->|"Merkle Event Sealing"| BSAEngine
+    BSAEngine -->|"Section 63(4) Certificate"| PoliceWorkbench
 
     %% Persistence Interconnects
     ThreatA & BehA & CampA --> PIIShield

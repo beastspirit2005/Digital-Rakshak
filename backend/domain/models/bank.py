@@ -328,9 +328,32 @@ class InstitutionalOutboxEvent(Base):
     available_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     locked_at = Column(DateTime(timezone=True), nullable=True)
     locked_by = Column(String(128), nullable=True)
+    lease_expires_at = Column(DateTime(timezone=True), nullable=True)
     last_error = Column(Text, nullable=True)
+    last_error_code = Column(String(64), nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     processed_at = Column(DateTime(timezone=True), nullable=True)
+
+
+class OutboxWorkerRun(Base):
+    """
+    Audit log of outbox worker invocations, heartbeats, and throughput metrics.
+    Enables operational visibility into Vercel crons and background execution.
+    """
+    __tablename__ = "outbox_worker_runs"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    worker_id = Column(String(128), nullable=False, index=True)
+    trigger_type = Column(String(32), default="CRON", nullable=False) # CRON, ON_DEMAND, DAEMON, MANUAL
+    started_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+    duration_ms = Column(Integer, nullable=True)
+    events_claimed = Column(Integer, default=0, nullable=False)
+    events_processed = Column(Integer, default=0, nullable=False)
+    events_retry_scheduled = Column(Integer, default=0, nullable=False)
+    events_dead_lettered = Column(Integer, default=0, nullable=False)
+    status = Column(String(32), default="RUNNING", nullable=False, index=True) # RUNNING, SUCCESS, PARTIAL_FAILURE, TIMEOUT_ABORTED, FAILED
+    error_summary = Column(Text, nullable=True)
 
 
 class FinancialFundPosition(Base):

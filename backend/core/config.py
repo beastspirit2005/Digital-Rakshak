@@ -53,6 +53,17 @@ class Settings(BaseSettings):
     RAZORPAY_KEY_SECRET: Optional[str] = None
     RAZORPAY_WEBHOOK_SECRET: Optional[str] = None
 
+    # Outbox Scheduler & Hardening (V2.4)
+    CRON_SECRET: str = "dr_cron_secret_v24_hardened"
+    OUTBOX_BATCH_SIZE: int = 10
+    OUTBOX_LEASE_SECONDS: int = 30
+    OUTBOX_TIMEOUT_BUDGET_SECONDS: int = 25
+
+    # Observability & Monitoring (V2.4)
+    SENTRY_DSN: Optional[str] = None
+    ENVIRONMENT: str = "production" if os.environ.get("VERCEL") == "1" else "development"
+    RELEASE_VERSION: str = "v2.4.0" 
+
     _base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     model_config = SettingsConfigDict(
         env_file=[

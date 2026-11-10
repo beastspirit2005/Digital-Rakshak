@@ -917,15 +917,38 @@ async def get_institutional_health_metrics(
 ):
     """
     Returns real-time gateway health: per-bank circuit breaker status,
-    transactional outbox queue depths, and worker heartbeat.
+    transactional outbox queue depths, database latency, and worker heartbeat.
     """
+    import time
+    from core.config import settings
+
+    t0 = time.time()
+    await db.execute(select(1))
+    db_latency_ms = round((time.time() - t0) * 1000, 2)
+
     outbox_metrics = await OutboxWorker.get_queue_metrics(db)
     cb_metrics = BankIntegrationGateway.get_health_metrics()
 
+    # Calculate active operational alerts
+    tripped_cbs = sum(1 for v in cb_metrics.values() if v.get("state") in ("OPEN", "HALF_OPEN"))
+    dead_letters = outbox_metrics.get("dead_letter", 0)
+    sla_breaches = 1 if outbox_metrics.get("oldest_pending_age_seconds", 0) > 300 else 0
+
+    is_degraded = tripped_cbs > 0 or dead_letters > 0 or sla_breaches > 0
+
     return {
-        "status": "OPERATIONAL",
+        "status": "DEGRADED" if is_degraded else "OPERATIONAL",
         "timestamp": datetime.now(timezone.utc).isoformat(),
+        "environment": getattr(settings, "ENVIRONMENT", "production"),
+        "release": getattr(settings, "RELEASE_VERSION", "v2.4.0"),
+        "database_latency_ms": db_latency_ms,
         "outbox_metrics": outbox_metrics,
         "circuit_breakers": cb_metrics,
+        "alerts_summary": {
+            "tripped_circuit_breakers": tripped_cbs,
+            "dead_letter_events": dead_letters,
+            "outbox_sla_breaches": sla_breaches,
+            "expired_leases": outbox_metrics.get("expired_leases", 0)
+        },
         "sla_disclaimer": "Metrics reflect internal adapter dispatch and queue health. Institutional bank processing times are subject to partner rail availability."
     }

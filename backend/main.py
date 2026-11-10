@@ -9,6 +9,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from core.config import settings
 import logging
+from core.sentry_integration import init_sentry
+from core.logging_config import setup_structured_logging
+from core.correlation_middleware import CorrelationIdMiddleware
+
+# Initialize Sentry APM & Structured JSON Logging
+init_sentry()
+setup_structured_logging()
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
@@ -234,6 +241,7 @@ class EnterpriseSecurityHeadersMiddleware(BaseHTTPMiddleware):
         return response
 
 
+app.add_middleware(CorrelationIdMiddleware)
 app.add_middleware(EnterpriseSecurityHeadersMiddleware)
 app.add_middleware(RequestSizeLimitMiddleware, max_upload_size=30 * 1024 * 1024)
 app.add_middleware(GZipMiddleware, minimum_size=1000)
@@ -281,6 +289,8 @@ from api.v1.admin_disputes import router as admin_disputes_router
 from api.v1.police_proximity import router as police_proximity_router
 from api.v1.notifications import router as notifications_router
 from api.v1.bank_escalation import router as bank_escalation_router
+from api.v1.internal_sweeper import router as internal_sweeper_router
+from api.v1.mock_bank_router import router as mock_bank_router
 
 app.include_router(auth_router, prefix=f"{settings.API_V1_STR}/auth", tags=["auth"])
 app.include_router(users_router, prefix=f"{settings.API_V1_STR}/users", tags=["users"])
@@ -312,6 +322,8 @@ app.include_router(admin_disputes_router, prefix=f"{settings.API_V1_STR}")
 app.include_router(police_proximity_router, prefix=f"{settings.API_V1_STR}")
 app.include_router(notifications_router, prefix=f"{settings.API_V1_STR}")
 app.include_router(bank_escalation_router, prefix=f"{settings.API_V1_STR}", tags=["bank_escalation"])
+app.include_router(internal_sweeper_router, prefix=f"{settings.API_V1_STR}", tags=["internal_sweeper"])
+app.include_router(mock_bank_router, prefix=f"{settings.API_V1_STR}", tags=["mock_bank"])
 
 
 
