@@ -562,8 +562,14 @@ export default function PersonalProtectionPortal() {
               <span className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
                 Zero-Day Threat Scanner
               </span>
-              <span className="text-xs text-muted-foreground">
-                {isOfficialRole ? "Institutional Officer Shield Active" : isPro ? "Unlimited Scans Active" : "5 Free Daily Guest Scans"}
+              <span className="text-xs text-muted-foreground font-medium">
+                {isOfficialRole
+                  ? "Institutional Officer Shield Active"
+                  : isPro
+                  ? "Pro Shield • Unlimited Deep Scans"
+                  : isAuthenticated
+                  ? "Free Citizen Account • Unlimited Scans"
+                  : "5 Free Daily Guest Scans"}
               </span>
             </div>
 
