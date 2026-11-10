@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { useAuthStore } from "@/lib/auth-store";
 import { api, formatApiError } from "@/lib/api";
+import { cn } from "@/lib/utils";
 import axios from "axios";
 import {
   ShieldAlert,
@@ -373,10 +374,15 @@ export default function PoliceVictimsMapPage() {
           <Button
             onClick={handleUseCurrentGPS}
             variant="secondary"
-            className="inline-flex items-center gap-2 text-xs font-bold border-cyan-500/40 bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20 shadow-sm"
+            className={cn(
+              "inline-flex items-center gap-2 text-xs font-bold transition-all shadow-xs",
+              isLivePatrol
+                ? "bg-cyan-500/20 text-cyan-800 dark:text-cyan-200 border-cyan-500/50 ring-1 ring-cyan-500/30"
+                : "border-cyan-500/40 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 hover:bg-cyan-500/20"
+            )}
           >
-            <Compass className="w-4 h-4 text-cyan-400 animate-pulse" />
-            <span>Scan Near My Location</span>
+            <Compass className={cn("w-4 h-4", isLivePatrol ? "text-cyan-600 dark:text-cyan-300 animate-spin-slow" : "text-cyan-600 dark:text-cyan-400 animate-pulse")} />
+            <span>{isLivePatrol ? "Live GPS Radar Active" : "Scan Near My Location"}</span>
           </Button>
 
           {isAdmin && (
@@ -497,19 +503,28 @@ export default function PoliceVictimsMapPage() {
       <div className="p-4 rounded-2xl bg-surface-2 border border-border shadow-sm space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-center">
           {/* Station / State Selector */}
-          <div className="lg:col-span-4 space-y-1">
-            <label className="text-[11px] font-bold uppercase tracking-wider text-ink-3 flex items-center justify-between">
-              <span>{isAllIndia ? "State Filter" : "Anchor Station"}</span>
+          <div className="lg:col-span-4 space-y-1.5">
+            <div className="flex items-center justify-between gap-2 pb-0.5">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-ink-3">
+                {isAllIndia ? "State Filter" : "Anchor Station"}
+              </label>
               {!isAllIndia && (
                 <button
+                  type="button"
                   onClick={handleUseCurrentGPS}
-                  className="text-cyan-400 hover:text-cyan-300 lowercase text-[11px] flex items-center gap-1"
+                  title="Detect device GPS coordinates and anchor radar here"
+                  className={cn(
+                    "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all border shadow-xs cursor-pointer",
+                    isLivePatrol
+                      ? "bg-cyan-500 text-white border-cyan-600 shadow-sm"
+                      : "bg-surface-1 hover:bg-surface-3 text-cyan-700 dark:text-cyan-300 border-border hover:border-cyan-500/40"
+                  )}
                 >
-                  <Compass className="w-3 h-3" />
-                  <span>gps</span>
+                  <Compass className={cn("w-3.5 h-3.5", isLivePatrol ? "animate-pulse" : "text-cyan-600 dark:text-cyan-400")} />
+                  <span>{isLivePatrol ? "Live GPS Active" : "Detect GPS"}</span>
                 </button>
               )}
-            </label>
+            </div>
 
             {isAllIndia ? (
               <select

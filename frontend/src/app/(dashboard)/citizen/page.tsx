@@ -318,10 +318,15 @@ if (!token) return;
                 variant="secondary"
                 size="sm"
                 onClick={handleDetectNearestCell}
-                className="inline-flex items-center gap-1.5 text-xs font-semibold"
+                className={cn(
+                  "inline-flex items-center gap-2 text-xs font-semibold transition-all shadow-xs",
+                  userCoords
+                    ? "bg-amber-500/20 text-amber-800 dark:text-amber-200 border-amber-500/50 ring-1 ring-amber-500/30"
+                    : "border-border bg-surface-1 hover:bg-surface-3 text-ink-2 hover:text-ink"
+                )}
               >
-                <Compass className="w-3.5 h-3.5 text-amber-400" />
-                <span>Locate Near Me</span>
+                <Compass className={cn("w-3.5 h-3.5", userCoords ? "text-amber-600 dark:text-amber-400 animate-pulse" : "text-amber-500")} />
+                <span>{userCoords ? "GPS Position Locked" : "Locate Near Me (GPS)"}</span>
               </Button>
               <Link
                 href="/locator"
@@ -347,7 +352,14 @@ if (!token) return;
             <div className="lg:col-span-4 space-y-2.5 h-80 sm:h-96 overflow-y-auto pr-1">
               <div className="text-xs font-semibold text-ink-3 px-1 flex items-center justify-between">
                 <span>Verified Stations ({locations.length})</span>
-                <span className="font-mono text-[10px]">100% Gov Verified</span>
+                {userCoords ? (
+                  <span className="font-mono text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    GPS Active ({userCoords.lat.toFixed(2)}, {userCoords.lng.toFixed(2)})
+                  </span>
+                ) : (
+                  <span className="font-mono text-[10px]">100% Gov Verified</span>
+                )}
               </div>
 
               {locationsLoading ? (
