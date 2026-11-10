@@ -1,10 +1,4 @@
 {
-  "crons": [
-    {
-      "path": "/api/v1/internal/outbox/sweep",
-      "schedule": "* * * * *"
-    }
-  ],
   "experimentalServices": {
     "frontend": {
       "entrypoint": "frontend",
