@@ -538,10 +538,22 @@ async def live_prevention_scan_qr(
     if kind is None or kind.mime not in ["image/jpeg", "image/png"]:
         raise HTTPException(status_code=400, detail=f"Invalid file signature for QR code. Expected image.")
         
-    payload = decoder.decode_image(contents)
+    payload = await decoder.decode_image_async(contents)
     
     if not payload:
-        raise HTTPException(status_code=400, detail="No valid QR code found in the image.")
+        return ScanResponse(
+            is_safe=False,
+            risk_level="HIGH",
+            indicator_status="SUSPICIOUS",
+            reasons=["Optical QR Decoder could not detect an authentic QR code or payment matrix in the uploaded image."],
+            guidance=[
+                "Ensure the QR code is clearly visible, well-lit, and uncropped.",
+                "Official bank and merchant QR codes contain readable UPI or HTTPS payloads.",
+                "Avoid scanning blurry or obscured QR codes sent via WhatsApp or Telegram."
+            ],
+            attack_dna_match=None,
+            related_cases=None
+        )
         
     # Pipe the hidden payload into the existing AI and OSINT pipeline
     # We will pass it as `text` so the native AI model parses the full intent
