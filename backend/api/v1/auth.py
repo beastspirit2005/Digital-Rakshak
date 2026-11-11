@@ -1,3 +1,4 @@
+import os
 import uuid
 import secrets
 import logging
@@ -105,7 +106,6 @@ class ResetPasswordRequest(BaseModel):
     def lower_email(cls, v: str):
         return v.lower() if v else v
     
-    from pydantic import field_validator
     @field_validator('new_password')
     @classmethod
     def validate_password(cls, v):
@@ -773,7 +773,14 @@ async def google_auth(request: Request, data: GoogleAuthRequest, db: AsyncSessio
     # 1. Verify token with Google Identity Services endpoint
     # Allow mock tokens during automated testing / development when offline
     google_data = None
-    if credential.startswith("mock_google_token_") and getattr(settings, "APP_ENV", "development") != "production":
+    is_production = settings.ENVIRONMENT == "production" or os.getenv("VERCEL") == "1"
+
+    if credential.startswith("mock_google_token_"):
+        if is_production:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Mock developer authentication is strictly disabled in production environments."
+            )
         raw = credential[len("mock_google_token_"):]
         if "|" in raw:
             mock_email, mock_name = raw.split("|", 1)
@@ -810,6 +817,12 @@ async def google_auth(request: Request, data: GoogleAuthRequest, db: AsyncSessio
             )
 
     # 2. Validate Google payload claims
+    if is_production and not settings.GOOGLE_CLIENT_ID:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Google Authentication client is not configured on this server."
+        )
+
     if settings.GOOGLE_CLIENT_ID and google_data.get("aud") != settings.GOOGLE_CLIENT_ID:
         raise HTTPException(
             status_code=401,

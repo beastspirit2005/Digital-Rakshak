@@ -41,11 +41,10 @@ router = APIRouter(prefix="/evidence", tags=["Evidence Vault Repository (EVR)"])
 MAX_EVIDENCE_SIZE_BYTES = 25 * 1024 * 1024  # 25 MB
 
 BLOCKED_EXTENSIONS = {
-
     ".exe", ".bat", ".cmd", ".sh", ".ps1", ".vbs", ".dll", 
-
-    ".scr", ".pif", ".com", ".msi", ".php", ".jsp", ".asp", ".cgi"
-
+    ".scr", ".pif", ".com", ".msi", ".php", ".jsp", ".asp", ".cgi",
+    ".svg", ".html", ".htm", ".xhtml", ".hta", ".wsf", ".reg", ".inf",
+    ".py", ".rb", ".jar", ".js", ".mjs"
 }
 
 
@@ -571,12 +570,15 @@ async def download_evidence_file(
         local_path = os.path.join(repo.upload_dir, filename)
 
     elif path_to_check.startswith("local://"):
-
         local_path = os.path.join(repo.upload_dir, path_to_check.replace("local://", ""))
-
     else:
-
         local_path = path_to_check
+
+    # Assert path canonicalization stays within configured upload_dir to prevent path traversal
+    abs_upload = os.path.abspath(repo.upload_dir)
+    abs_target = os.path.abspath(local_path)
+    if not abs_target.startswith(abs_upload):
+        raise HTTPException(status_code=400, detail="Invalid evidence file path.")
 
 
 

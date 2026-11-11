@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import html
 import json
 import logging
 import uuid
@@ -435,7 +436,7 @@ async def verify_payment(
     )
 
     env = (getattr(settings, "ENVIRONMENT", "") or "").lower()
-    is_prod = env in ("production", "prod")
+    is_prod = env in ("production", "prod") or os.getenv("VERCEL") == "1"
 
     if is_prod and not gateway_configured:
         raise HTTPException(
@@ -443,7 +444,7 @@ async def verify_payment(
             detail="Payment gateway is unconfigured on production environment.",
         )
 
-    if is_prod and is_sandbox_token:
+    if is_prod and (is_sandbox_token or not gateway_configured):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Sandbox payments are not allowed in production.",
@@ -844,13 +845,24 @@ class TaxInvoiceResponse(BaseModel):
 
 
 def _render_invoice_html(inv: TaxInvoiceResponse) -> str:
-    """Renders print-ready GST Tax Invoice document with SAC 998313 and CGST/SGST itemization."""
+    """Renders print-ready GST Tax Invoice document with SAC 998313 and CGST/SGST itemization with XSS protection."""
+    safe_invoice_number = html.escape(str(inv.invoice_number or ""))
+    safe_invoice_date = html.escape(str(inv.invoice_date or ""))
+    safe_payment_status = html.escape(str(inv.payment_status or "PAID"))
+    safe_buyer_name = html.escape(str(inv.buyer_name or "Valued Citizen"))
+    safe_buyer_email = html.escape(str(inv.buyer_email or ""))
+    safe_plan_name = html.escape(str(inv.plan_name or "Digital Rakshak Pro"))
+    safe_supplier_name = html.escape(str(inv.supplier_name or "Digital Rakshak Sovereign Cyber Command"))
+    safe_supplier_gstin = html.escape(str(inv.supplier_gstin or "07AAACD1234F1Z5"))
+    safe_supplier_sac = html.escape(str(inv.supplier_sac_code or "998313"))
+    safe_currency = html.escape(str(inv.currency or "INR"))
+
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Tax Invoice - {inv.invoice_number}</title>
+  <title>Tax Invoice - {safe_invoice_number}</title>
   <style>
     * {{ box-sizing: border-box; }}
     body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #0f172a; margin: 0; padding: 32px 16px; background: #f8fafc; }}
@@ -910,7 +922,7 @@ def _render_invoice_html(inv: TaxInvoiceResponse) -> str:
         </div>
         <div class="invoice-title">
           <h1>Tax Invoice</h1>
-          <div class="badge">{inv.payment_status}</div>
+          <div class="badge">{safe_payment_status}</div>
         </div>
       </div>
 
@@ -918,20 +930,20 @@ def _render_invoice_html(inv: TaxInvoiceResponse) -> str:
         <div>
           <div class="block-label">Supplier Details</div>
           <div class="block-content">
-            <strong>{inv.supplier_name}</strong><br>
+            <strong>{safe_supplier_name}</strong><br>
             Cyber Defense Complex, Tech Zone 4<br>
             New Delhi, India — 110001<br>
-            GSTIN: <strong>{inv.supplier_gstin}</strong><br>
-            SAC Code: <strong>{inv.supplier_sac_code}</strong> (Threat Intel & Software)
+            GSTIN: <strong>{safe_supplier_gstin}</strong><br>
+            SAC Code: <strong>{safe_supplier_sac}</strong> (Threat Intel & Software)
           </div>
         </div>
         <div>
           <div class="block-label">Invoice & Customer Details</div>
           <div class="block-content">
-            Invoice No: <strong>{inv.invoice_number}</strong><br>
-            Invoice Date: <strong>{inv.invoice_date}</strong><br>
-            Billed To: <strong>{inv.buyer_name}</strong><br>
-            Email: <strong>{inv.buyer_email}</strong><br>
+            Invoice No: <strong>{safe_invoice_number}</strong><br>
+            Invoice Date: <strong>{safe_invoice_date}</strong><br>
+            Billed To: <strong>{safe_buyer_name}</strong><br>
+            Email: <strong>{safe_buyer_email}</strong><br>
             Place of Supply: <strong>Delhi (07) / Pan-India</strong>
           </div>
         </div>
@@ -946,13 +958,13 @@ def _render_invoice_html(inv: TaxInvoiceResponse) -> str:
             <th class="text-right">Taxable Value</th>
             <th class="text-right">CGST (9%)</th>
             <th class="text-right">SGST (9%)</th>
-            <th class="text-right">Total ({inv.currency})</th>
+            <th class="text-right">Total ({safe_currency})</th>
           </tr>
         </thead>
         <tbody>
           <tr>
             <td>
-              <strong>{inv.plan_name}</strong><br>
+              <strong>{safe_plan_name}</strong><br>
               <span style="font-size: 11px; color: #64748b;">Continuous Zero-Day AI Defense, Attack DNA Deconstruction & Graph Correlation</span>
             </td>
             <td>{inv.supplier_sac_code}</td>

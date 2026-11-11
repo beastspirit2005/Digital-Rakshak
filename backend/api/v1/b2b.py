@@ -175,6 +175,38 @@ async def get_org_from_api_key(
     )
 
 
+def require_b2b_scope(required_scope: str):
+    """
+    Enforces that when authenticating via an API key, the key possesses the required scope.
+    If authenticated via an interactive session user with an org role, the check passes.
+    """
+    async def _scope_checker(
+        x_api_key: Optional[str] = Header(None, description="Digital Rakshak B2B API key (dr_live_...)"),
+        user: Optional[User] = Depends(get_current_user_optional),
+        db: AsyncSession = Depends(get_db),
+    ) -> Organization:
+        org = await get_org_from_api_key(x_api_key=x_api_key, user=user, db=db)
+        if x_api_key and x_api_key.startswith("dr_"):
+            key_hash = ApiKey.hash_key(x_api_key)
+            prefix = x_api_key[:12]
+            res = await db.execute(
+                select(ApiKey).where(
+                    ApiKey.key_prefix == prefix,
+                    ApiKey.key_hash == key_hash,
+                    ApiKey.is_active == True,
+                )
+            )
+            key_rec = res.scalar_one_or_none()
+            if key_rec and key_rec.scopes is not None:
+                if required_scope not in key_rec.scopes:
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail=f"API key lacks the required '{required_scope}' scope for this action.",
+                    )
+        return org
+    return _scope_checker
+
+
 # ── Quota guard helper ───────────────────────────────────────────────────────
 
 async def _check_and_increment_quota(
@@ -296,7 +328,7 @@ class ApiKeyCreatedResponse(ApiKeyResponse):
 )
 async def ingest_events(
     body: IngestRequest,
-    org: Organization = Depends(get_org_from_api_key),
+    org: Organization = Depends(require_b2b_scope("events:write")),
     db: AsyncSession = Depends(get_db),
 ) -> IngestResponse:
     """
@@ -362,7 +394,7 @@ SEVERITY_LEVELS = {
 async def stream_org_alerts(
     min_severity: Optional[str] = Query(None, description="Filter stream by minimum severity: low, medium, high, critical"),
     category: Optional[str] = Query(None, description="Filter stream by category / event type (e.g. phishing_url, brute_force)"),
-    org: Organization = Depends(get_org_from_api_key),
+    org: Organization = Depends(require_b2b_scope("alerts:read")),
 ) -> StreamingResponse:
     """
     Establishes a Server-Sent Events (SSE) stream scoped to the authenticated
@@ -443,7 +475,7 @@ async def stream_org_alerts(
 )
 async def export_stix_bundle(
     limit: int = Query(50, ge=1, le=500, description="Maximum number of threat indicator objects to export"),
-    org: Organization = Depends(get_org_from_api_key),
+    org: Organization = Depends(require_b2b_scope("alerts:read")),
     db: AsyncSession = Depends(get_db),
 ) -> Dict[str, Any]:
     """
@@ -517,7 +549,7 @@ async def export_stix_bundle(
 
 @router.get("/keys", response_model=List[ApiKeyResponse], summary="List API keys for this org")
 async def list_api_keys(
-    org: Organization = Depends(get_org_from_api_key),
+    org: Organization = Depends(require_b2b_scope("keys:manage")),
     db: AsyncSession = Depends(get_db),
 ) -> List[ApiKeyResponse]:
     result = await db.execute(
@@ -547,7 +579,7 @@ async def list_api_keys(
 )
 async def create_api_key(
     body: CreateApiKeyRequest,
-    org: Organization = Depends(get_org_from_api_key),
+    org: Organization = Depends(require_b2b_scope("keys:manage")),
     db: AsyncSession = Depends(get_db),
 ) -> ApiKeyCreatedResponse:
     """
@@ -593,7 +625,7 @@ async def create_api_key(
 @router.delete("/keys/{key_id}", status_code=status.HTTP_204_NO_CONTENT, summary="Revoke an API key")
 async def revoke_api_key(
     key_id: str,
-    org: Organization = Depends(get_org_from_api_key),
+    org: Organization = Depends(require_b2b_scope("keys:manage")),
     db: AsyncSession = Depends(get_db),
 ) -> None:
     try:

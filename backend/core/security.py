@@ -33,9 +33,9 @@ ACCEPTED_ALGORITHMS = ["HS256"]
 def decode_access_token(token: str):
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=ACCEPTED_ALGORITHMS)
-        # Reject tokens explicitly issued by foreign issuers
+        # Enforce sovereign issuer claim verification
         token_iss = payload.get("iss")
-        if token_iss and token_iss != "digital-rakshak":
+        if token_iss != "digital-rakshak":
             return None
         return payload
     except jwt.JWTError as e:

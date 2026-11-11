@@ -104,7 +104,7 @@ async def test_b2b_end_to_end_flow():
             name="SIEM Ingestion Key",
             key_prefix=prefix,
             key_hash=key_hash,
-            scopes=["events:write", "alerts:read"],
+            scopes=["events:write", "alerts:read", "keys:manage"],
             is_active=True
         )
         session.add(api_key)

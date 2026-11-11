@@ -613,6 +613,7 @@ async def analyze_transaction_on_demand(
     On-demand deep analysis and LLM explanation enrichment for an existing transaction.
     Invokes local Ollama (or Groq) to generate an investigator brief.
     """
+    _require_institutional_user(user)
     txn = await _get_txn_by_id_or_code(db, id)
     if not txn:
         raise HTTPException(status_code=404, detail=f"Transaction {id} not found")
@@ -845,7 +846,7 @@ async def escalate_transaction_to_case(
 
     if not existing_case:
         existing_case_res = await db.execute(
-            select(Case).where(Case.scam_text.like(f"%{txn.transaction_id}%"))
+            select(Case).where(Case.scam_text.contains(txn.transaction_id))
         )
         existing_case = existing_case_res.scalar_one_or_none()
 
@@ -942,12 +943,13 @@ async def get_risk_feed(
     status: Optional[str] = Query(None, description="Filter by status: PENDING, APPROVED, HELD, REJECTED"),
     account_id: Optional[str] = Query(None, description="Filter by source account"),
     db: AsyncSession = Depends(get_db),
-    user: Optional[User] = Depends(get_current_user_optional)
+    user: User = Depends(get_current_user)
 ):
     """
     Paginated real-time monitoring feed for the banker transactions dashboard.
     Returns latest transactions joined with risk score and action decision.
     """
+    _require_institutional_user(user)
     query = (
         select(Transaction)
         .options(
@@ -1017,12 +1019,13 @@ async def get_risk_feed(
 @router.get("/campaigns", response_model=Dict[str, Any])
 async def get_attack_campaigns(
     db: AsyncSession = Depends(get_db),
-    user: Optional[User] = Depends(get_current_user_optional)
+    user: User = Depends(get_current_user)
 ):
     """
     Aggregates recent transactions by coordinated Attack DNA signatures
     to identify emerging fraud waves across the banking network.
     """
+    _require_institutional_user(user)
     # Fetch recent high-risk transactions
     query = (
         select(Transaction)

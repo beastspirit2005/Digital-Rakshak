@@ -12,9 +12,15 @@ query_params = [(k, v) for k, v in query_params if k not in ("ssl", "sslmode")]
 db_url = urlunparse(parsed._replace(query=urlencode(query_params)))
 
 # Neon requires SSL for external connections
+import os
 ssl_context = ssl.create_default_context()
-ssl_context.check_hostname = False
-ssl_context.verify_mode = ssl.CERT_NONE
+if os.getenv("VERCEL") == "1" or getattr(settings, "ENVIRONMENT", "development") == "production":
+    ssl_context.check_hostname = True
+    ssl_context.verify_mode = ssl.CERT_REQUIRED
+else:
+    # Development mode: permit self-signed or local certificates
+    ssl_context.check_hostname = False
+    ssl_context.verify_mode = ssl.CERT_NONE
 
 engine = create_async_engine(
     db_url, 

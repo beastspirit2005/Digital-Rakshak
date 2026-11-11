@@ -127,7 +127,7 @@ async def get_current_user_optional(
     if not user_id:
         return None
     user = await _resolve_user_from_sub(db, user_id)
-    if not user or not user.is_active:
+    if not user or not user.is_active or not user.is_approved:
         return None
     return user
 
@@ -146,8 +146,8 @@ async def get_current_user_ws(token: Optional[str], db: AsyncSession) -> User:
     if not user_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token subject")
     user = await _resolve_user_from_sub(db, user_id)
-    if not user or not user.is_active:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found or inactive")
+    if not user or not user.is_active or not user.is_approved:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found, inactive, or pending approval")
     return user
 
 

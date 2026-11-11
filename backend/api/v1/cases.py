@@ -9,7 +9,10 @@ from domain.models.evidence import Evidence
 import os
 import shutil
 import uuid
+import logging
 from datetime import datetime, timezone
+
+logger = logging.getLogger(__name__)
 
 from infrastructure.db.session import get_db
 from domain.models.takedown import TakedownPolicy
@@ -654,6 +657,8 @@ async def submit_case(
 
 @router.get("/spatial")
 async def get_spatial_cases(
+    limit: int = 200,
+    skip: int = 0,
     db: AsyncSession = Depends(get_db),
     user: Optional[User] = Depends(get_current_user_optional)
 ):
@@ -664,10 +669,13 @@ async def get_spatial_cases(
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required to access spatial intelligence")
 
-    role = user.role
+    safe_limit = min(max(limit, 1), 500)
+    safe_skip = max(skip, 0)
         
-    # Fetch cases
-    result = await db.execute(select(Case))
+    # Fetch cases with bounded limit to prevent memory exhaustion / DoS
+    result = await db.execute(
+        select(Case).order_by(desc(Case.created_at)).offset(safe_skip).limit(safe_limit)
+    )
     cases = result.scalars().all()
     
     import random
@@ -681,7 +689,7 @@ async def get_spatial_cases(
         is_unknown = case.latitude is None
         
         # Deterministic Privacy Jitter seeded by case ID (prevents multi-sample triangulation)
-        seed_val = int(hashlib.md5(str(case.id).encode("utf-8")).hexdigest()[:8], 16)
+        seed_val = int(hashlib.sha256(str(case.id).encode("utf-8")).hexdigest()[:8], 16)
         rng = random.Random(seed_val)
         if not is_unknown:
             lat += rng.uniform(-0.003, 0.003)  # ~300m deterministic noise
@@ -2136,7 +2144,7 @@ async def evaluate_sla_cron(
     from core.config import settings
     from runtime.sla_monitor_daemon import sla_monitor_daemon
 
-    is_valid_secret = bool(x_cron_secret and x_cron_secret == settings.SECRET_KEY)
+    is_valid_secret = bool(x_cron_secret and (x_cron_secret == settings.CRON_SECRET or x_cron_secret == settings.SECRET_KEY))
     is_admin = bool(user and getattr(user, "role", None) == "admin")
 
     if not (is_valid_secret or is_admin):
