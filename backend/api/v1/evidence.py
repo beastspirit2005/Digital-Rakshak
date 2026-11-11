@@ -1,5 +1,5 @@
 import os
-
+from pathlib import Path
 import uuid
 
 import logging
@@ -574,35 +574,42 @@ async def download_evidence_file(
     else:
         local_path = path_to_check
 
-    # Assert path canonicalization stays within configured upload_dir to prevent path traversal
-    abs_upload = os.path.abspath(repo.upload_dir)
-    abs_target = os.path.abspath(local_path)
-    if not abs_target.startswith(abs_upload):
-        raise HTTPException(status_code=400, detail="Invalid evidence file path.")
+    # Component-aware containment check to prevent path traversal & sibling folder escaping
+    base_dir = Path(repo.upload_dir).resolve()
+    target_path = Path(local_path).resolve()
 
+    try:
+        is_safe = target_path.is_relative_to(base_dir)
+    except AttributeError:
+        is_safe = (os.path.commonpath([str(base_dir), str(target_path)]) == str(base_dir))
 
+    if not is_safe:
+        raise HTTPException(status_code=400, detail="Invalid evidence file path: Path traversal detected.")
 
-    if not os.path.exists(local_path):
+    # Symlink guard: disallow symlinks inside vault pointing outside
+    if target_path.is_symlink() or os.path.islink(local_path):
+        raise HTTPException(status_code=400, detail="Symlinked evidence files are not permitted.")
 
-        # Try one last fallback using just the filename
+    if not target_path.exists():
+        # Fallback using strictly filename inside repo.upload_dir
+        fallback = (base_dir / os.path.basename(path_to_check)).resolve()
+        try:
+            fallback_safe = fallback.is_relative_to(base_dir)
+        except AttributeError:
+            fallback_safe = (os.path.commonpath([str(base_dir), str(fallback)]) == str(base_dir))
 
-        fallback_path = os.path.join(repo.upload_dir, os.path.basename(path_to_check))
-
-        if os.path.exists(fallback_path):
-
-            local_path = fallback_path
-
+        if fallback.exists() and fallback.is_file() and not fallback.is_symlink() and fallback_safe:
+            target_path = fallback
         else:
+            raise HTTPException(status_code=404, detail="Evidence file missing or not found on storage backend.")
 
-            raise HTTPException(status_code=404, detail="Evidence file missing or not found on storage backend")
+    if not target_path.is_file():
+        raise HTTPException(status_code=400, detail="Requested evidence target is not a standard file.")
 
-
-
-    safe_filename = os.path.basename(local_path)
+    safe_filename = target_path.name
 
     return FileResponse(
-
-        path=local_path,
+        path=str(target_path),
 
         media_type=evidence.mime_type or "application/octet-stream",
 

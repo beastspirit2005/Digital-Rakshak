@@ -29,12 +29,14 @@ DEFAULT_KEY_ID = "KEY-V1"
 class EvidenceIntegrityService:
     """
     Cryptographic Evidence Integrity and Independent Verification Engine.
-    Ensures mathematical immutability and Section 63(4) BSA 2023 admissibility through:
+    Provides mathematical immutability designed to support Section 63 BSA 2023 evidence workflows:
     1. Deterministic canonical event serialization and payload hashing.
-    2. Continuous recursive Merkle hash chaining: H_n = SHA256(H_{n-1} || CanonicalEvent_n).
+    2. Continuous sequential cryptographic hash chaining: H_n = SHA256(H_{n-1} || CanonicalEvent_n).
     3. Independent audit chain verification (gap, reorder, tampering detection).
     4. Cryptographically signed checkpoints with key rotation support.
     5. Immutable evidence access chain-of-custody logging.
+    (Note: Technical hash chaining provides cryptographic tamper-evidence; official
+    evidentiary admissibility is certified via designated officer affidavits).
     """
 
     @classmethod

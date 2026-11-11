@@ -40,7 +40,7 @@ const FAQS: FAQItem[] = [
     id: "free-plan-features",
     category: "Billing",
     question: "What is included in the Free Shield plan?",
-    answer: "The Free Shield plan gives all citizens access to core heuristic threat scanning with up to 5 scans per day, community scam advisories, and basic guidance on reporting fraud to National Helpline 1930 at zero cost.",
+    answer: "The Free Shield plan gives all verified citizens unlimited access to core heuristic threat scanning, community scam advisories, and basic guidance on reporting fraud to National Helpline 1930 at zero cost once signed in with Google or Email.",
   },
   {
     id: "pro-features-pricing",

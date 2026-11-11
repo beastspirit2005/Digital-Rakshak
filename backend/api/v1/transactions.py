@@ -846,7 +846,7 @@ async def escalate_transaction_to_case(
 
     if not existing_case:
         existing_case_res = await db.execute(
-            select(Case).where(Case.scam_text.contains(txn.transaction_id))
+            select(Case).where(Case.scam_text.contains(txn.transaction_id, autoescape=True))
         )
         existing_case = existing_case_res.scalar_one_or_none()
 
