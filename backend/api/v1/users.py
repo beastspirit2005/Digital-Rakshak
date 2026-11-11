@@ -410,10 +410,12 @@ async def _cleanup_user_foreign_keys(db: AsyncSession, u_uuid: uuid.UUID):
 
     # 1b. Subscriptions & Organizations
     try:
-        from domain.models.organization import Subscription, OrganizationMember
+        from domain.models.organization import Subscription, OrganizationMember, ApiKey
         await db.execute(delete(Subscription).where(Subscription.user_id == u_uuid))
         await db.execute(delete(OrganizationMember).where(OrganizationMember.user_id == u_uuid))
         await db.execute(update(OrganizationMember).where(OrganizationMember.invited_by == u_uuid).values(invited_by=None))
+        # Nullify API keys created by this user (created_by has NO ACTION on delete)
+        await db.execute(update(ApiKey).where(ApiKey.created_by == u_uuid).values(created_by=None))
     except Exception as exc:
         logger.warning("Org/Subscription cleanup warning: %s", exc)
 
