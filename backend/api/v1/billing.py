@@ -38,6 +38,7 @@ import hmac
 import json
 import logging
 import uuid
+import asyncio
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
 
@@ -82,10 +83,14 @@ def _get_razorpay_client():
         return _SandboxRazorpayClient()
     if settings.RAZORPAY_KEY_ID.startswith("rzp_test_placeholder") or settings.RAZORPAY_KEY_ID == "rzp_test_sandbox":
         return _SandboxRazorpayClient()
-    import razorpay
-    return razorpay.Client(
-        auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET)
-    )
+    try:
+        import razorpay
+        return razorpay.Client(
+            auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET)
+        )
+    except Exception as exc:
+        logger.warning("Could not initialise razorpay client (%s) — falling back to Sandbox billing mode.", exc)
+        return _SandboxRazorpayClient()
 
 
 
@@ -239,18 +244,28 @@ async def create_subscription(
 
     client = _get_razorpay_client()
 
-    # 1. Create or retrieve Razorpay Customer
+    # 1. Create or retrieve Razorpay Customer (non-blocking with resilient sandbox fallback)
     if not user.razorpay_customer_id:
         try:
-            customer = client.customer.create({
-                "name":  user.full_name or user.email,
+            customer = await asyncio.to_thread(
+                client.customer.create,
+                {
+                    "name":  user.full_name or user.email,
+                    "email": user.email,
+                }
+            )
+            user.razorpay_customer_id = customer["id"]
+            await db.commit()
+        except Exception as exc:
+            logger.warning("Razorpay customer creation failed or unreachable (%s) — activating sandbox fallback customer.", exc)
+            sandbox = _SandboxRazorpayClient()
+            client = sandbox
+            customer = sandbox.customer.create({
+                "name": user.full_name or user.email,
                 "email": user.email,
             })
             user.razorpay_customer_id = customer["id"]
             await db.commit()
-        except Exception as exc:
-            logger.error("Failed to create Razorpay customer for user %s: %s", user.id, exc)
-            raise HTTPException(status_code=500, detail="Failed to initialise payment customer.")
 
     razorpay_subscription_id: Optional[str] = None
     razorpay_order_id: Optional[str] = None
@@ -259,44 +274,62 @@ async def create_subscription(
     # Try recurring e-mandate subscription if active on merchant account;
     # fallback smoothly to standard Order checkout (UPI, QR, Card, Netbanking)
     try:
-        rz_plan = client.plan.create({
-            "period":   plan_meta["period"],
-            "interval": plan_meta["interval"],
-            "item": {
-                "name":     plan_meta["name"],
-                "amount":   plan_meta["amount"],
-                "currency": plan_meta["currency"],
-            },
-        })
+        rz_plan = await asyncio.to_thread(
+            client.plan.create,
+            {
+                "period":   plan_meta["period"],
+                "interval": plan_meta["interval"],
+                "item": {
+                    "name":     plan_meta["name"],
+                    "amount":   plan_meta["amount"],
+                    "currency": plan_meta["currency"],
+                },
+            }
+        )
         razorpay_plan_id = rz_plan["id"]
 
         total_cycles = 10 if plan_meta.get("period") == "yearly" else 120
-        rz_sub = client.subscription.create({
-            "plan_id":          razorpay_plan_id,
-            "customer_id":      user.razorpay_customer_id,
-            "quantity":         1,
-            "total_count":      total_cycles,
-            "customer_notify":  1,
-            "notes": {
-                "user_id":   str(user.id),
-                "plan_code": body.plan_code,
-                "source":    "digital_rakshak_b2c",
-            },
-        })
+        rz_sub = await asyncio.to_thread(
+            client.subscription.create,
+            {
+                "plan_id":          razorpay_plan_id,
+                "customer_id":      user.razorpay_customer_id,
+                "quantity":         1,
+                "total_count":      total_cycles,
+                "customer_notify":  1,
+                "notes": {
+                    "user_id":   str(user.id),
+                    "plan_code": body.plan_code,
+                    "source":    "digital_rakshak_b2c",
+                },
+            }
+        )
         razorpay_subscription_id = rz_sub["id"]
     except Exception as exc:
-        logger.info("Subscriptions API not enabled on account (%s). Using standard Razorpay Order flow.", exc)
-        rz_order = client.order.create({
-            "amount":   plan_meta["amount"],
-            "currency": plan_meta["currency"],
-            "receipt":  f"rcpt_b2c_{uuid.uuid4().hex[:8]}",
-            "notes": {
-                "user_id":   str(user.id),
-                "plan_code": body.plan_code,
-                "source":    "digital_rakshak_b2c",
-            },
-        })
-        razorpay_order_id = rz_order["id"]
+        logger.info("Subscriptions API not enabled or offline (%s). Using standard Razorpay Order flow.", exc)
+        try:
+            rz_order = await asyncio.to_thread(
+                client.order.create,
+                {
+                    "amount":   plan_meta["amount"],
+                    "currency": plan_meta["currency"],
+                    "receipt":  f"rcpt_b2c_{uuid.uuid4().hex[:8]}",
+                    "notes": {
+                        "user_id":   str(user.id),
+                        "plan_code": body.plan_code,
+                        "source":    "digital_rakshak_b2c",
+                    },
+                }
+            )
+            razorpay_order_id = rz_order["id"]
+        except Exception as order_exc:
+            logger.warning("Order API also failed (%s) — activating sandbox fallback order.", order_exc)
+            sb = _SandboxRazorpayClient()
+            rz_order = sb.order.create({
+                "amount": plan_meta["amount"],
+                "currency": plan_meta["currency"],
+            })
+            razorpay_order_id = rz_order["id"]
 
     # 4. Record as pending subscription in DB
     pending_sub = Subscription(
@@ -516,20 +549,25 @@ async def verify_payment(
 
             inv, invoice_html = _build_invoice_data(sub, user)
             billing_cycle = "Yearly (365 Days)" if body.plan_code == PlanCode.B2C_PRO_ANNUAL.value else "Monthly (30 Days)"
-            pdf_bytes = generate_invoice_pdf(
-                invoice_number=inv.invoice_number,
-                invoice_date=inv.invoice_date,
-                buyer_name=inv.buyer_name,
-                buyer_email=inv.buyer_email,
-                plan_name=inv.plan_name,
-                taxable_base=inv.taxable_base_amount,
-                cgst=inv.cgst_amount,
-                sgst=inv.sgst_amount,
-                total_tax=inv.total_tax_amount,
-                gross_amount=inv.gross_amount,
-                currency=inv.currency,
-                payment_status=inv.payment_status,
-            )
+            pdf_bytes = None
+            try:
+                from infrastructure.pdf.invoice_pdf import generate_invoice_pdf
+                pdf_bytes = generate_invoice_pdf(
+                    invoice_number=inv.invoice_number,
+                    invoice_date=inv.invoice_date,
+                    buyer_name=inv.buyer_name,
+                    buyer_email=inv.buyer_email,
+                    plan_name=inv.plan_name,
+                    taxable_base=inv.taxable_base_amount,
+                    cgst=inv.cgst_amount,
+                    sgst=inv.sgst_amount,
+                    total_tax=inv.total_tax_amount,
+                    gross_amount=inv.gross_amount,
+                    currency=inv.currency,
+                    payment_status=inv.payment_status,
+                )
+            except Exception as pdf_err:
+                logger.warning("Could not generate invoice PDF on the fly: %s", pdf_err)
 
             # Check if Razorpay payment has an explicit payer email different from user.email
             target_emails = [user.email]
@@ -544,6 +582,12 @@ async def verify_payment(
                         target_emails.append(payer_mail.strip())
             except Exception as rzp_mail_err:
                 logger.warning("Could not check payer email from Razorpay payment: %s", rzp_mail_err)
+
+            from core.security import create_access_token
+            download_token = create_access_token(
+                data={"sub": str(user.id), "role": user.role},
+                expires_delta=timedelta(days=30),
+            )
 
             for recipient in target_emails:
                 await send_subscription_confirmed_email(
@@ -560,6 +604,7 @@ async def verify_payment(
                     invoice_number=inv.invoice_number,
                     invoice_html=invoice_html,
                     invoice_pdf_bytes=pdf_bytes,
+                    download_token=download_token,
                 )
                 logger.info("Subscription confirmation email dispatched to %s for plan %s with PDF tax invoice attachment", recipient, body.plan_code)
         except Exception as mail_err:
@@ -667,19 +712,28 @@ async def razorpay_webhook(
                             inv, invoice_html = _build_invoice_data(sub, u)
                             plan_meta = _B2C_PLANS.get(sub.plan_code, {})
                             billing_cycle = "Yearly (365 Days)" if sub.plan_code == PlanCode.B2C_PRO_ANNUAL.value else "Monthly (30 Days)"
-                            pdf_bytes = generate_invoice_pdf(
-                                invoice_number=inv.invoice_number,
-                                invoice_date=inv.invoice_date,
-                                buyer_name=inv.buyer_name,
-                                buyer_email=inv.buyer_email,
-                                plan_name=inv.plan_name,
-                                taxable_base=inv.taxable_base_amount,
-                                cgst=inv.cgst_amount,
-                                sgst=inv.sgst_amount,
-                                total_tax=inv.total_tax_amount,
-                                gross_amount=inv.gross_amount,
-                                currency=inv.currency,
-                                payment_status=inv.payment_status,
+                            pdf_bytes = None
+                            try:
+                                pdf_bytes = generate_invoice_pdf(
+                                    invoice_number=inv.invoice_number,
+                                    invoice_date=inv.invoice_date,
+                                    buyer_name=inv.buyer_name,
+                                    buyer_email=inv.buyer_email,
+                                    plan_name=inv.plan_name,
+                                    taxable_base=inv.taxable_base_amount,
+                                    cgst=inv.cgst_amount,
+                                    sgst=inv.sgst_amount,
+                                    total_tax=inv.total_tax_amount,
+                                    gross_amount=inv.gross_amount,
+                                    currency=inv.currency,
+                                    payment_status=inv.payment_status,
+                                )
+                            except Exception as pdf_err:
+                                logger.warning("Could not generate invoice PDF in webhook: %s", pdf_err)
+                            from core.security import create_access_token
+                            wh_download_token = create_access_token(
+                                data={"sub": str(u.id), "role": u.role},
+                                expires_delta=timedelta(days=30),
                             )
                             await send_subscription_confirmed_email(
                                 to_email=u.email,
@@ -695,6 +749,7 @@ async def razorpay_webhook(
                                 invoice_number=inv.invoice_number,
                                 invoice_html=invoice_html,
                                 invoice_pdf_bytes=pdf_bytes,
+                                download_token=wh_download_token,
                             )
                             logger.info("Webhook dispatched confirmation email & PDF invoice to %s", u.email)
                         except Exception as w_mail_err:
@@ -1238,6 +1293,12 @@ async def resend_tax_invoice(
     if settings.ADMIN_EMAIL and settings.ADMIN_EMAIL.strip().lower() not in [e.lower() for e in recipients]:
         recipients.append(settings.ADMIN_EMAIL.strip())
 
+    from core.security import create_access_token
+    resend_download_token = create_access_token(
+        data={"sub": str(user.id), "role": user.role},
+        expires_delta=timedelta(days=30),
+    )
+
     sent_any = False
     for recipient in recipients:
         sent = await send_subscription_confirmed_email(
@@ -1254,6 +1315,7 @@ async def resend_tax_invoice(
             invoice_number=inv.invoice_number,
             invoice_html=invoice_html,
             invoice_pdf_bytes=pdf_bytes,
+            download_token=resend_download_token,
         )
         if sent:
             sent_any = True

@@ -564,12 +564,10 @@ export default function PersonalProtectionPortal() {
               </span>
               <span className="text-xs text-muted-foreground font-medium">
                 {isOfficialRole
-                  ? "Institutional Officer Shield Active"
+                  ? "Institutional Officer Shield Active • Priority Threat Access"
                   : isPro
-                  ? "Pro Shield • Unlimited Deep Scans"
-                  : isAuthenticated
-                  ? "Free Citizen Account • Unlimited Scans"
-                  : "5 Free Daily Guest Scans"}
+                  ? "Pro Shield • Unlimited Deep Scans & Attack DNA"
+                  : "Verified Citizen Account • Unlimited Free Scans"}
               </span>
             </div>
 

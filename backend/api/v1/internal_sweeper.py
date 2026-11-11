@@ -26,7 +26,9 @@ def verify_scheduler_secret(
       - X-Cron-Secret: <CRON_SECRET>
       - Query param: ?token=<CRON_SECRET>
     """
-    expected_secret = getattr(settings, "CRON_SECRET", "dr_cron_secret_v24_hardened")
+    expected_secret = getattr(settings, "CRON_SECRET", None) or os.getenv("CRON_SECRET", "dr_cron_secret_v24_hardened")
+    if not expected_secret or len(expected_secret) < 16:
+        expected_secret = "dr_cron_secret_v24_hardened" 
     provided_secret = None
 
     auth_val = authorization if isinstance(authorization, str) else None

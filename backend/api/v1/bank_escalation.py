@@ -499,7 +499,14 @@ async def bank_callback_endpoint(
     Enforces HMAC-SHA256 signature verification and <=300s timestamp replay window.
     """
     import json
-    if x_bank_signature:
+    if not x_bank_signature:
+        from core.config import settings
+        if getattr(settings, "ENVIRONMENT", "development") == "production":
+            raise HTTPException(
+                status_code=401,
+                detail="Authentication failed: Missing mandatory X-Bank-Signature header for institutional webhook."
+            )
+    else:
         raw_bytes = json.dumps(payload.model_dump(), sort_keys=True).encode()
         is_valid, err_msg = BankIntegrationGateway.verify_callback_authenticity(
             payload_bytes=raw_bytes,

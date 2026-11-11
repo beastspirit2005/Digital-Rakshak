@@ -303,6 +303,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     ];
   }
 
+  const isProUser = Boolean(user?.is_pro || (user?.role && user.role !== "citizen"));
+
   const sections = useMemo(() => {
     switch (activePersona) {
       case "investigator":
@@ -310,12 +312,31 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       case "nodal":
         return nodalNavSections;
       case "citizen":
-        return citizenNavSections;
+        return [
+          {
+            label: "Protection & Incidents",
+            items: [
+              { name: "My cyber reports", short: "Reports", href: "/citizen", icon: FileText },
+              { name: "Report cyber fraud", short: "Report", href: "/report", icon: ShieldAlert },
+              { name: "Personal Pro shield", short: "Pro Shield", href: "/personal", icon: Sparkles },
+            ],
+          },
+          {
+            label: "Awareness & Privacy",
+            items: [
+              ...(isProUser
+                ? [{ name: "Scam prevention hub", short: "Prevention", href: "/prevention", icon: ShieldCheck }]
+                : []),
+              { name: "My account & privacy", short: "Account", href: "/account", icon: UserCircle },
+              { name: "Cyber safety helpdesk", short: "Helpdesk", href: "/help", icon: LifeBuoy },
+            ],
+          },
+        ];
       case "admin":
       default:
         return adminNavSections;
     }
-  }, [activePersona]);
+  }, [activePersona, isProUser]);
 
   const flatNav = sections.flatMap((s) => s.items);
   const tabItems = flatNav

@@ -104,11 +104,17 @@ def test_osint_multi_vector_classification():
 # ── 2.2 Live Scan API Multi-Vector & Guidance Verification ───────────────────
 
 @pytest.mark.asyncio
-async def test_live_scan_api_guest_and_guidance():
-    """Verify that unauthenticated guests can scan and receive 4-tier status + guidance."""
+async def test_live_scan_api_guest_blocked_and_citizen_guidance():
+    """Verify that unauthenticated callers are rejected with 401, while authenticated citizens scan with 4-tier guidance."""
+    free_headers, _ = await _create_test_user(role="citizen", is_pro=False)
+
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        # Scan malicious domain as guest
-        res = await ac.post("/v1/scan", json={"url": "https://update-pan-kyc.com/login"})
+        # 1. Unauthenticated scan must be rejected with 401 Unauthorized
+        res_guest = await ac.post("/v1/scan", json={"url": "https://update-pan-kyc.com/login"})
+        assert res_guest.status_code == 401
+
+        # 2. Authenticated citizen scans successfully
+        res = await ac.post("/v1/scan", json={"url": "https://update-pan-kyc.com/login"}, headers=free_headers)
         assert res.status_code == 200
         data = res.json()
 
@@ -118,24 +124,26 @@ async def test_live_scan_api_guest_and_guidance():
         assert len(data["reasons"]) > 0
         assert len(data["guidance"]) > 0
         assert any("domain name" in g.lower() for g in data["guidance"])
-        # Guests should NOT receive Pro enrichment
+        # Free citizens should NOT receive Pro enrichment
         assert data.get("attack_dna_match") is None
         assert data.get("related_cases") is None
 
 
 @pytest.mark.asyncio
 async def test_live_scan_phone_vector():
-    """Verify phone vector scanning through the API."""
+    """Verify phone vector scanning through the API for authenticated citizens."""
+    free_headers, _ = await _create_test_user(role="citizen", is_pro=False)
+
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         # Scan official emergency helpline
-        res_helpline = await ac.post("/v1/scan", json={"phone": "1930"})
+        res_helpline = await ac.post("/v1/scan", json={"phone": "1930"}, headers=free_headers)
         assert res_helpline.status_code == 200
         data_helpline = res_helpline.json()
         assert data_helpline["is_safe"] is True
         assert data_helpline["indicator_status"] == "VERIFIED_LEGITIMATE"
 
         # Scan high-risk foreign vishing caller
-        res_vishing = await ac.post("/v1/scan", json={"phone": "+923129876543"})
+        res_vishing = await ac.post("/v1/scan", json={"phone": "+923129876543"}, headers=free_headers)
         assert res_vishing.status_code == 200
         data_vishing = res_vishing.json()
         assert data_vishing["is_safe"] is False

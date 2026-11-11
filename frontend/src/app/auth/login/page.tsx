@@ -10,7 +10,8 @@ import { api, formatApiError } from "@/lib/api";
   import { Button } from "@/components/ui/button";
   import { Input, Label, FormError, FormNotice, OtpInput } from "@/components/ui/field";
   import { Segmented } from "@/components/ui/tabs";
-  import { Mail, Lock as LockIcon, AlertTriangle } from "lucide-react";
+  import { Mail, Lock as LockIcon, AlertTriangle, ShieldAlert } from "lucide-react";
+  import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 
   function routeForRole(role: string) {
     if (role === "admin") return "/admin";
@@ -133,6 +134,21 @@ import { api, formatApiError } from "@/lib/api";
             Create an account
           </Link>
         </p>
+
+        <div className="mb-6 space-y-4">
+          <GoogleSignInButton nextParam={nextParam} mode="login" />
+
+          <div className="relative my-6 text-center">
+            <div className="absolute inset-0 flex items-center" aria-hidden="true">
+              <div className="w-full border-t border-line" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-background px-3 text-ink-3 font-semibold tracking-wider">
+                Or sign in with email
+              </span>
+            </div>
+          </div>
+        </div>
 
         <div className="relative">
           {step === "email" ? (

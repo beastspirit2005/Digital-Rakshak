@@ -22,7 +22,9 @@ from api.deps import get_current_admin, get_current_user, OFFICIAL_INSTITUTIONAL
 
 from slowapi import Limiter
 from slowapi.util import get_remote_address
+import logging
 
+logger = logging.getLogger(__name__)
 limiter = Limiter(key_func=get_remote_address)
 
 class UserCreate(BaseModel):
@@ -392,6 +394,86 @@ async def patch_my_basic_profile(
     }
 
 
+async def _cleanup_user_foreign_keys(db: AsyncSession, u_uuid: uuid.UUID):
+    """
+    Clean up or nullify all foreign key constraints referencing a user prior to deletion,
+    preventing IntegrityError on cascade or unconfigured foreign keys.
+    """
+    from sqlalchemy import update, delete
+    
+    # 1. Self-referential User KYC review keys & Subscriptions
+    try:
+        from domain.models.user import User
+        await db.execute(update(User).where(User.kyc_reviewed_by == u_uuid).values(kyc_reviewed_by=None))
+    except Exception as exc:
+        logger.warning("User kyc_reviewed_by cleanup warning: %s", exc)
+
+    # 1b. Subscriptions & Organizations
+    try:
+        from domain.models.organization import Subscription, OrganizationMember
+        await db.execute(delete(Subscription).where(Subscription.user_id == u_uuid))
+        await db.execute(delete(OrganizationMember).where(OrganizationMember.user_id == u_uuid))
+        await db.execute(update(OrganizationMember).where(OrganizationMember.invited_by == u_uuid).values(invited_by=None))
+    except Exception as exc:
+        logger.warning("Org/Subscription cleanup warning: %s", exc)
+
+    # 2. Cases, Evidence, Assignments, Events
+    try:
+        from domain.models.case import Case
+        from domain.models.case_assignment import CaseAssignment
+        from domain.models.case_event import CaseEvent
+        from domain.models.evidence import Evidence
+        
+        await db.execute(update(Case).where(Case.submitted_by == u_uuid).values(submitted_by=None))
+        await db.execute(update(Case).where(Case.assigned_to == u_uuid).values(assigned_to=None))
+        await db.execute(delete(CaseAssignment).where((CaseAssignment.assignee_id == u_uuid) | (CaseAssignment.assigned_by == u_uuid)))
+        await db.execute(update(CaseEvent).where(CaseEvent.actor_id == u_uuid).values(actor_id=None))
+        await db.execute(update(Evidence).where(Evidence.evidence_owner == u_uuid).values(evidence_owner=None))
+    except Exception as exc:
+        logger.warning("Case/Evidence cleanup warning: %s", exc)
+
+    # 3. Help Messages, Support Tickets, Takedowns, Notifications, Audit
+    try:
+        from domain.models.help_message import HelpMessage
+        from domain.models.support import SupportTicket
+        from domain.models.takedown import TakedownPolicy
+        from domain.models.notification import Notification
+        from domain.models.audit_event import AuditEvent
+
+        await db.execute(update(HelpMessage).where(HelpMessage.user_id == u_uuid).values(user_id=None))
+        await db.execute(update(SupportTicket).where(SupportTicket.user_id == u_uuid).values(user_id=None))
+        await db.execute(update(TakedownPolicy).where(TakedownPolicy.approved_by == u_uuid).values(approved_by=None))
+        await db.execute(delete(Notification).where(Notification.user_id == u_uuid))
+        await db.execute(update(AuditEvent).where(AuditEvent.actor_id == u_uuid).values(actor_id=None))
+    except Exception as exc:
+        logger.warning("Support/Notification/Audit cleanup warning: %s", exc)
+
+    # 4. Chat messages & Safety reports
+    try:
+        from domain.models.chat_safety import CaseMessage, SafetyReport
+        await db.execute(delete(CaseMessage).where(CaseMessage.sender_id == u_uuid))
+        await db.execute(delete(SafetyReport).where((SafetyReport.reporter_id == u_uuid) | (SafetyReport.reported_user_id == u_uuid)))
+        await db.execute(update(SafetyReport).where(SafetyReport.reviewer_id == u_uuid).values(reviewer_id=None))
+    except Exception as exc:
+        logger.warning("Chat safety cleanup warning: %s", exc)
+
+    # 5. User self-referential foreign keys (e.g. kyc_reviewed_by)
+    try:
+        await db.execute(update(User).where(User.kyc_reviewed_by == u_uuid).values(kyc_reviewed_by=None))
+    except Exception as exc:
+        logger.warning("User self-ref cleanup warning: %s", exc)
+
+    # 6. Banking & Freeze entities
+    try:
+        from domain.models.bank import BankEscalation, FraudResponseLifecycleEvent, InvestigatorDecisionAudit, EvidenceAccessEvent
+        await db.execute(update(BankEscalation).where(BankEscalation.approved_by == u_uuid).values(approved_by=None))
+        await db.execute(update(FraudResponseLifecycleEvent).where(FraudResponseLifecycleEvent.actor_id == u_uuid).values(actor_id=None))
+        await db.execute(update(InvestigatorDecisionAudit).where(InvestigatorDecisionAudit.investigator_id == u_uuid).values(investigator_id=None))
+        await db.execute(update(EvidenceAccessEvent).where(EvidenceAccessEvent.actor_id == u_uuid).values(actor_id=None))
+    except Exception as exc:
+        logger.warning("Bank entities cleanup warning: %s", exc)
+
+
 @router.delete("/me")
 async def delete_my_account(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     """
@@ -401,19 +483,7 @@ async def delete_my_account(db: AsyncSession = Depends(get_db), user: User = Dep
     user_id = str(user.id)
     email = user.email
 
-    from sqlalchemy import update
-    from domain.models.case import Case
-    from domain.models.evidence import Evidence
-    from domain.models.help_message import HelpMessage
-    from domain.models.support import SupportTicket
-    from domain.models.takedown import TakedownPolicy
-
-    await db.execute(update(Case).where(Case.submitted_by == user_id).values(submitted_by=None))
-    await db.execute(update(Case).where(Case.assigned_to == user_id).values(assigned_to=None))
-    await db.execute(update(Evidence).where(Evidence.evidence_owner == user_id).values(evidence_owner=None))
-    await db.execute(update(HelpMessage).where(HelpMessage.user_id == user_id).values(user_id=None))
-    await db.execute(update(SupportTicket).where(SupportTicket.user_id == user_id).values(user_id=None))
-    await db.execute(update(TakedownPolicy).where(TakedownPolicy.approved_by == user_id).values(approved_by=None))
+    await _cleanup_user_foreign_keys(db, user.id)
 
     from api.v1.scan import _mem_user_scans
     if user_id in _mem_user_scans:
@@ -817,20 +887,8 @@ async def delete_user(user_id: str, admin: User = Depends(get_current_admin), db
     email = user.email
     full_name = user.full_name
 
-    from sqlalchemy import update
-    from domain.models.case import Case
-    from domain.models.evidence import Evidence
-    from domain.models.help_message import HelpMessage
-    from domain.models.support import SupportTicket
-    from domain.models.takedown import TakedownPolicy
-
-    # Nullify all foreign key constraints manually to prevent IntegrityError
-    await db.execute(update(Case).where(Case.submitted_by == user_id).values(submitted_by=None))
-    await db.execute(update(Case).where(Case.assigned_to == user_id).values(assigned_to=None))
-    await db.execute(update(Evidence).where(Evidence.evidence_owner == user_id).values(evidence_owner=None))
-    await db.execute(update(HelpMessage).where(HelpMessage.user_id == user_id).values(user_id=None))
-    await db.execute(update(SupportTicket).where(SupportTicket.user_id == user_id).values(user_id=None))
-    await db.execute(update(TakedownPolicy).where(TakedownPolicy.approved_by == user_id).values(approved_by=None))
+    # Clean up all foreign key constraints across all models to prevent IntegrityError
+    await _cleanup_user_foreign_keys(db, u_uuid)
 
     await db.delete(user)
     await db.commit()

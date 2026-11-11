@@ -21,6 +21,10 @@ engine = create_async_engine(
     echo=False, 
     future=True,
     pool_pre_ping=True,
+    pool_recycle=300,        # Recycle connections every 5 minutes to prevent stale idle disconnects on Neon
+    pool_size=15,            # Stable concurrent connection pool
+    max_overflow=10,         # Burst capacity for high concurrent requests
+    pool_timeout=30,         # Fail-fast timeout for connection exhaustion
     connect_args={
         "ssl": ssl_context,
         "prepared_statement_cache_size": 0,  # Disable client-side prepared statement cache

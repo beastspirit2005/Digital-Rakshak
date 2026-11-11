@@ -8,18 +8,27 @@ compliant with Section 31 of the CGST Act, 2017 and SAC 998313.
 from __future__ import annotations
 
 import io
+import logging
 from typing import Optional
-from reportlab.lib.pagesizes import A4
-from reportlab.lib import colors
-from reportlab.platypus import (
-    SimpleDocTemplate,
-    Paragraph,
-    Spacer,
-    Table,
-    TableStyle,
-    HRFlowable,
-)
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+
+logger = logging.getLogger(__name__)
+
+try:
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors
+    from reportlab.platypus import (
+        SimpleDocTemplate,
+        Paragraph,
+        Spacer,
+        Table,
+        TableStyle,
+        HRFlowable,
+    )
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    REPORTLAB_AVAILABLE = True
+except ImportError:
+    REPORTLAB_AVAILABLE = False
+    logger.warning("ReportLab is not installed; PDF generation will be unavailable.")
 
 
 def generate_invoice_pdf(
@@ -43,6 +52,9 @@ def generate_invoice_pdf(
     Renders an official, print-ready GST Tax Invoice into in-memory PDF bytes.
     Compatible with native PDF viewers on iOS, Android, and Desktop.
     """
+    if not REPORTLAB_AVAILABLE:
+        raise RuntimeError("ReportLab is not installed; cannot generate tax invoice PDF.")
+
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
         buffer,

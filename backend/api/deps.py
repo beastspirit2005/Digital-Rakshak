@@ -1,4 +1,5 @@
-from typing import Optional
+import logging
+from typing import Optional, Any
 from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,6 +12,8 @@ from core.security import decode_access_token
 from domain.models.user import User
 from infrastructure.db.knowledge import KnowledgeBase
 
+logger = logging.getLogger(__name__)
+
 # Global Knowledge Base instance to share embedding model memory
 kb_instance = None
 
@@ -21,6 +24,24 @@ def get_kb() -> KnowledgeBase:
     return kb_instance
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/login-password", auto_error=False)
+
+
+async def _resolve_user_from_sub(db: AsyncSession, sub: Any) -> Optional[User]:
+    """Resolves a user from JWT subject (UUID primary key or fallback email)."""
+    if not sub:
+        return None
+    sub_str = str(sub).strip()
+    try:
+        user_uuid = uuid.UUID(sub_str)
+        res = await db.execute(select(User).where(User.id == user_uuid))
+        user = res.scalars().first()
+        if user:
+            return user
+    except (ValueError, TypeError):
+        pass
+    res = await db.execute(select(User).where(User.email == sub_str.lower()))
+    return res.scalars().first()
+
 
 async def get_current_user(
     request: Request,
@@ -34,26 +55,15 @@ async def get_current_user(
 
     payload = decode_access_token(token)
     if not payload:
-        print("Token Decode Failed"); raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+        logger.warning("Token decode failed for request to %s", request.url.path)
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
     
     user_id = payload.get("sub")
     if not user_id:
-        print("Token Payload Invalid"); raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload")
+        logger.warning("Token payload missing sub for request to %s", request.url.path)
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload")
         
-    user_uuid = None
-    try:
-        user_uuid = uuid.UUID(str(user_id))
-    except (ValueError, TypeError):
-        pass
-
-    user = None
-    if user_uuid:
-        result = await db.execute(select(User).where(User.id == user_uuid))
-        user = result.scalars().first()
-    if not user:
-        result = await db.execute(select(User).where(User.email == str(user_id).lower()))
-        user = result.scalars().first()
-    
+    user = await _resolve_user_from_sub(db, user_id)
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
         
@@ -64,6 +74,7 @@ async def get_current_user(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User account pending approval")
         
     return user
+
 
 async def get_current_user_allow_unapproved(
     request: Request,
@@ -83,20 +94,7 @@ async def get_current_user_allow_unapproved(
     if not user_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload")
         
-    user_uuid = None
-    try:
-        user_uuid = uuid.UUID(str(user_id))
-    except (ValueError, TypeError):
-        pass
-
-    user = None
-    if user_uuid:
-        result = await db.execute(select(User).where(User.id == user_uuid))
-        user = result.scalars().first()
-    if not user:
-        result = await db.execute(select(User).where(User.email == str(user_id).lower()))
-        user = result.scalars().first()
-    
+    user = await _resolve_user_from_sub(db, user_id)
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
         
@@ -105,12 +103,21 @@ async def get_current_user_allow_unapproved(
         
     return user
 
+
 async def get_current_admin(current_user: User = Depends(get_current_user)):
     if current_user.role != "admin":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
     return current_user
 
-async def get_current_user_optional(token: Optional[str] = Depends(OAuth2PasswordBearer(tokenUrl="api/v1/auth/login-password", auto_error=False)), db: AsyncSession = Depends(get_db)) -> Optional[User]:
+
+async def get_current_user_optional(
+    request: Request,
+    token: Optional[str] = Depends(oauth2_scheme),
+    db: AsyncSession = Depends(get_db)
+) -> Optional[User]:
+    """Resolves user from Bearer header or HTTP-only cookie with zero exceptions raised."""
+    if not token:
+        token = request.cookies.get("access_token")
     if not token:
         return None
     payload = decode_access_token(token)
@@ -119,25 +126,14 @@ async def get_current_user_optional(token: Optional[str] = Depends(OAuth2Passwor
     user_id = payload.get("sub")
     if not user_id:
         return None
-    user_uuid = None
-    try:
-        user_uuid = uuid.UUID(str(user_id))
-    except (ValueError, TypeError):
-        pass
-
-    user = None
-    if user_uuid:
-        result = await db.execute(select(User).where(User.id == user_uuid))
-        user = result.scalars().first()
-    if not user:
-        result = await db.execute(select(User).where(User.email == str(user_id).lower()))
-        user = result.scalars().first()
+    user = await _resolve_user_from_sub(db, user_id)
     if not user or not user.is_active:
         return None
     return user
 
 
 OFFICIAL_INSTITUTIONAL_ROLES = {"admin", "police", "cyber_cell", "banker", "bank_employee"}
+
 
 async def get_current_user_ws(token: Optional[str], db: AsyncSession) -> User:
     """Validate token and authenticate user over WebSockets."""
@@ -149,20 +145,11 @@ async def get_current_user_ws(token: Optional[str], db: AsyncSession) -> User:
     user_id = payload.get("sub")
     if not user_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token subject")
-    user_uuid = None
-    try:
-        user_uuid = uuid.UUID(str(user_id))
-    except (ValueError, TypeError):
-        pass
-
-    if user_uuid:
-        result = await db.execute(select(User).where(or_(User.id == user_uuid, User.email == str(user_id))))
-    else:
-        result = await db.execute(select(User).where(User.email == str(user_id)))
-    user = result.scalars().first()
+    user = await _resolve_user_from_sub(db, user_id)
     if not user or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found or inactive")
     return user
+
 
 async def require_official_role(user: User = Depends(get_current_user)) -> User:
     """
@@ -176,6 +163,7 @@ async def require_official_role(user: User = Depends(get_current_user)) -> User:
             detail="Access restricted to authorised institutional accounts.",
         )
     return user
+
 
 async def require_pro_user(user: User = Depends(get_current_user)) -> User:
     """
@@ -195,4 +183,3 @@ async def require_pro_user(user: User = Depends(get_current_user)) -> User:
             detail="Digital Rakshak Pro subscription required for this feature. Upgrade at /personal.",
         )
     return user
-

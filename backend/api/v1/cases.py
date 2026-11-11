@@ -3,7 +3,9 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.attributes import flag_modified
 from typing import Dict, Any, List, Optional
-from sqlalchemy import select, or_
+from sqlalchemy import select, or_, desc
+from sqlalchemy.orm import selectinload
+from domain.models.evidence import Evidence
 import os
 import shutil
 import uuid
@@ -82,10 +84,7 @@ async def get_cases(request: Request, db: AsyncSession = Depends(get_db), skip: 
     if role not in ["admin", "police", "cyber_cell"]:
         raise HTTPException(status_code=403, detail="Citizens must use /my endpoint")
         
-    from sqlalchemy import desc
-    from domain.models.user import User
-    
-    from sqlalchemy.orm import selectinload
+    # Using module-level imports for performance
     
     try:
         result = await db.execute(
@@ -969,9 +968,7 @@ async def get_case(
     Get a single case by case number.
     Admins/officials can fetch any case. Citizens can only fetch their own.
     """
-    from sqlalchemy import select, or_, or_
-    from domain.models.case import Case
-    import uuid
+    # Using module-level imports for performance
     
     # Check if case_number is a UUID
     try:
@@ -1045,8 +1042,7 @@ async def get_case_evidence(
     Returns the evidence file securely. If Supabase, streams decrypted/signed content.
     If Local, decrypts the file in-memory and streams it with fallback path resolution.
     """
-    from domain.models.case import Case
-    from domain.models.evidence import Evidence
+    # Using module-level imports for performance
     
     result = await db.execute(select(Case).where(Case.case_number == case_number))
     case = result.scalar_one_or_none()

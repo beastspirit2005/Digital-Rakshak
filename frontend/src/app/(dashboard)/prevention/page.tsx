@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { 
   ShieldCheck, 
   AlertTriangle, 
@@ -12,7 +13,12 @@ import {
   CheckCircle2,
   Info,
   ShieldAlert,
-  Sparkles, Check } from "lucide-react";
+  Sparkles, 
+  Check,
+  Lock,
+  Zap,
+  ArrowRight
+} from "lucide-react";
 import axios from "axios";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
@@ -40,13 +46,132 @@ const TABS = [
 ];
 
 export default function PreventionSuite() {
-  const { user, token } = useAuthStore();
+  const { user, token, updateUser } = useAuthStore();
+  const isPro = Boolean(user?.is_pro || (user?.role && user.role !== "citizen"));
+
   const [activeTab, setActiveTab] = useState("url");
   const [inputValue, setInputValue] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [useCamera, setUseCamera] = useState(false);
+
+  // Pro Upgrade State
+  const [upgrading, setUpgrading] = useState(false);
+  const [activatingPro, setActivatingPro] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<"b2c_pro_annual" | "b2c_pro_149">("b2c_pro_annual");
+  const [upgradeError, setUpgradeError] = useState("");
+
+  const ensureRazorpayLoaded = (): Promise<boolean> => {
+    return new Promise((resolve) => {
+      if (typeof window === "undefined") return resolve(false);
+      if ((window as any).Razorpay) return resolve(true);
+      const existing = document.getElementById("razorpay-checkout-script");
+      if (existing) {
+        existing.addEventListener("load", () => resolve(true));
+        return;
+      }
+      const script = document.createElement("script");
+      script.id = "razorpay-checkout-script";
+      script.src = "https://checkout.razorpay.com/v1/checkout.js";
+      script.async = true;
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  };
+
+  const handleInitiateRazorpayUpgrade = async () => {
+    setUpgrading(true);
+    setUpgradeError("");
+    try {
+      await ensureRazorpayLoaded();
+      const subRes = await axios.post(
+        api("/billing/create-subscription"),
+        { plan_code: selectedPlan },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      const { subscription_id, order_id, razorpay_key_id } = subRes.data;
+
+      // Sandbox developer mode fallback when no real Razorpay credentials are configured
+      if (!(window as any).Razorpay || !razorpay_key_id || razorpay_key_id.startsWith("rzp_test_placeholder")) {
+        setActivatingPro(true);
+        try {
+          await axios.post(
+            api("/billing/verify-payment"),
+            {
+              razorpay_payment_id: "pay_sandbox_" + Math.random().toString(36).substring(7),
+              razorpay_subscription_id: subscription_id,
+              razorpay_order_id: order_id,
+              razorpay_signature: "sandbox_valid_sig",
+              plan_code: selectedPlan,
+            },
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          updateUser({
+            b2c_plan_code: selectedPlan,
+            b2c_subscription_status: "active",
+            is_pro: true,
+          });
+        } finally {
+          setTimeout(() => setActivatingPro(false), 1200);
+        }
+        return;
+      }
+
+      const options = {
+        key: razorpay_key_id,
+        subscription_id: subscription_id || undefined,
+        order_id: order_id || undefined,
+        name: "Digital Rakshak",
+        description: selectedPlan === "b2c_pro_annual" ? "Pro Annual Plan (₹1,299/yr)" : "Personal Pro Monthly (₹149/mo)",
+        image: "/icons/shield-accent.png",
+        prefill: {
+          name: user?.full_name || "",
+          email: user?.email || "",
+          contact: user?.station_phone_number || "",
+        },
+        theme: { color: "#F59E0B" },
+        handler: async (response: any) => {
+          setActivatingPro(true);
+          try {
+            await axios.post(
+              api("/billing/verify-payment"),
+              {
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_subscription_id: response.razorpay_subscription_id || subscription_id || "",
+                razorpay_signature: response.razorpay_signature || "",
+                plan_code: selectedPlan,
+              },
+              { headers: { Authorization: `Bearer ${token}` } }
+            );
+            updateUser({
+              b2c_plan_code: selectedPlan,
+              b2c_subscription_status: "active",
+              is_pro: true,
+            });
+          } catch (err: any) {
+            setUpgradeError("Payment verification failed. Please contact support.");
+          } finally {
+            setTimeout(() => setActivatingPro(false), 1200);
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            setUpgrading(false);
+          },
+        },
+      };
+
+      const rzp = new (window as any).Razorpay(options);
+      rzp.open();
+    } catch (err: any) {
+      setUpgradeError(err.response?.data?.detail || "Could not initialize checkout. Please retry.");
+    } finally {
+      setUpgrading(false);
+    }
+  };
 
   const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
 
@@ -160,6 +285,170 @@ export default function PreventionSuite() {
   };
 
   const currentTab = TABS.find((t) => t.id === activeTab)!;
+
+  if (!isPro) {
+    return (
+      <div className="max-w-2xl mx-auto space-y-6 pt-4">
+        {activatingPro && (
+          <LoadingOverlay
+            open={true}
+            fullscreen={true}
+            variant="cyber"
+            title="Activating Digital Rakshak Pro"
+            subtitle="Configuring Zero-Day Scam Prevention Suite for your account..."
+            badge="Pro Membership"
+            steps={[
+              "Verifying secure payment receipt...",
+              "Enabling APK decompiler heuristics...",
+              "Unlocking optical QR quishing engine...",
+              "Activating continuous cyber protection..."
+            ]}
+          />
+        )}
+
+        <Rise>
+          <div className="text-center space-y-3">
+            <div className="w-16 h-16 rounded-3xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-center mx-auto shadow-[0_0_30px_rgba(245,158,11,0.2)]">
+              <Lock className="w-8 h-8 text-amber-400" />
+            </div>
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-semibold uppercase tracking-wider">
+              <Sparkles className="w-3.5 h-3.5" />
+              Pro Feature
+            </div>
+            <h1 className="font-display font-bold text-3xl tracking-tight text-ink">
+              Scam Prevention Hub
+            </h1>
+            <p className="text-sm text-ink-2 max-w-lg mx-auto">
+              The unified Scam Prevention Hub offers advanced APK bytecode decompilation, live optical QR camera decoding, and National Threat Graph integration. This suite is reserved for Pro subscribers.
+            </p>
+          </div>
+        </Rise>
+
+        {upgradeError && (
+          <div className="p-4 rounded-xl border border-red-500/20 bg-red-500/10 text-red-400 text-sm flex items-center gap-3">
+            <AlertTriangle className="w-5 h-5 shrink-0" />
+            <span>{upgradeError}</span>
+          </div>
+        )}
+
+        <Rise index={1}>
+          <Card className="p-6 space-y-6 border-line bg-surface/80 backdrop-blur-sm">
+            <div className="space-y-3">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-ink-3">
+                Capabilities Unlocked With Pro
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {[
+                  {
+                    title: "APK Malware Decompiler",
+                    desc: "Inspects Android binaries for banking trojans, SMS interceptors & overlay permissions.",
+                    icon: Smartphone,
+                  },
+                  {
+                    title: "Live Camera QR Quishing",
+                    desc: "Real-time optical matrix scanning to detect disguised payment lures before you tap.",
+                    icon: QrCode,
+                  },
+                  {
+                    title: "Zero-Trust VPA Risk",
+                    desc: "Cross-checks virtual payment addresses against nationwide mule account registries.",
+                    icon: HandCoins,
+                  },
+                  {
+                    title: "Attack DNA Profiling",
+                    desc: "Correlates deceptive indicators with MITRE ATT&CK scam campaign tactics.",
+                    icon: Sparkles,
+                  },
+                ].map((item, idx) => {
+                  const Icon = item.icon;
+                  return (
+                    <div
+                      key={idx}
+                      className="p-3.5 rounded-xl border border-line bg-surface-2/60 flex items-start gap-3"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-accent/10 border border-accent/20 flex items-center justify-center shrink-0 mt-0.5">
+                        <Icon className="w-4 h-4 text-accent" />
+                      </div>
+                      <div className="space-y-0.5">
+                        <div className="text-xs font-semibold text-ink">{item.title}</div>
+                        <div className="text-[11px] text-ink-2 leading-relaxed">{item.desc}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Plan Selector */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+              <div
+                onClick={() => setSelectedPlan("b2c_pro_annual")}
+                className={cn(
+                  "p-4 rounded-xl border cursor-pointer transition-all",
+                  selectedPlan === "b2c_pro_annual"
+                    ? "border-amber-500 bg-amber-500/5 ring-1 ring-amber-500"
+                    : "border-line bg-surface-2 hover:border-ink-3"
+                )}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-bold text-ink">Annual Defense</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-bold border border-emerald-500/20">
+                    SAVE 28%
+                  </span>
+                </div>
+                <div className="text-2xl font-bold font-display text-ink">₹1,299 <span className="text-xs font-normal text-ink-3">/year</span></div>
+                <div className="text-[11px] text-ink-2 mt-1">₹108/month • Billed annually</div>
+              </div>
+
+              <div
+                onClick={() => setSelectedPlan("b2c_pro_149")}
+                className={cn(
+                  "p-4 rounded-xl border cursor-pointer transition-all",
+                  selectedPlan === "b2c_pro_149"
+                    ? "border-amber-500 bg-amber-500/5 ring-1 ring-amber-500"
+                    : "border-line bg-surface-2 hover:border-ink-3"
+                )}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-bold text-ink">Monthly Shield</span>
+                  <span className="text-[10px] text-ink-3">Flexible</span>
+                </div>
+                <div className="text-2xl font-bold font-display text-ink">₹149 <span className="text-xs font-normal text-ink-3">/month</span></div>
+                <div className="text-[11px] text-ink-2 mt-1">Cancel anytime in 1-click</div>
+              </div>
+            </div>
+
+            {/* Upgrade CTA */}
+            <Button
+              type="button"
+              variant="primary"
+              size="lg"
+              loading={upgrading}
+              onClick={handleInitiateRazorpayUpgrade}
+              className="w-full h-12 bg-amber-500 hover:bg-amber-600 text-black font-bold uppercase tracking-wider text-xs rounded-xl shadow-[0_4px_20px_rgba(245,158,11,0.25)] flex items-center justify-center gap-2"
+            >
+              <Zap className="w-4 h-4 fill-current" />
+              <span>Activate Pro Access Now</span>
+            </Button>
+
+            {/* Free Alternative Link */}
+            <div className="p-3.5 rounded-xl bg-surface-2/40 border border-line flex items-center justify-between text-xs">
+              <span className="text-ink-2">
+                Looking for free threat scanning?
+              </span>
+              <Link
+                href="/personal"
+                className="text-accent font-semibold hover:underline inline-flex items-center gap-1"
+              >
+                <span>Use Personal Shield (Free)</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          </Card>
+        </Rise>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-2xl mx-auto space-y-6 pt-2">

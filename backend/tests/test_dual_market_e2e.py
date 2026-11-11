@@ -13,6 +13,7 @@ from httpx import AsyncClient, ASGITransport
 
 from main import app
 from infrastructure.db.session import AsyncSessionLocal
+from core.security import create_access_token
 from domain.models.organization import (
     Organization,
     ApiKey,
@@ -24,12 +25,37 @@ from domain.models.user import User
 
 
 @pytest.mark.asyncio
-async def test_b2c_guest_scan_endpoint():
+async def test_b2c_scan_requires_authentication():
+    """Verify that unauthenticated scan requests return 401, while authenticated citizens succeed."""
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        response = await client.post(
+        # 1. Unauthenticated request should be rejected
+        guest_res = await client.post(
             "/v1/scan",
             json={"url": "https://secure-hdfc-kyc-verification.ru/update"}
+        )
+        assert guest_res.status_code == 401
+
+        # 2. Authenticated citizen scan succeeds
+        uid = uuid.uuid4()
+        async with AsyncSessionLocal() as session:
+            user = User(
+                id=uid,
+                email=f"e2e_citizen_{uid.hex[:6]}@example.com",
+                role="citizen",
+                is_active=True,
+                is_approved=True,
+                b2c_plan_code="b2c_free",
+                b2c_subscription_status="active",
+            )
+            session.add(user)
+            await session.commit()
+
+        token = create_access_token({"sub": str(uid), "email": user.email, "role": "citizen"})
+        response = await client.post(
+            "/v1/scan",
+            json={"url": "https://secure-hdfc-kyc-verification.ru/update"},
+            headers={"Authorization": f"Bearer {token}"}
         )
         assert response.status_code == 200
         data = response.json()

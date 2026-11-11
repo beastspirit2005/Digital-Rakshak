@@ -24,6 +24,7 @@ import { Input, Label, FormError } from "@/components/ui/field";
 import { Badge } from "@/components/ui/badge";
 import { useAuthStore } from "@/lib/auth-store";
 import { useRouter } from "next/navigation";
+import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 
 const ROLES = [
   { value: "citizen", label: "Citizen", description: "Report scams, scan links, and track cases" },
@@ -326,6 +327,22 @@ export default function RegisterPage() {
             Sign in
           </Link>
         </p>
+      </div>
+
+      {/* 1-Click Citizen Registration via Google Zero Auth */}
+      <div className="space-y-4">
+        <GoogleSignInButton mode="register" />
+
+        <div className="relative my-4 text-center">
+          <div className="absolute inset-0 flex items-center" aria-hidden="true">
+            <div className="w-full border-t border-line" />
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-background px-3 text-ink-3 font-semibold tracking-wider">
+              Or register with email / official KYC
+            </span>
+          </div>
+        </div>
       </div>
 
       <form onSubmit={handleRegisterSubmit} className="space-y-5">

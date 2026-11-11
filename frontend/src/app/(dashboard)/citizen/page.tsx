@@ -88,6 +88,11 @@ function CitizenDashboardContent() {
   const pushToast = useToast();
 
   const fetchCitizenLocations = useCallback(async (lat?: number, lng?: number) => {
+    // Only query if user is an institutional official or has pro tier, avoiding unnecessary 402s
+    if (user && user.role === "citizen" && !user.is_pro) {
+      setLocations([]);
+      return;
+    }
     setLocationsLoading(true);
     try {
       const params = new URLSearchParams();

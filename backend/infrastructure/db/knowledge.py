@@ -53,7 +53,9 @@ class KnowledgeBase:
             if not self.model:
                 logger.warning("SentenceTransformer not installed. Returning dummy embeddings.")
                 return [0.0] * 384
-            embedding = self.model.encode(text)
+            # Performance optimization: Offload CPU-heavy SentenceTransformer matrix multiplication
+            # to worker thread pool to prevent blocking asyncio single-threaded event loop
+            embedding = await asyncio.to_thread(self.model.encode, text)
             return embedding.tolist()
         except Exception as e:
             logger.error(f"Failed to generate SentenceTransformer embedding: {e}")

@@ -752,3 +752,140 @@ async def reset_password(request: Request, data: ResetPasswordRequest, db: Async
     await db.commit()
 
     return {"message": "Password successfully reset."}
+
+
+import httpx
+from api.contracts.auth import GoogleAuthRequest
+
+@router.post("/google")
+@limiter.limit("15/minute")
+async def google_auth(request: Request, data: GoogleAuthRequest, db: AsyncSession = Depends(get_db)):
+    """
+    Google Zero Authentication:
+    Allows citizens to sign in or instantly register with verified Google Identity Services credentials.
+    Strictly blocked for official roles (Police, Cyber Cell, Bank Officers, Admins) who must authenticate
+    via official departmental credentials.
+    """
+    credential = data.credential.strip()
+    if not credential:
+        raise HTTPException(status_code=400, detail="Google credential token is required.")
+
+    # 1. Verify token with Google Identity Services endpoint
+    # Allow mock tokens during automated testing / development when offline
+    google_data = None
+    if credential.startswith("mock_google_token_") and getattr(settings, "APP_ENV", "development") != "production":
+        raw = credential[len("mock_google_token_"):]
+        if "|" in raw:
+            mock_email, mock_name = raw.split("|", 1)
+        else:
+            mock_email = raw
+            mock_name = "Google Citizen"
+        google_data = {
+            "email": mock_email.strip().lower(),
+            "name": mock_name.strip(),
+            "email_verified": "true",
+            "aud": settings.GOOGLE_CLIENT_ID or "mock-client-id"
+        }
+    else:
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                res = await client.get(
+                    "https://oauth2.googleapis.com/tokeninfo",
+                    params={"id_token": credential}
+                )
+                if res.status_code != 200:
+                    logger.warning("Google token validation failed: %s - %s", res.status_code, res.text)
+                    raise HTTPException(
+                        status_code=401,
+                        detail="Invalid or expired Google authentication credential."
+                    )
+                google_data = res.json()
+        except HTTPException:
+            raise
+        except Exception as exc:
+            logger.error("Error connecting to Google token verification service: %s", exc)
+            raise HTTPException(
+                status_code=502,
+                detail="Unable to verify credentials with Google authentication service. Please try again."
+            )
+
+    # 2. Validate Google payload claims
+    if settings.GOOGLE_CLIENT_ID and google_data.get("aud") != settings.GOOGLE_CLIENT_ID:
+        raise HTTPException(
+            status_code=401,
+            detail="Google authentication token was issued for an unauthorized client audience."
+        )
+
+    email_verified = str(google_data.get("email_verified", "")).lower() == "true"
+    email = google_data.get("email", "").strip().lower()
+    full_name = google_data.get("name") or "Citizen"
+
+    if not email or not email_verified:
+        raise HTTPException(
+            status_code=400,
+            detail="Google account does not have a verified email address."
+        )
+
+    # 3. Security Check: Official institutional accounts cannot log in via public Google Sign-In
+    result = await db.execute(select(User).where(User.email == email))
+    user = result.scalars().first()
+
+    if user:
+        if user.role in OFFICIAL_INSTITUTIONAL_ROLES:
+            raise HTTPException(
+                status_code=403,
+                detail="Institutional personnel (Police, Cyber Cell, Bank Officers, Administrators) must sign in using official departmental credentials via Email and Password."
+            )
+        if not user.is_active:
+            raise HTTPException(status_code=403, detail="Account is disabled.")
+
+        # Ensure verified citizen is active and approved
+        user.is_verified = True
+        user.is_approved = True
+        if full_name and (not user.full_name or user.full_name == "Citizen"):
+            user.full_name = full_name
+        await db.commit()
+        await db.refresh(user)
+    else:
+        # 4. Instant Citizen Auto-Provisioning (Google Zero Auth)
+        user = User(
+            email=email,
+            full_name=full_name,
+            role="citizen",
+            is_verified=True,
+            is_approved=True,
+            b2c_plan_code="b2c_free",
+            b2c_subscription_status="active",
+        )
+        db.add(user)
+        await db.commit()
+        await db.refresh(user)
+
+        try:
+            await send_welcome_email(user.email, user.full_name or "Citizen", user.role)
+        except Exception as mail_err:
+            logger.warning("Failed to dispatch welcome email: %s", mail_err)
+
+    # 5. Issue JWT Token
+    access_token = create_access_token(
+        data={"sub": str(user.id), "email": user.email, "role": user.role}
+    )
+
+    is_user_pro = (
+        getattr(user, "b2c_plan_code", "b2c_free") != "b2c_free"
+        and getattr(user, "b2c_subscription_status", "") == "active"
+    )
+
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": {
+            "id": str(user.id),
+            "email": user.email,
+            "full_name": user.full_name,
+            "role": user.role,
+            "b2c_plan_code": getattr(user, "b2c_plan_code", "b2c_free") or "b2c_free",
+            "b2c_subscription_status": getattr(user, "b2c_subscription_status", "active") or "active",
+            "is_pro": is_user_pro,
+        }
+    }

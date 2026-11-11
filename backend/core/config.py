@@ -17,9 +17,10 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
     
-    # AI
+    # AI & Google Identity
     GROQ_API_KEY: Optional[str] = None
     GOOGLE_API_KEY: Optional[str] = None  # For Gemini Flash vision (free tier)
+    GOOGLE_CLIENT_ID: Optional[str] = None  # Google Identity Services (Sign in with Google / One Tap)
     OLLAMA_HOST: str = "http://localhost:11434"
     OLLAMA_MODEL: str = "llama3:8b"
     FORCE_LOCAL_INFERENCE: bool = False
@@ -62,7 +63,11 @@ class Settings(BaseSettings):
     # Observability & Monitoring (V2.4)
     SENTRY_DSN: Optional[str] = None
     ENVIRONMENT: str = "production" if os.environ.get("VERCEL") == "1" else "development"
-    RELEASE_VERSION: str = "v2.4.0" 
+    RELEASE_VERSION: str = "v2.4.0"
+
+    # Domain & Remote Address Routing
+    FRONTEND_URL: str = "https://rakshak-backend.vercel.app"
+    BACKEND_URL: str = "https://rakshak-backend.vercel.app/api" 
 
     _base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     model_config = SettingsConfigDict(

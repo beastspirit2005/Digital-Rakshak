@@ -13,7 +13,7 @@ from pydantic import BaseModel
 
 from infrastructure.ai.ml_client import RakshakCoreClient
 from infrastructure.cache.agent_cache import agent_cache
-from api.deps import get_current_user, get_current_user_optional, OFFICIAL_INSTITUTIONAL_ROLES
+from api.deps import get_current_user, require_pro_user, OFFICIAL_INSTITUTIONAL_ROLES
 from domain.models.user import User
 
 logger = logging.getLogger(__name__)
@@ -24,9 +24,6 @@ router = APIRouter(prefix="/scan", tags=["scan"])
 ml_client = RakshakCoreClient(model_version="2.0")
 ml_client_loaded = False
 
-# Guest rate limit: 5 scans per day per IP address
-GUEST_DAILY_LIMIT = 5
-
 
 class ScanResponse(BaseModel):
     is_safe:          bool
@@ -34,7 +31,7 @@ class ScanResponse(BaseModel):
     reasons:          list[str]
     indicator_status: Optional[str] = "UNKNOWN_UNVERIFIED"
     guidance:         list[str] = []
-    # Pro-only enrichment fields (None for free/guest)
+    # Pro-only enrichment fields (None for free citizen)
     attack_dna_match: Optional[str] = None
     related_cases:    Optional[int] = None
 
@@ -44,39 +41,6 @@ class ScanRequest(BaseModel):
     url:   Optional[str] = None
     phone: Optional[str] = None
     upi:   Optional[str] = None
-
-
-async def _check_guest_rate_limit(request: Request) -> None:
-    """
-    Enforce 5-scans-per-day limit for unauthenticated (guest) users using
-    a Redis INCR counter keyed by client IP.  Falls back silently if Redis
-    is unavailable (fail-open to avoid blocking guests when Redis is down).
-    """
-    from core.config import settings
-    client_ip = request.client.host if request.client else "unknown"
-    redis_key = f"dr:guest_scan:{client_ip}:{__import__('datetime').date.today()}"
-
-    try:
-        import redis.asyncio as redis_async
-        r = redis_async.from_url(settings.REDIS_URL, decode_responses=True,
-                                  socket_connect_timeout=1, socket_timeout=1)
-        count = await r.incr(redis_key)
-        if count == 1:
-            await r.expire(redis_key, 86400)  # TTL: 24 hours
-        await r.aclose()
-        if count > GUEST_DAILY_LIMIT:
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail=(
-                    f"Guest scan limit reached ({GUEST_DAILY_LIMIT}/day). "
-                    "Create a free account for unlimited scans."
-                ),
-            )
-    except HTTPException:
-        raise
-    except (Exception, BaseException) as exc:
-        logger.debug("Redis guest rate limit check failed (fail-open): %s", exc)
-
 
 
 MAX_IMAGE_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB limit for images / QR / counterfeit
@@ -157,21 +121,16 @@ async def _record_user_scan(
 async def live_prevention_scan(
     request: Request,
     payload: ScanRequest,
-    user: Optional[User] = Depends(get_current_user_optional),
+    user: User = Depends(get_current_user),
 ):
     """
     Live Prevention Shield API.
 
-    * **Guest (unauthenticated)**: 5 scans/day per IP, basic risk result.
-    * **Free account**: Unlimited scans, basic risk result.
-    * **Pro account**: Unlimited scans + Attack DNA enrichment + related case count.
+    * **Authenticated Citizen (Free)**: Unlimited threat scans, basic safety assessment.
+    * **Pro Citizen / Institutional Officer**: Unlimited scans + Attack DNA enrichment + related case graph linkages.
 
-    Used by the consumer Prevention Suite, browser extensions, and mobile apps.
+    Mandates user authentication to protect security intelligence engines against anonymous abuse.
     """
-    # Rate-limit guests
-    if user is None:
-        await _check_guest_rate_limit(request)
-
     text  = payload.text
     url   = payload.url
     phone = payload.phone
@@ -185,13 +144,10 @@ async def live_prevention_scan(
         )
 
     is_pro = (
-        user is not None
-        and (
-            user.role in OFFICIAL_INSTITUTIONAL_ROLES
-            or (
-                getattr(user, "b2c_plan_code", "b2c_free") != "b2c_free"
-                and getattr(user, "b2c_subscription_status", "") == "active"
-            )
+        user.role in OFFICIAL_INSTITUTIONAL_ROLES
+        or (
+            getattr(user, "b2c_plan_code", "b2c_free") != "b2c_free"
+            and getattr(user, "b2c_subscription_status", "") == "active"
         )
     )
 
@@ -566,10 +522,11 @@ from fastapi import UploadFile, File
 async def live_prevention_scan_qr(
     request: Request,
     file: UploadFile = File(...),
-    user: Optional[User] = Depends(get_current_user_optional)
+    user: User = Depends(get_current_user)
 ):
     """
     Decodes an uploaded QR code and pipes its hidden payload (URL/UPI) directly into the Prevention Suite.
+    Requires authenticated user account.
     """
     from infrastructure.osint.qr_decoder import QRDecoder
     import filetype
@@ -597,14 +554,12 @@ import tempfile
 async def live_prevention_scan_apk(
     request: Request,
     file: UploadFile = File(...),
-    user: Optional[User] = Depends(get_current_user_optional)
+    user: User = Depends(require_pro_user)
 ):
     """
-    Scans an uploaded APK file for dangerous permissions using Androguard.
+    Scans an uploaded APK file for dangerous permissions and banking trojan signatures using Androguard.
+    Requires Digital Rakshak Pro subscription or institutional official credentials.
     """
-    if user is None:
-        await _check_guest_rate_limit(request)
-
     if not file.filename.endswith(".apk"):
         raise HTTPException(status_code=400, detail="Invalid file type. Please upload an APK.")
         
@@ -666,14 +621,13 @@ async def live_prevention_scan_apk(
 async def scan_counterfeit_currency(
     request: Request,
     file: UploadFile = File(...),
-    user: Optional[User] = Depends(get_current_user_optional)
+    user: User = Depends(get_current_user)
 ):
     """
     Live Vision AI Pipeline for Counterfeit Currency Analysis.
     Pipes uploaded image directly to VisionAgent (Groq Cloud Mode or Local PyTorch).
+    Requires authenticated user account.
     """
-    if user is None:
-        await _check_guest_rate_limit(request)
 
     import os
     import tempfile

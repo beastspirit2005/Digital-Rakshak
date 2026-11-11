@@ -96,6 +96,7 @@ async def send_approval_pending_email(to_email: str, role: str):
 async def send_welcome_email(to_email: str, full_name: str, role: str) -> bool:
     subject = "Welcome to Digital Rakshak — National Cyber Defense Core"
     role_display = "Citizen Defense Shield" if role == "citizen" else role.replace("_", " ").title()
+    portal_url = f"{settings.FRONTEND_URL}/personal"
     body = f"""<!DOCTYPE html>
 <html>
 <head>
@@ -148,7 +149,7 @@ async def send_welcome_email(to_email: str, full_name: str, role: str) -> bool:
       </div>
 
       <div class="btn-container">
-        <a href="http://localhost:3000/personal" class="btn">Launch Protection Portal &rarr;</a>
+        <a href="{portal_url}" class="btn">Launch Protection Portal &rarr;</a>
       </div>
     </div>
     <div class="footer">
@@ -245,7 +246,7 @@ async def send_admin_case_notification_email(admin_email: str, case_number: str,
             <p class="value" style="color: #fbbf24;">{threat_level}</p>
           </div>
           
-          <a href="{os.getenv('PLATFORM_URL', 'http://localhost:3000')}/admin/workbench" class="btn">Open Admin Workbench</a>
+          <a href="{settings.FRONTEND_URL}/admin/workbench" class="btn">Open Admin Workbench</a>
           
           <div class="footer">
             Digital Rakshak Automated Orchestration System
@@ -398,9 +399,14 @@ async def send_subscription_confirmed_email(
     invoice_number: str,
     invoice_html: str = "",
     invoice_pdf_bytes: Optional[bytes] = None,
+    download_token: Optional[str] = None,
 ) -> bool:
     subject = f"Digital Rakshak Pro Activated - Tax Invoice #{invoice_number}"
     invoice_filename = f"Digital_Rakshak_Tax_Invoice_{subscription_id}.pdf"
+    portal_url = f"{settings.FRONTEND_URL}/personal"
+    invoice_frontend_url = f"{settings.FRONTEND_URL}/billing/invoice?subscription_id={subscription_id}"
+    if download_token:
+        invoice_frontend_url += f"&token={download_token}"
 
     if invoice_pdf_bytes is None:
         try:
@@ -497,8 +503,11 @@ async def send_subscription_confirmed_email(
         Your official GST-compliant Tax Invoice (<code>{invoice_filename}</code>) is attached directly to this email in standard PDF format. Tap to open and view immediately on your phone (iPhone/Android) or laptop.
       </div>
 
-      <div class="btn-container">
-        <a href="http://localhost:8000/v1/billing/invoice/{subscription_id}/pdf" class="btn">&#128196; Download PDF Tax Invoice</a>
+      <div class="btn-container" style="text-align: center; margin: 28px 0 16px 0;">
+        <a href="{portal_url}" class="btn" style="display: inline-block; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: #ffffff !important; text-decoration: none; font-weight: 700; font-size: 14px; padding: 14px 28px; border-radius: 10px; box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4);">&#128737; Launch Pro Protection Portal &rarr;</a>
+        <div style="margin-top: 14px;">
+          <a href="{invoice_frontend_url}" style="font-size: 13px; color: #38bdf8; text-decoration: underline; font-weight: 600;">&#128196; Download Official Tax Invoice PDF & Open Platform</a>
+        </div>
       </div>
     </div>
     <div class="footer">

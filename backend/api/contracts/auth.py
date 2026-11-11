@@ -22,3 +22,6 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     role: str
+
+class GoogleAuthRequest(BaseModel):
+    credential: str = Field(..., description="Google Identity Services ID Token (JWT)")
