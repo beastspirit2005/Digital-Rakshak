@@ -58,8 +58,8 @@ const nextConfig: NextConfig = {
   },
   async rewrites() {
     const isVercel = process.env.VERCEL === "1" || !!process.env.VERCEL_URL || !!process.env.VERCEL_ENV;
-    // On Vercel, NEVER rewrite — experimental services handle /api routing
     if (isVercel) return [];
+    if (!proxyTarget) return [];
     return [
       {
         source: "/api/v1/:path*",

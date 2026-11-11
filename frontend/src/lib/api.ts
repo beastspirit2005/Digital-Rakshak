@@ -8,12 +8,17 @@
 
 const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 
-let configuredApiUrl = (process.env.NEXT_PUBLIC_API_URL || '').trim();
-// If running on production / Vercel (hostname is not localhost) and configured URL is localhost or empty, use relative /api/v1
+let configuredApiUrl = (process.env.NEXT_PUBLIC_API_URL || '').trim().replace(/\/$/, "");
+// If running on client in production (hostname is not localhost) and configured URL is localhost or empty, fallback
 if (typeof window !== 'undefined' && !isLocal) {
   if (!configuredApiUrl || configuredApiUrl.includes('localhost') || configuredApiUrl.includes('127.0.0.1')) {
     configuredApiUrl = '/api/v1';
   }
+}
+
+// Automatically ensure /v1 suffix for external backend hosts
+if (configuredApiUrl && /^https?:\/\//i.test(configuredApiUrl) && !configuredApiUrl.endsWith('/v1') && !configuredApiUrl.endsWith('/api/v1')) {
+  configuredApiUrl = `${configuredApiUrl}/v1`;
 }
 
 export const API_BASE_URL = configuredApiUrl || (isLocal ? "http://127.0.0.1:8000/v1" : "/api/v1");

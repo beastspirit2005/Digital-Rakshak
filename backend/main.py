@@ -102,6 +102,25 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+@app.middleware("http")
+async def normalize_api_prefix(request: Request, call_next):
+    # Normalize paths so both /api/v1/... and /v1/... route cleanly on Vercel
+    path = request.scope.get("path", "")
+    if path.startswith("/api/v1"):
+        request.scope["path"] = path[4:]  # Strip /api prefix
+    return await call_next(request)
+
+@app.get("/")
+@app.get("/health")
+async def root_health():
+    return {
+        "status": "healthy",
+        "service": "Digital Rakshak Sovereign Defense API",
+        "version": "2.0.0",
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
+
+
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)

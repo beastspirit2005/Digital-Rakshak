@@ -1,8 +1,18 @@
 from sqlalchemy import Column, String, Integer, Text, select
-from pgvector.sqlalchemy import Vector
 import logging
 from infrastructure.db.session import Base
 logger = logging.getLogger(__name__)
+
+try:
+    from pgvector.sqlalchemy import Vector
+except ImportError:
+    from sqlalchemy.types import UserDefinedType
+    class Vector(UserDefinedType):
+        def __init__(self, dim=None):
+            self.dim = dim
+        def get_col_spec(self, **kw):
+            return f"vector({self.dim})" if self.dim else "vector"
+
 
 class RegulatoryGuideline(Base):
     __tablename__ = "regulatory_guidelines"

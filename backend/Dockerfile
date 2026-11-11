@@ -9,12 +9,15 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 # Set work directory
 WORKDIR /app
 
-# Install system dependencies required for OpenCV, psycopg2, ffmpeg for Whisper AI, and curl for healthchecks
+# Install system dependencies required for OpenCV, optical QR (libzbar), psycopg2, ffmpeg, and curl
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libpq-dev \
     ffmpeg \
     curl \
+    libzbar0 \
+    libgl1 \
+    libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
@@ -31,9 +34,10 @@ COPY . /app/
 # Expose port
 EXPOSE 8000
 
-# Healthcheck
+# Healthcheck supporting dynamic container port
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD curl -f http://localhost:8000/v1/health || exit 1
+    CMD curl -f http://localhost:${PORT:-8000}/v1/health || exit 1
 
-# Command to run the application
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Command to run the application using dynamic PORT for container hosts (Render, Cloud Run, Railway, Docker Compose)
+CMD ["sh", "-c", "exec uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+
