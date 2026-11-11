@@ -28,6 +28,7 @@ const fraunces = Fraunces({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://rakshak-backend.vercel.app"),
   title: "Digital Rakshak | National Cyber Defense",
   description: "AI-powered sovereign cyber threat intelligence for a safer digital India",
   icons: {
